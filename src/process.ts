@@ -3722,7 +3722,27 @@ async function extractPages(data: Uint8Array): Promise<RawItem[][]> {
   for (let i = 1; i <= pdf.numPages; i++) {
     pages.push(processPage(pdf, i));
   }
-  return Promise.all(pages);
+  const pageItems = await Promise.all(pages);
+  const items = pageItems.flat();
+  joinLigatureSplits(items.map((it) => it.str)).forEach(
+    (str, i) => (items[i].str = str),
+  );
+  return pageItems;
+}
+
+// Some fonts' text comes out with a space after an "fi"/"fl" ligature's f
+// ("Kornf ield", "Brief ing"). A blanket join would wreck "of it", so a split
+// is joined only when the joined word is printed whole somewhere in the same
+// document: the document is its own dictionary.
+export function joinLigatureSplits(strings: string[]): string[] {
+  const words = new Set<string>();
+  for (const s of strings)
+    for (const w of s.match(/[A-Za-z]+/g) ?? []) words.add(w.toLowerCase());
+  return strings.map((s) =>
+    s.replace(/\b([A-Za-z]*f) ([il][a-z]+)\b/g, (whole, head, tail) =>
+      words.has((head + tail).toLowerCase()) ? head + tail : whole,
+    ),
+  );
 }
 
 // The full plain text of the document — every item's string joined, whitespace

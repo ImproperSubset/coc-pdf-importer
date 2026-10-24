@@ -10,6 +10,7 @@ import {
   sectionOfPage,
   printedPageOffset,
   locateItemPages,
+  joinLigatureSplits,
 } from "./process.ts";
 
 describe("parseCocCharacters (unit)", () => {
@@ -2602,5 +2603,26 @@ describe("printed pages", () => {
     locateItemPages(items, pages);
     assert.equal(items[0].page, 3); // the appendix, after the chapter's printing
     assert.equal(items[1].page, 1); // by name, skipping the index page
+  });
+});
+
+describe("joinLigatureSplits", () => {
+  test("joins a split only when the whole word is printed elsewhere", () => {
+    assert.deepEqual(
+      joinLigatureSplits([
+        "Testf ield Broadcasts",
+        "Reverend Testfield of Testtown",
+        "the prof ile of it",
+        "a short profile",
+        "unf inished, half life",
+      ]),
+      [
+        "Testfield Broadcasts",
+        "Reverend Testfield of Testtown",
+        "the profile of it",
+        "a short profile",
+        "unf inished, half life",
+      ],
+    );
   });
 });
