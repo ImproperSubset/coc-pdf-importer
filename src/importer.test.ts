@@ -2001,6 +2001,35 @@ describe("importCharacters — paragraphs", () => {
   });
 });
 
+describe("importCharacters — CoC IDs", () => {
+  test("an actor's CoCID is namespaced to the importer and the book", async () => {
+    await importCharacters(
+      [
+        makeCharacter({ name: "Test Lizard", sanityLoss: "0/1D6" }),
+        makeCharacter({ name: "Dr. Test Person" }),
+      ],
+      { notify: false, source: "The Test Book" },
+    );
+    const cocid = (n: string) =>
+      created.find((a) => a.name === n).flags.CoC7.cocidFlag.id;
+    assert.equal(
+      cocid("Test Lizard"),
+      "a.creature.hh-the-test-book-test-lizard",
+    );
+    assert.equal(
+      cocid("Dr. Test Person"),
+      "a.npc.hh-the-test-book-dr-test-person",
+    );
+  });
+
+  test("without a book, the namespace is the importer's alone", async () => {
+    await importCharacters([makeCharacter({ name: "Alpha" })], {
+      notify: false,
+    });
+    assert.equal(created[0].flags.CoC7.cocidFlag.id, "a.npc.hh-alpha");
+  });
+});
+
 describe("importCharacters — chapter folders", () => {
   const folderNamed = (name: string) => folders.find((f) => f.name === name);
   const parentId = (f: any) => f?.folder?.id ?? f?.folder ?? null;

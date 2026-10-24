@@ -150,15 +150,25 @@ async function importCharacter(
 ): Promise<any> {
   const type = entity === "auto" ? guessEntityType(character) : entity;
   const citation = source ? sourceCitation(source, character) : "";
+  const name = character.name || "Unknown";
 
   const actor = await createReplacing(
     Actor,
     replacing,
     {
-      name: character.name || "Unknown",
+      name,
       type,
       folder: folder?.id ?? null,
       system: buildActorSystem(character, type, citation),
+      flags: {
+        CoC7: {
+          cocidFlag: {
+            id: actorCocid(type, name, source),
+            lang: game.i18n.lang ?? "en",
+            priority: 0,
+          },
+        },
+      },
     },
     KEPT_ACTOR_FIELDS,
   );
@@ -575,6 +585,17 @@ function findCompendiumItem(ref: string, index: ItemIndex): any | null {
     if (any) return any;
   }
   return null;
+}
+
+// An imported actor's CoCID: "a.<type>." then a name part namespaced to this
+// importer and the book, as the system's own content namespaces it
+// ("a.creature.cocqsr-rat-pack"):
+//   "a.creature.hh-the-two-headed-serpent-tyrannosaurus-rex".
+// The namespace sits inside the name part: the system reads the document type
+// from the id's first segment, so it cannot lead.
+function actorCocid(type: EntityType, name: string, book?: string): string {
+  const scope = ["hh", toKebabCase(book ?? "")].filter(Boolean).join("-");
+  return `a.${type}.${scope}-${toKebabCase(name)}`;
 }
 
 // Kebab-case a name for a CoCID (matches CoC7Utilities.toKebabCase).
