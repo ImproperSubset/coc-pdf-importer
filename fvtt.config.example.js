@@ -8,7 +8,7 @@
  */
 
 const developmentOptions = {
-  userDataPath: '/Users/YOU/foundrydata',
+  userDataPath: "/Users/YOU/foundrydata",
 };
 
 export default developmentOptions;

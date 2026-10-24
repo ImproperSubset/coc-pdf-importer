@@ -178,6 +178,8 @@ Foundry user data folder (e.g. `/Users/YOU/foundrydata`). Builds then land in
   `package-lock.json`) as `Release <version>`; pushing `main` then lets the
   release workflow tag, build and publish it
 - `npm run type-check` — `tsc --noEmit` over `src/`, `test/`, `tools/`
+- `npm run format` / `npm run format:check` — Prettier over the repo
+  (Handlebars templates excluded, see `.prettierignore`)
 - `npm test` — unit tests (fast, fixture-free, CI)
 - `npm run test:integration` — book-level tests + golden snapshots — **needs the
   fixtures**
@@ -193,7 +195,7 @@ Three tiers:
 - **Unit** (`src/*.test.ts`, run by `npm test`) — fast, self-contained checks:
   the parsers against synthetic stat-block / reference text, and the Foundry
   builders against a mock harness. These use generic placeholder names, no
-  copyrighted text, and are the CI gate.
+  copyrighted text.
 - **Integration** (`test/integration/process.integration.test.ts`) — parse the
   real PDFs and assert on specific characters. Requires the fixtures.
 - **Golden snapshots** (`test/integration/golden.test.ts`) — re-parse each
@@ -235,13 +237,5 @@ Without the worker shim, text extraction silently truncates glyph runs.
 
 Pushing a `Release <version>` commit to `main` (see `npm run release`) runs the
 release workflow, which tags the version, builds the module, and creates the
-GitHub release with `module.zip` and `module.json` attached. It then publishes
-the version to the [Foundry VTT package listing](https://foundryvtt.com/packages/coc-pdf-importer)
-through the Package Release API, pointing at that release's own `module.json`
-asset and its release page, with the compatibility range taken from
-`module.json` (`maximum` only when declared there).
-
-The Foundry step needs a `FOUNDRY_RELEASE_TOKEN` repository secret holding the
-package's release token (`fvttp_…`, generated on the package's foundryvtt.com
-page); without it the step is skipped with a warning and the GitHub release
-still goes out.
+GitHub release with `module.zip` and `module.json` attached. It does not publish to the Foundry VTT
+package listing.

@@ -9,6 +9,8 @@
     "release": "node tools/release.js",
     "dev": "node build.js --watch",
     "type-check": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test": "node --experimental-strip-types --import ./node-setup.ts --test ./src/*.test.ts",
     "test:integration": "node --experimental-strip-types --import ./node-setup.ts --test ./test/integration/*.test.ts",
     "dump:json": "node --experimental-strip-types --import ./node-setup.ts ./tools/dump-json.ts",
