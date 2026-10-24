@@ -16,9 +16,7 @@
       "url": "https://github.com/dgladkov"
     }
   ],
-  "esmodules": [
-    "module.js"
-  ],
+  "esmodules": ["module.js"],
   "languages": [
     {
       "lang": "en",

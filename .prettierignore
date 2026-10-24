@@ -1,0 +1,3 @@
+# Prettier cannot parse Handlebars blocks inside tag attributes.
+*.hbs
+package-lock.json
