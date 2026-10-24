@@ -2,7 +2,7 @@ name: Release
 
 # Cuts a GitHub release when a release commit lands on main — one that bumps
 # `version` in module.json (and points `download` at the versioned asset URL),
-# e.g. "Release 1.1.2-hh-1". Versions are "<upstream>-hh-<n>": the upstream
+# e.g. "Release 1.1.2.hh.1". Versions are "<upstream>.hh.<n>": the upstream
 # version the code is based on, then this fork's release count on that base.
 # Any other push, including one carrying a bare upstream version, is a no-op.
 # The release is tagged with the version, named the same, ships
@@ -38,19 +38,19 @@ jobs:
           set -euo pipefail
           VERSION=$(node -p "require('./module.json').version")
           case "$VERSION" in
-            [0-9]*.[0-9]*.[0-9]*-hh-[0-9]*) ;;
+            [0-9]*.[0-9]*.[0-9]*.hh.[0-9]*) ;;
             *)
-              echo "module.json version $VERSION is not a <upstream>-hh-<n> version — nothing to do."
+              echo "module.json version $VERSION is not a <upstream>.hh.<n> version — nothing to do."
               echo "release=false" >> "$GITHUB_OUTPUT"
               exit 0
               ;;
           esac
           # This fork's most recent release tag reachable from this commit.
-          PREV_HH=$(git tag --merged HEAD --list '*-hh-*' --sort=-v:refname | head -n1 || true)
+          PREV_HH=$(git tag --merged HEAD --list '*.hh.*' --sort=-v:refname | head -n1 || true)
           # The changelog starts there, or at the upstream base tag for the
           # first release on a base.
-          BASE="${VERSION%-hh-*}"
-          if [ -n "$PREV_HH" ] && [ "${PREV_HH%-hh-*}" = "$BASE" ]; then
+          BASE="${VERSION%.hh.*}"
+          if [ -n "$PREV_HH" ] && [ "${PREV_HH%.hh.*}" = "$BASE" ]; then
             PREV="$PREV_HH"
           elif git rev-parse -q --verify "refs/tags/$BASE" >/dev/null; then
             PREV="$BASE"

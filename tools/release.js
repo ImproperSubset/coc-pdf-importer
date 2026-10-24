@@ -2,8 +2,10 @@
 //
 //   npm run release
 //
-// Versions are "<upstream>-hh-<n>": the upstream version the code is based on,
+// Versions are "<upstream>.hh.<n>": the upstream version the code is based on,
 // then a count of this fork's releases on that base, starting at 1.
+// The parts are dot-separated because Foundry VTT compares versions by their
+// period-separated parts, so 1.1.2.hh.1 counts as newer than 1.1.2.
 //
 // Shows the current version, prompts for the new one (default: the next
 // release on the current base),
@@ -51,7 +53,7 @@ async function ask(prompt) {
 const MODULE = "module.json";
 const PACKAGE = "package.json";
 const LOCK = "package-lock.json";
-const VERSION = /^(\d+\.\d+\.\d+)-hh-(\d+)$/;
+const VERSION = /^(\d+\.\d+\.\d+)\.hh\.(\d+)$/;
 const UPSTREAM = /^\d+\.\d+\.\d+$/;
 
 function git(...args) {
@@ -63,11 +65,11 @@ function fail(message) {
   process.exit(1);
 }
 
-// Compare "<upstream>-hh-<n>" or bare upstream versions: upstream part first,
+// Compare "<upstream>.hh.<n>" or bare upstream versions: upstream part first,
 // then the fork count (a bare upstream version counts as 0).
 function compareVersions(a, b) {
   const parts = (v) => {
-    const [base, n = "0"] = v.split("-hh-");
+    const [base, n = "0"] = v.split(".hh.");
     return [...base.split(".").map(Number), Number(n)];
   };
   const pa = parts(a);
@@ -76,12 +78,12 @@ function compareVersions(a, b) {
   return 0;
 }
 
-// The next release on the current base: "1.1.2-hh-1" -> "1.1.2-hh-2"; a bare
-// upstream version "1.1.2" -> "1.1.2-hh-1".
+// The next release on the current base: "1.1.2.hh.1" -> "1.1.2.hh.2"; a bare
+// upstream version "1.1.2" -> "1.1.2.hh.1".
 function nextRelease(version) {
   const m = VERSION.exec(version);
-  if (m) return `${m[1]}-hh-${Number(m[2]) + 1}`;
-  if (UPSTREAM.test(version)) return `${version}-hh-1`;
+  if (m) return `${m[1]}.hh.${Number(m[2]) + 1}`;
+  if (UPSTREAM.test(version)) return `${version}.hh.1`;
   return "";
 }
 
@@ -142,7 +144,7 @@ if (answer === null) fail("Aborted.");
 const version = answer || suggested;
 
 if (!VERSION.test(version))
-  fail(`"${version}" is not an <upstream MAJOR.MINOR.PATCH>-hh-<n> version.`);
+  fail(`"${version}" is not an <upstream MAJOR.MINOR.PATCH>.hh.<n> version.`);
 if (version === current) fail(`${version} is already the current version.`);
 if (git("tag", "--list", version)) fail(`Tag ${version} already exists.`);
 if (compareVersions(version, current) < 0) {

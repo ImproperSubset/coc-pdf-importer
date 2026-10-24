@@ -240,10 +240,10 @@ Without the worker shim, text extraction silently truncates glyph runs.
 
 ### Releasing
 
-Versions are `<upstream>-hh-<n>`: the upstream
+Versions are `<upstream>.hh.<n>`: the upstream
 ([dgladkov/coc-pdf-importer](https://github.com/dgladkov/coc-pdf-importer))
 version the code is based on, then this fork's release count on that base,
-starting at 1 (`1.1.2-hh-1`, `1.1.2-hh-2`, …). A push whose `module.json`
+starting at 1 (`1.1.2.hh.1`, `1.1.2.hh.2`, …). A push whose `module.json`
 carries a bare upstream version never cuts a release.
 
 Pushing a `Release <version>` commit to `main` (see `npm run release`) runs the
