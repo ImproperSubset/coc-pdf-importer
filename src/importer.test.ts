@@ -103,10 +103,11 @@ beforeEach(() => {
     },
   };
   (globalThis as any).Actor = {
-    create: async (d: any) => {
+    // Mirror Foundry: `keepId` creates the actor under the given `_id`.
+    create: async (d: any, opts?: { keepId?: boolean }) => {
       const a: any = {
-        id: "a" + ++n,
         ...d,
+        id: opts?.keepId && d._id ? d._id : "a" + ++n,
         items: [],
         updates: [],
         deleted: false,
@@ -1402,23 +1403,105 @@ describe("importCharacters — folders and de-duplication", () => {
     assert.equal(folders[0].type, "Actor");
   });
 
-  test("removes a pre-existing same-named actor before re-importing", async () => {
-    folders.push({ id: "fi", name: "Import", type: "Actor" });
+  // An actor already in the folder, as Foundry would hold it.
+  const existingActor = (id: string, name: string, extra: object = {}) => {
     const old: any = {
-      id: "old",
-      name: "Test Subject",
+      id,
+      name,
       folder: { id: "fi" },
       deleted: false,
+      ...extra,
     };
-    old.delete = async () => (old.deleted = true);
+    old.toObject = () => ({
+      _id: id,
+      name,
+      type: "npc",
+      folder: "fi",
+      system: { old: true },
+      ...extra,
+    });
+    old.delete = async () => {
+      old.deleted = true;
+      world.splice(world.indexOf(old), 1);
+    };
     world.push(old);
+    return old;
+  };
+
+  test("re-import replaces a same-named actor under its existing id", async () => {
+    folders.push({ id: "fi", name: "Import", type: "Actor" });
+    const old = existingActor("old", "Test Subject");
     await importCharacters([makeCharacter({ name: "Test Subject" })], {
       folderName: "Import",
       notify: false,
     });
     assert.equal(old.deleted, true);
-    // the freshly-imported actor of the same name is NOT deleted
+    assert.equal(created.length, 1);
+    assert.equal(created[0].id, "old"); // same id, so tokens and links resolve
     assert.equal(created[0].deleted, false);
+    assert.equal(created[0].system.old, undefined); // book data, not the old data
+  });
+
+  test("a replaced actor keeps its Keeper-owned fields", async () => {
+    folders.push({ id: "fi", name: "Import", type: "Actor" });
+    existingActor("old", "Test Subject", {
+      img: "custom/portrait.webp",
+      prototypeToken: { texture: { src: "custom/token.webp" } },
+      ownership: { default: 2 },
+      sort: 500,
+    });
+    await importCharacters([makeCharacter({ name: "Test Subject" })], {
+      folderName: "Import",
+      notify: false,
+    });
+    assert.equal(created[0].img, "custom/portrait.webp");
+    assert.deepEqual(created[0].prototypeToken, {
+      texture: { src: "custom/token.webp" },
+    });
+    assert.deepEqual(created[0].ownership, { default: 2 });
+    assert.equal(created[0].sort, 500);
+  });
+
+  test("a failed replace restores the old actor under its id", async () => {
+    folders.push({ id: "fi", name: "Import", type: "Actor" });
+    existingActor("old", "Test Subject");
+    const ok = (globalThis as any).Actor.create;
+    (globalThis as any).Actor.create = async (d: any, o: any) => {
+      if (!d.system?.old) throw new Error("boom");
+      return ok(d, o);
+    };
+    const realError = console.error;
+    console.error = () => {};
+    try {
+      const res = await importCharacters(
+        [makeCharacter({ name: "Test Subject" })],
+        { folderName: "Import", notify: false },
+      );
+      assert.equal(res.failed, 1);
+    } finally {
+      console.error = realError;
+    }
+    assert.equal(created.length, 1);
+    assert.equal(created[0].id, "old");
+    assert.equal(created[0].system.old, true); // the snapshot, restored
+  });
+
+  test("same-named characters each replace their own old actor; extras go", async () => {
+    folders.push({ id: "fi", name: "Import", type: "Actor" });
+    existingActor("c1", "Cultist");
+    existingActor("c2", "Cultist");
+    const c3 = existingActor("c3", "Cultist");
+    const bystander = existingActor("b1", "Bystander");
+    await importCharacters(
+      [makeCharacter({ name: "Cultist" }), makeCharacter({ name: "Cultist" })],
+      { folderName: "Import", notify: false },
+    );
+    assert.deepEqual(
+      created.map((a) => a.id),
+      ["c1", "c2"],
+    );
+    assert.equal(c3.deleted, true); // more old than incoming: the extra is removed
+    assert.equal(bystander.deleted, false); // not in this import: untouched
   });
 });
 

@@ -359,8 +359,13 @@ describe("createPulpItems", () => {
       },
     };
     (globalThis as any).Item = {
-      create: async (d: any) => {
-        const it: any = { id: "it" + ++n, ...d, deleted: false };
+      // Mirror Foundry: `keepId` creates the item under the given `_id`.
+      create: async (d: any, opts?: { keepId?: boolean }) => {
+        const it: any = {
+          ...d,
+          id: opts?.keepId && d._id ? d._id : "it" + ++n,
+          deleted: false,
+        };
         it.delete = async () => {
           it.deleted = true;
           world.splice(world.indexOf(it), 1);
@@ -450,6 +455,14 @@ describe("createPulpItems", () => {
       folder: { id: "s" },
       deleted: false,
     };
+    old.toObject = () => ({
+      _id: "old",
+      name: "Alpha",
+      type: "talent",
+      img: "custom/icon.webp",
+      ownership: { default: 2 },
+      sort: 300,
+    });
     old.delete = async () => {
       old.deleted = true;
       world.splice(world.indexOf(old), 1);
@@ -461,7 +474,12 @@ describe("createPulpItems", () => {
     });
     assert.equal(old.deleted, true); // pre-existing Alpha removed
     assert.equal(world.filter((i) => i.name === "Alpha").length, 1); // exactly one
-    assert.equal(created.find((i) => i.name === "Alpha").deleted, false); // new one kept
+    const fresh = created.find((i) => i.name === "Alpha");
+    assert.equal(fresh.deleted, false); // new one kept
+    assert.equal(fresh.id, "old"); // under the old id
+    assert.deepEqual(fresh.ownership, { default: 2 }); // Keeper-owned fields kept
+    assert.equal(fresh.sort, 300);
+    assert.equal(fresh.img, "systems/CoC7/assets/icons/skills.svg"); // icon per kind
   });
 
   test("no items creates nothing and no folders", async () => {

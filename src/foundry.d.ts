@@ -27,6 +27,7 @@ interface FoundryActor {
     options?: object,
   ): Promise<unknown>;
   update(data: object): Promise<unknown>;
+  toObject(): any;
   delete(): Promise<unknown>;
 }
 
@@ -36,7 +37,7 @@ interface FoundryItem {
   type?: string;
   folder?: FoundryFolder | null;
   system?: any;
-  toObject?(): any;
+  toObject(): any;
   delete(): Promise<unknown>;
 }
 
@@ -81,8 +82,13 @@ interface FoundryUi {
 declare const game: FoundryGame;
 declare const ui: FoundryUi;
 declare const Hooks: { once(hook: string, fn: (...args: any[]) => void): void };
-declare const Actor: { create(data: object): Promise<FoundryActor> };
-declare const Item: { create(data: object): Promise<FoundryItem> };
+// `keepId` creates the document under the `_id` given in `data`.
+declare const Actor: {
+  create(data: object, options?: { keepId?: boolean }): Promise<FoundryActor>;
+};
+declare const Item: {
+  create(data: object, options?: { keepId?: boolean }): Promise<FoundryItem>;
+};
 declare const Folder: {
   create(data: {
     name: string;

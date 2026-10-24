@@ -4,6 +4,7 @@ import type {
   CombatEntry,
   PulpTalentRef,
 } from "./process.ts";
+import { claimReplaced, createReplacing } from "./replace.ts";
 
 // Foundry globals (game, ui, Actor, Folder) are declared in ./foundry.d.ts.
 
@@ -36,10 +37,10 @@ export async function importCharacters(
   options: ImportOptions = {},
 ): Promise<ImportResult> {
   const folder = await ensureActorFolder(options.folderName ?? "PDF Import");
-  // The folder is named after the imported file, so a re-import should refresh
-  // its contents: drop actors already in it that share a name with an incoming
-  // one, rather than piling up duplicates.
-  await removeReplacedActors(folder, characters);
+  // The folder is named after the imported file, so a re-import refreshes its
+  // contents: an actor already in it that shares a name with an incoming one is
+  // replaced under the same id rather than duplicated.
+  const replaced = await claimReplacedActors(folder, characters);
   const result: ImportResult = { created: 0, failed: 0, actors: [], pulp: 0 };
 
   // Look up the system's skill/weapon/spell/talent compendia once for the whole
@@ -54,6 +55,8 @@ export async function importCharacters(
         folder,
         options.entity ?? "auto",
         indexes,
+        [],
+        replaced.take(character),
       );
       result.actors.push(actor);
       result.created++;
@@ -74,7 +77,7 @@ export async function importCharacters(
     const pulpFolder = await ensureActorFolder(
       `${options.folderName ?? "PDF Import"} (Pulp)`,
     );
-    await removeReplacedActors(pulpFolder, pulpCharacters);
+    const pulpReplaced = await claimReplacedActors(pulpFolder, pulpCharacters);
     for (const character of pulpCharacters) {
       try {
         const actor = await importCharacter(
@@ -83,6 +86,7 @@ export async function importCharacters(
           options.entity ?? "auto",
           indexes,
           talentItems(character.pulp!.talents, indexes.talent),
+          pulpReplaced.take(character),
         );
         result.actors.push(actor);
         result.created++;
@@ -117,15 +121,21 @@ async function importCharacter(
   entity: EntityType | "auto",
   indexes: CompendiumIndexes,
   extraItems: any[] = [],
+  replacing: FoundryActor | null = null,
 ): Promise<any> {
   const type = entity === "auto" ? guessEntityType(character) : entity;
 
-  const actor = await Actor.create({
-    name: character.name || "Unknown",
-    type,
-    folder: folder?.id ?? null,
-    system: buildActorSystem(character, type),
-  });
+  const actor = await createReplacing(
+    Actor,
+    replacing,
+    {
+      name: character.name || "Unknown",
+      type,
+      folder: folder?.id ?? null,
+      system: buildActorSystem(character, type),
+    },
+    KEPT_ACTOR_FIELDS,
+  );
 
   const { base, customWeapons } = buildItems(character, indexes);
   const embedded = [...base, ...extraItems];
@@ -1204,30 +1214,23 @@ async function ensureActorFolder(name: string): Promise<any> {
   }
 }
 
-// Delete actors already in `folder` whose name matches one we are about to
-// import, so a re-import replaces them instead of duplicating. Pre-existing
-// actors are collected and removed up front (before any create) so that two
-// incoming characters sharing a name don't delete each other.
-async function removeReplacedActors(
+// Fields of a replaced actor that the Keeper owns rather than the book: they
+// carry over to its replacement along with the id.
+const KEPT_ACTOR_FIELDS = ["img", "prototypeToken", "ownership", "sort"];
+
+// The actors already in `folder` that incoming characters will replace.
+async function claimReplacedActors(
   folder: FoundryFolder | null,
   characters: CocCharacter[],
-): Promise<void> {
-  if (!folder?.id) return;
-  const names = new Set(characters.map((c) => c.name || "Unknown"));
-  const existing =
-    game.actors?.filter(
-      (a) => a.folder?.id === folder.id && names.has(a.name ?? ""),
-    ) ?? [];
-  for (const actor of existing) {
-    try {
-      await actor.delete();
-    } catch (err) {
-      console.error(
-        `coc-pdf-importer: failed to replace existing actor "${actor.name}"`,
-        err,
-      );
-    }
-  }
+): Promise<{ take(character: CocCharacter): FoundryActor | null }> {
+  const existing = folder?.id
+    ? (game.actors?.filter((a) => a.folder?.id === folder.id) ?? [])
+    : [];
+  const claims = await claimReplaced(
+    existing,
+    characters.map((c) => c.name || "Unknown"),
+  );
+  return { take: (c) => claims.take(c.name || "Unknown") };
 }
 
 function localize(key: string, fallback: string): string {

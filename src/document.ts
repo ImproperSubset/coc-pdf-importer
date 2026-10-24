@@ -7,6 +7,7 @@
 import { processPDF } from "./process.ts";
 import { importCharacters } from "./importer.ts";
 import type { ImportResult } from "./importer.ts";
+import { claimReplaced, createReplacing } from "./replace.ts";
 import type { PulpItem, PulpTalent, PulpArchetype } from "./pulp.ts";
 import type {
   AppendixSpell,
@@ -500,7 +501,8 @@ export interface CreatePulpItemsResult {
 // Build and create world item documents under a "<folderName>" Item folder, one
 // subfolder per item kind ("Talents", "Spells", ...). Artefacts and tomes nest
 // further under a region folder when the appendix printed one (Artefacts/Peru/...).
-// Idempotent per leaf folder: a re-import replaces same-named items.
+// Idempotent per leaf folder: a re-import replaces same-named items under
+// their existing ids.
 export async function createPulpItems(
   items: (PulpItem | OldWestItem)[],
   options: CreatePulpItemsOptions = {},
@@ -554,14 +556,15 @@ export async function createPulpItems(
     const kind = leaf.group[0]?.kind ?? "";
     const img = ITEM_TYPE_ICONS[kind];
     const docs = leaf.group.map((item) => pulpItemDoc(item, source));
-    await removeReplacedItems(folder, docs);
+    const replaced = await claimReplacedItems(folder, docs);
     for (const doc of docs) {
       try {
-        const created = await Item.create({
-          ...doc,
-          ...(img ? { img } : {}),
-          folder: folder?.id ?? null,
-        });
+        const created = await createReplacing(
+          Item,
+          replaced.take(doc.name),
+          { ...doc, ...(img ? { img } : {}), folder: folder?.id ?? null },
+          KEPT_ITEM_FIELDS,
+        );
         result.items.push(created);
         result.created++;
       } catch (err) {
@@ -602,30 +605,25 @@ async function ensureItemFolder(
   }
 }
 
-// Delete items already in `folder` whose name matches one about to be imported,
-// so a re-import refreshes them instead of piling up duplicates.
-async function removeReplacedItems(
+// Fields of a replaced item that the Keeper owns rather than the book: they
+// carry over to its replacement along with the id. The icon is not among them;
+// it is assigned per kind at creation.
+const KEPT_ITEM_FIELDS = ["ownership", "sort"];
+
+// The items already in `folder` that incoming documents will replace.
+async function claimReplacedItems(
   folder: FoundryFolder | null,
-  items: any[],
-): Promise<void> {
-  if (!folder?.id) return;
-  const names = new Set(items.map((i) => i.name));
-  const existing =
-    game.items?.filter(
-      (i) =>
-        ((i.folder as any)?.id ?? i.folder ?? null) === folder.id &&
-        names.has(i.name ?? ""),
-    ) ?? [];
-  for (const item of existing) {
-    try {
-      await item.delete();
-    } catch (err) {
-      console.error(
-        `coc-pdf-importer: failed to replace existing item "${item.name}"`,
-        err,
-      );
-    }
-  }
+  docs: any[],
+): Promise<{ take(name: string): FoundryItem | null }> {
+  const existing = folder?.id
+    ? (game.items?.filter(
+        (i) => ((i.folder as any)?.id ?? i.folder ?? null) === folder.id,
+      ) ?? [])
+    : [];
+  return claimReplaced(
+    existing,
+    docs.map((d) => d.name),
+  );
 }
 
 // --- orchestration ---------------------------------------------------------

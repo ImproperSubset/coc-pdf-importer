@@ -26,8 +26,8 @@ A single import reads a document once and creates both **actors** and, when the
 document contains them, **items** (Pulp Cthulhu talents/archetypes, Chaosium
 appendix Spells / Tomes / Artefacts, and Down Darker Trails' Old West
 occupations, skills, weapons and spells). Everything is placed in folders named
-after the source file; a re-import refreshes same-named entries instead of
-duplicating them.
+after the source file; a re-import refreshes same-named entries in place,
+keeping their ids, instead of duplicating them.
 
 ### Actors
 
@@ -158,7 +158,12 @@ testable.
      documents (resolving pulp skill names to CoCID itemKeys here) and files
      them under typed subfolders of a `<file name>` Item folder.
 
-   A re-import replaces same-named entries in each folder instead of duplicating.
+   A re-import replaces same-named entries in each folder instead of
+   duplicating them (`replace.ts`): the old document is deleted and the new one
+   created under the same id, so tokens and links that point at it still
+   resolve. An actor keeps its portrait, prototype token, ownership and sort
+   order; an item its ownership and sort order. If the create fails, the old
+   document is restored.
 
 ### npm scripts
 
