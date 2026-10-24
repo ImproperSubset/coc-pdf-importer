@@ -742,7 +742,7 @@ interface CustomWeapon {
 // "thrown" flag, or the stat block naming it ("(thrown)", "throwing", boomerang).
 function isThrownAttack(attack: CombatEntry, matched: any | null): boolean {
   if (matched?.system?.properties?.thrown) return true;
-  return /\(thrown\)|\(throw\)|throwing|boomerang|shuriken|javelin/i.test(
+  return /^throw\b|\(thrown\)|\(throw\)|throwing|boomerang|shuriken|javelin/i.test(
     attack.name,
   );
 }

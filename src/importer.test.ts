@@ -1004,6 +1004,20 @@ describe("importCharacters — items", () => {
     assert.equal(w.system.skill.main.name, "Throw");
   });
 
+  test("a weapon named 'Throw …' uses the Throw skill", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          skills: { Throw: 40 },
+          combat: [attack("Throw boulder", { value: 40, damage: "4D6" })],
+        }),
+      ],
+      { notify: false },
+    );
+    const w = created[0].items.find((i: any) => i.type === "weapon");
+    assert.equal(w.system.skill.main.name, "Throw");
+  });
+
   test("knife/club size is deduced from damage, ignoring the damage bonus", async () => {
     mockCompendium({
       weapons: [
