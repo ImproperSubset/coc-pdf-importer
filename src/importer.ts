@@ -594,7 +594,9 @@ function meleeCandidates(attack: CombatEntry): string[] {
       : ["Sword, medium (rapier, heavy epee)"];
   }
   if (
-    /\bknife\b|\bdagger\b|switchblade|straight razor|\bmachete\b/.test(name)
+    /\bknife\b|\bdagger\b|switchblade|straight razor|\bmachete\b|\bscalpel\b/.test(
+      name,
+    )
   ) {
     const size = /^1d8\b/.test(dmg)
       ? "Large"

@@ -938,6 +938,29 @@ describe("importCharacters — items", () => {
     assert.equal(w.img, "en.svg");
   });
 
+  test("a scalpel is a knife", async () => {
+    mockCompendium({
+      weapons: [
+        weaponDoc("Knife, Small (switchblade, etc.)"),
+        weaponDoc("Knife, Medium (carving knife, etc.)"),
+      ],
+    });
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [attack("Scalpel", { value: 70, damage: "1D4" })],
+        }),
+      ],
+      { notify: false },
+    );
+    const w = created[0].items.find((i: any) => i.type === "weapon");
+    assert.equal(w.name, "Scalpel");
+    assert.equal(
+      w.flags.CoC7.cocidFlag.id,
+      weaponDoc("Knife, Small (switchblade, etc.)").flags.CoC7.cocidFlag.id,
+    );
+  });
+
   test("knife/club size is deduced from damage, ignoring the damage bonus", async () => {
     mockCompendium({
       weapons: [
