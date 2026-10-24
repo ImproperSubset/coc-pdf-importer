@@ -512,6 +512,11 @@ export function loadWeaponIndex(): Promise<Map<string, any>> {
   return loadCocidIndex(/^i\.weapon\./);
 }
 
+// The system's spells (world + packs, any era), by lowercase name and CoCID.
+export function loadSpellIndex(): Promise<Map<string, any>> {
+  return loadCocidIndex(/^i\.spell\./);
+}
+
 async function loadCocidIndex(cocidRegExp: RegExp): Promise<ItemIndex> {
   const index: ItemIndex = new Map();
   try {

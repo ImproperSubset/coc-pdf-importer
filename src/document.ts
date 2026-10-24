@@ -6,7 +6,13 @@
 // with a single call.
 import { processPDF } from "./process.ts";
 import { ensureBookFolder } from "./folders.ts";
-import { loadWeaponIndex } from "./importer.ts";
+import { loadSpellIndex, loadWeaponIndex } from "./importer.ts";
+import {
+  SpellMatcher,
+  alternativeNames,
+  tomeSpellNames,
+} from "./spellmatch.ts";
+import type { SpellCandidate } from "./spellmatch.ts";
 import type { SourcePage } from "./process.ts";
 import {
   bookTitleFromFileName,
@@ -124,11 +130,103 @@ function archetypeDoc(a: PulpArchetype, source: string): any {
   };
 }
 
-// Hybrid spell: castingTime + legacy costs; body in description; empty
-// costList. Shared by Chaosium-appendix spells (AppendixSpell) and Down Darker
-// Trails' differently-sectioned but identically-shaped spells (OldWestSpell) —
-// both files use only the fields read here.
+// A cost the spell sheet can deduct: a number or dice expression ("5",
+// "1D6 + 4").
+const COST_FORMULA = /^\d+(?:[dD]\d+)?(?:\s*[+-]\s*\d+(?:[dD]\d+)?)*$/;
+
+// The legacy cost fields in the order Core Content's spells list their
+// costs, with the cost list's key for each.
+const COST_KEYS = [
+  ["magicPoints", "mp"],
+  ["power", "pow"],
+  ["sanity", "san"],
+  ["hitPoints", "hp"],
+] as const;
+
+// A spell's cost list, as Core Content's spells store their costs: one caster
+// cost per deductible cost, the printed Cost line as information when any
+// part of it is not deductible ("4+ magic points", "per round"), and a rolled
+// casting time ("1D6 + 4 rounds" sets @rounds and shows "@rounds rounds").
+function spellCostList(s: AppendixSpell | OldWestSpell): any[] {
+  const list: any[] = [];
+  let partial = s.costs.others !== "";
+  for (const [field, key] of COST_KEYS) {
+    const value = s.costs[field];
+    if (!value) continue;
+    if (!COST_FORMULA.test(value)) {
+      partial = true;
+      continue;
+    }
+    list.push({
+      type: "casterCost",
+      if: "",
+      config: JSON.stringify({ modify: key, value: value.toUpperCase() }),
+    });
+  }
+  if (partial && s.cost)
+    list.push({
+      type: "additionalInformation",
+      if: "",
+      config: JSON.stringify({ prompt: `Cost: ${s.cost}` }),
+    });
+  const time = s.castingTime.match(
+    /^(\d*[dD]\d+(?:\s*[+-]\s*\d+(?:[dD]\d+)?)*)\s+((rounds?|minutes?|hours?|days?)\b.*)$/i,
+  );
+  if (time) {
+    const unit = time[3].toLowerCase().replace(/s?$/, "s");
+    list.push(
+      {
+        type: "setVariable",
+        if: "",
+        config: JSON.stringify({
+          variable: `@${unit}`,
+          value: time[1].toUpperCase(),
+        }),
+      },
+      {
+        type: "castingTime",
+        if: "",
+        config: JSON.stringify({ value: `@${unit} ${time[2]}` }),
+      },
+    );
+  }
+  return list;
+}
+
+// The spell types a spell's name states, as Core Content sets them ("Contact
+// Deity: Yig" is a Contact spell, "Summon/Bind Byakhee" both Summon and Bind).
+function spellTypes(name: string): Record<string, boolean> {
+  return {
+    bind: /^(?:Summon\s*\/\s*)?Bind\b/i.test(name),
+    call: /^Call\b/i.test(name),
+    combat: false,
+    contact: /^Contact\b/i.test(name),
+    dismiss: /^Dismiss\b/i.test(name),
+    enchantment: false,
+    gate: /\bGates?\b/i.test(name),
+    summon: /^Summon\b/i.test(name),
+  };
+}
+
+// A spell item: the description, the printed casting time, the spell types its
+// name states, and its costs as a cost list (spellCostList). The legacy cost
+// fields stay empty once the cost list holds the costs, as in Core Content's
+// spells and the system's migration of older ones. Shared by Chaosium-appendix
+// spells (AppendixSpell) and Down Darker Trails' identically-shaped spells
+// (OldWestSpell).
 function spellDoc(s: AppendixSpell | OldWestSpell, source: string): any {
+  const costList = spellCostList(s);
+  const costs = costList.some(
+    (c) => c.type !== "setVariable" && c.type !== "castingTime",
+  )
+    ? { hitPoints: "", magicPoints: "", others: "", sanity: "", power: "" }
+    : {
+        hitPoints: s.costs.hitPoints,
+        magicPoints: s.costs.magicPoints,
+        others: s.costs.others,
+        sanity: s.costs.sanity,
+        power: s.costs.power,
+      };
   return {
     name: s.name,
     type: "spell",
@@ -139,25 +237,10 @@ function spellDoc(s: AppendixSpell | OldWestSpell, source: string): any {
         alternativeNames: "",
       },
       castingTime: s.castingTime,
-      costs: {
-        hitPoints: s.costs.hitPoints,
-        magicPoints: s.costs.magicPoints,
-        others: s.costs.others,
-        sanity: s.costs.sanity,
-        power: s.costs.power,
-      },
-      costList: [],
+      costs,
+      costList,
       source,
-      type: {
-        bind: false,
-        call: false,
-        combat: false,
-        contact: false,
-        dismiss: false,
-        enchantment: false,
-        gate: false,
-        summon: false,
-      },
+      type: spellTypes(s.name),
     },
   };
 }
@@ -617,6 +700,14 @@ export async function createPulpItems(
   const weaponIndex = items.some((i) => i.kind === "artefact" && i.isWeapon)
     ? await loadWeaponIndex()
     : undefined;
+  // Tomes list spells that the system's spells may hold.
+  const systemSpells = items.some(
+    (i) => i.kind === "tome" && tomeSpellNames(i.spells).length,
+  )
+    ? systemSpellMatcher(await loadSpellIndex())
+    : undefined;
+  // The book's own spells, once created, for its tomes to hold.
+  const bookSpells: SpellCandidate<any>[] = [];
   const parentName = options.folderName ?? "PDF Import";
   const parent = await ensureBookFolder(
     "Item",
@@ -656,6 +747,11 @@ export async function createPulpItems(
       leaves.push({ folderPath: [typeFolder], group });
     }
   }
+  // Spells are created before the tomes that hold them.
+  leaves.sort(
+    (a, b) =>
+      Number(a.group[0]?.kind === "tome") - Number(b.group[0]?.kind === "tome"),
+  );
 
   for (const leaf of leaves) {
     let folder = parent;
@@ -669,6 +765,8 @@ export async function createPulpItems(
       const doc = pulpItemDoc(item, citation, weaponIndex);
       const description = (doc.system.description ??= {});
       description.keeper = citationHtml(citation) + (description.keeper ?? "");
+      if (item.kind === "tome")
+        linkTomeSpells(doc, item.spells, bookSpells, systemSpells);
       return doc;
     });
     const replaced = await claimReplacedItems(folder, docs);
@@ -682,6 +780,7 @@ export async function createPulpItems(
         );
         result.items.push(created);
         result.created++;
+        if (kind === "spell") bookSpells.push(embeddedSpell(created));
       } catch (err) {
         result.failed++;
         console.error(
@@ -699,6 +798,59 @@ export async function createPulpItems(
     );
   }
   return result;
+}
+
+// The system's spells by name and alternative names, each standing for its
+// CoC ID.
+function systemSpellMatcher(index: Map<string, any>): SpellMatcher<string> {
+  const byCocid = new Map<string, any>();
+  for (const doc of index.values()) {
+    const cocid = doc?.flags?.CoC7?.cocidFlag?.id;
+    if (cocid) byCocid.set(cocid, doc);
+  }
+  return new SpellMatcher(
+    [...byCocid].map(([cocid, doc]) => ({
+      name: doc.name,
+      alternatives: alternativeNames(
+        doc.system?.description?.alternativeNames ?? "",
+      ),
+      value: cocid,
+    })),
+  );
+}
+
+// A created spell as a tome holds it: a copy of the item, as the system
+// stores a spell dropped on a book's Spells tab.
+function embeddedSpell(created: any): SpellCandidate<any> {
+  const data = created.toObject ? created.toObject() : { ...created };
+  data._id = created.id;
+  delete data.folder;
+  return { name: data.name, value: data };
+}
+
+// Fill a tome's Spells tab from its printed spell list: a spell of the book's
+// own is held as a copy, else a system spell by its CoC ID. A name that
+// matches neither stays only in the Keeper notes' "Spells:" line.
+function linkTomeSpells(
+  doc: any,
+  list: string,
+  bookSpells: SpellCandidate<any>[],
+  systemSpells: SpellMatcher<string> | undefined,
+): void {
+  const book = new SpellMatcher(bookSpells);
+  const documents: any[] = [];
+  const keys: string[] = [];
+  for (const name of tomeSpellNames(list)) {
+    const own = book.match(name);
+    if (own) {
+      if (!documents.includes(own)) documents.push(own);
+      continue;
+    }
+    const cocid = systemSpells?.match(name);
+    if (cocid && !keys.includes(cocid)) keys.push(cocid);
+  }
+  doc.system.itemDocuments = documents;
+  doc.system.itemKeys = keys;
 }
 
 // Find (by name and parent) or create an Item folder.

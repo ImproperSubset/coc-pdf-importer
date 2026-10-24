@@ -668,6 +668,8 @@ export function parseOldWestWeapons(rawText: string): OldWestWeapon[] {
 export interface OldWestSpell {
   name: string;
   castingTime: string;
+  /** The Cost line as printed. */
+  cost: string;
   costs: SpellCosts;
   description: string;
 }
@@ -762,6 +764,7 @@ export function parseOldWestSpells(rawText: string): OldWestSpell[] {
     spells.push({
       name,
       castingTime: a.castingTime,
+      cost: a.cost,
       costs: parseSpellCosts(a.cost),
       description,
     });

@@ -18,6 +18,8 @@ export interface SpellCosts {
 export interface AppendixSpell {
   name: string;
   castingTime: string;
+  /** The Cost line as printed. */
+  cost: string;
   costs: SpellCosts;
   /** Optional Note: line that sits between title and Cost. */
   note: string;
@@ -622,6 +624,7 @@ export function parseAppendixSpells(text: string): AppendixSpell[] {
     spells.push({
       name: name.replace(/\*+$/, "").trim(), // footnote marker ("Ecstasy*")
       castingTime: a.castingTime,
+      cost: a.cost,
       costs: parseSpellCosts(a.cost),
       note: a.note,
       description: a.note

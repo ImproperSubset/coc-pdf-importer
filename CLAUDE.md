@@ -187,6 +187,20 @@ content order.
 - A re-import that changes an entry's document type (an artefact that stops
   counting as a weapon) recreates it with a new id; same-type replacements
   keep theirs.
+- Spells store their costs as a cost list, as Core Content's do: a caster
+  cost per deductible cost (number or dice), the printed Cost line as
+  information when any part isn't deductible ("4+", "per round", "all
+  remaining"), and a dice casting time as a rolled variable (`@rounds`). The
+  legacy cost fields stay empty then; the sheet's Details tab shows only the
+  cost list and the spell types, which come from the name (Contact, Summon,
+  Bind, Call, Dismiss, Gate).
+- A tome's Spells tab holds the spells its printed list names: the book's own
+  spell as an embedded copy (of the created item, under its id), else a system
+  spell by CoC ID (`src/spellmatch.ts`). Names match loosely: case,
+  punctuation, doubled letters and plurals aside, without a trailing
+  parenthetical ("Contact Yig" is "Contact Yig (Variant)"), without "Deity:"
+  ("Contact Deity: Yig"), or by a Core alternative name. A name two spells
+  answer to links neither. The Keeper notes' "Spells:" line stays as printed.
 - Compendium weapon matching: a shotgun of no gauge is the 12-gauge (2B);
   10/16/20-gauge and 12-gauge sawed-off/pump/semi-auto map to their entries;
   a scalpel is a knife; names with laser/ray/beam/blaster are firearms (a

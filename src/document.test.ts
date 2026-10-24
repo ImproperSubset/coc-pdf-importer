@@ -88,12 +88,13 @@ describe("pulpItemDoc", () => {
     assert.deepEqual(item.system.itemDocuments, []);
   });
 
-  test("builds a hybrid spell with legacy costs and empty costList", () => {
-    const item = pulpItemDoc(
+  const spell = (over: Record<string, any> = {}) =>
+    pulpItemDoc(
       {
         kind: "spell",
         name: "Fog Test",
         castingTime: "1 round",
+        cost: "4 magic points; 1D2 Sanity points",
         costs: {
           magicPoints: "4",
           sanity: "1d2",
@@ -103,19 +104,99 @@ describe("pulpItemDoc", () => {
         },
         note: "",
         description: "Makes fog & <mist>.",
+        ...over,
       },
       "Test Source",
     );
+
+  test("builds a spell whose cost list holds its costs", () => {
+    const item = spell();
     assert.equal(item.type, "spell");
     assert.equal(item.system.castingTime, "1 round");
-    assert.equal(item.system.costs.magicPoints, "4");
-    assert.equal(item.system.costs.sanity, "1d2");
-    assert.deepEqual(item.system.costList, []);
+    assert.deepEqual(
+      item.system.costList.map((c: any) => [c.type, JSON.parse(c.config)]),
+      [
+        ["casterCost", { modify: "mp", value: "4" }],
+        ["casterCost", { modify: "san", value: "1D2" }],
+      ],
+    );
+    assert.deepEqual(item.system.costs, {
+      hitPoints: "",
+      magicPoints: "",
+      others: "",
+      sanity: "",
+      power: "",
+    });
     assert.match(
       item.system.description.value,
       /Makes fog &amp; &lt;mist&gt;\./,
     );
     assert.equal(item.system.source, "Test Source");
+  });
+
+  test("shows the printed cost when part of it is not deductible", () => {
+    const item = spell({
+      cost: "3+ magic points per round; 2 POW",
+      costs: {
+        magicPoints: "3+",
+        sanity: "",
+        power: "2",
+        hitPoints: "",
+        others: "per round",
+      },
+    });
+    assert.deepEqual(
+      item.system.costList.map((c: any) => [c.type, JSON.parse(c.config)]),
+      [
+        ["casterCost", { modify: "pow", value: "2" }],
+        [
+          "additionalInformation",
+          { prompt: "Cost: 3+ magic points per round; 2 POW" },
+        ],
+      ],
+    );
+  });
+
+  test("rolls a dice casting time", () => {
+    const item = spell({ castingTime: "2D4 + 1 minutes" });
+    assert.equal(item.system.castingTime, "2D4 + 1 minutes");
+    assert.deepEqual(
+      item.system.costList
+        .slice(2)
+        .map((c: any) => [c.type, JSON.parse(c.config)]),
+      [
+        ["setVariable", { variable: "@minutes", value: "2D4 + 1" }],
+        ["castingTime", { value: "@minutes minutes" }],
+      ],
+    );
+  });
+
+  test("keeps legacy costs when only the casting time is listed", () => {
+    const item = spell({
+      cost: "",
+      castingTime: "1D3 rounds",
+      costs: {
+        magicPoints: "",
+        sanity: "",
+        power: "",
+        hitPoints: "",
+        others: "a rare gem",
+      },
+    });
+    assert.equal(item.system.costs.others, "a rare gem");
+  });
+
+  test("sets the spell types its name states", () => {
+    const on = (name: string) =>
+      Object.entries(spell({ name }).system.type)
+        .filter(([, v]) => v)
+        .map(([k]) => k);
+    assert.deepEqual(on("Contact Deity: Testgod"), ["contact"]);
+    assert.deepEqual(on("Summon/Bind Fog Beast"), ["bind", "summon"]);
+    assert.deepEqual(on("Call Testgod"), ["call"]);
+    assert.deepEqual(on("Dismiss Testgod"), ["dismiss"]);
+    assert.deepEqual(on("Open Fog Gate"), ["gate"]);
+    assert.deepEqual(on("Fog Test"), []);
   });
 
   test("builds a book with keeper relevance/spells and empty itemKeys", () => {
@@ -723,6 +804,84 @@ describe("createPulpItems", () => {
     );
   });
 
+  test("fills a tome's Spells tab from the book's spells and the system's", async () => {
+    const systemSpell = (name: string, cocid: string, alt = "") => ({
+      name,
+      type: "spell",
+      flags: { CoC7: { cocidFlag: { id: cocid } } },
+      system: { description: { alternativeNames: alt } },
+    });
+    (globalThis as any).game.i18n = { lang: "en" };
+    (globalThis as any).game.CoC7 = {
+      cocid: {
+        fromCoCIDRegexBest: async () => [
+          systemSpell("Fog Ward", "i.spell.fog-ward"),
+          systemSpell(
+            "Contact Deity: Mistgod",
+            "i.spell.contact-deity-mistgod",
+          ),
+          systemSpell(
+            "Wither Shade",
+            "i.spell.wither-shade",
+            "<p>Shadow Grasp, The Grey Hand.</p>",
+          ),
+        ],
+        fromCoCIDRegexAll: async () => [],
+      },
+    };
+    await createPulpItems(
+      [
+        {
+          kind: "tome",
+          name: "Fog Tome",
+          language: "",
+          author: "",
+          date: "",
+          physical: "",
+          link: "",
+          description: "Thin booklet.",
+          relevance: "",
+          sanityLoss: "1D4",
+          cthulhuMythos: { initial: 1, final: 2 },
+          mythosRating: 9,
+          study: { necessary: 2, units: "CoC7.weeks" },
+          spells: "Fog Ward, Contact Mistgods, Shadow Grasp and Lost Spell.",
+          region: "",
+        },
+        {
+          kind: "spell",
+          name: "Fog Ward (Variant)",
+          castingTime: "1 round",
+          cost: "1 magic point",
+          costs: {
+            magicPoints: "1",
+            sanity: "",
+            power: "",
+            hitPoints: "",
+            others: "",
+          },
+          note: "",
+          description: "Makes fog.",
+        },
+      ],
+      { folderName: "Masks", notify: false },
+    );
+    const spell = created.find((i) => i.name === "Fog Ward (Variant)");
+    const tome = created.find((i) => i.name === "Fog Tome");
+    assert.deepEqual(
+      tome.system.itemDocuments.map((d: any) => [d.name, d._id, d.type]),
+      [["Fog Ward (Variant)", spell.id, "spell"]],
+    );
+    assert.deepEqual(tome.system.itemKeys, [
+      "i.spell.contact-deity-mistgod",
+      "i.spell.wither-shade",
+    ]);
+    assert.match(
+      tome.system.description.keeper,
+      /Spells: Fog Ward, Contact Mistgods, Shadow Grasp and Lost Spell\./,
+    );
+  });
+
   test("files spells, tomes, and artefacts into typed subfolders", async () => {
     await createPulpItems(
       [
@@ -730,6 +889,7 @@ describe("createPulpItems", () => {
           kind: "spell",
           name: "Fog Test",
           castingTime: "1 round",
+          cost: "1 magic point; 1 Sanity point",
           costs: {
             magicPoints: "1",
             sanity: "1",
