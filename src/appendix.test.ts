@@ -344,6 +344,18 @@ describe("artefact helpers", () => {
       ),
       true,
     );
+    assert.equal(
+      isArtefactWeapon(
+        "These weapons fire a beam that inflicts 1D10+5 heat damage.",
+      ),
+      true,
+    );
+    assert.equal(
+      isArtefactWeapon(
+        "The Firearms (Rifle/Shotgun) skill is required to use it.",
+      ),
+      true,
+    );
   });
 
   test("split blurb keeps short physical first sentence", () => {
@@ -397,6 +409,22 @@ A twelve-foot whip covered in sharp barbs that deals 1D6 damage.
     assert.equal(items[0].name, "COBRA CROWN, THE");
     assert.match(items[0].link, /Calcutta/);
     assert.equal(items[1].isWeapon, true);
+  });
+
+  test("an Appearance list keeps multi-word and multiple chapter names", () => {
+    const items = parseAppendixArtefacts(`
+APPENDIX D
+ARTIFACTS
+TEST STAFF
+ • Appearance in the campaign: Chapter 6: Test Congo These rods resemble golden tubes and fire beams.
+TEST BOX
+ • Appearance in the campaign: Chapter 3: North Testland, Chapter 9: Mu Outwardly, these devices appear to be wooden boxes.
+`);
+    assert.equal(items.length, 2);
+    assert.equal(items[0].link, "Chapter 6: Test Congo");
+    assert.match(items[0].keeper, /These rods resemble/);
+    assert.equal(items[1].link, "Chapter 3: North Testland, Chapter 9: Mu");
+    assert.match(items[1].keeper, /Outwardly, these devices/);
   });
 
   test("parses Innsmouth named artefact headings", () => {

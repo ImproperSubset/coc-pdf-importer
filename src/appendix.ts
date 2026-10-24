@@ -1099,8 +1099,20 @@ export function parseAppendixTomes(text: string): AppendixTome[] {
 
 const REGION_HEADERS = new RegExp(String.raw`^(?:${REGION_NAMES})$`, "i");
 
+// An "Appearance in the campaign" list of chapters ("Chapter 1: Bolivia,
+// Chapter 2: New York City"). A chapter name is a run of capitalised words that
+// ends where the entry's body begins: at a common sentence opener ("These
+// weapons …") or at a capitalised word followed by a lowercase one
+// ("Outwardly, these …").
+const SENTENCE_OPENER = String.raw`(?:The|A|An|This|These|Those|It|Its|More|Made|While|Designed|Our|Once|When|Each|Although|Originally|Legend)\b`;
+const NAME_WORD = String.raw`[A-Z][A-Za-z'’\-]*(?![A-Za-z'’\-])`;
+const CHAPTER_REF = String.raw`Chapter\s+\d+:\s*(?!${SENTENCE_OPENER})${NAME_WORD}(?:\s+(?!${SENTENCE_OPENER})${NAME_WORD}(?!,?\s+[a-z]))*`;
+const APPEARANCE_CHAPTERS = new RegExp(
+  String.raw`•\s*[Aa]ppearance in the campaign:\s*(${CHAPTER_REF}(?:\s*,\s*${CHAPTER_REF})*)`,
+);
+
 const WEAPON_CUES =
-  /\b(?:weapon|Fighting\s*\(|deals?\s+\d|\d+D\d+\s*(?:\+\s*\d+)?\s*damage|attack(?:s|ing)?\s+(?:with|as)|damage\s+to\s+(?:supernatural|mundane)|impale)\b/i;
+  /\b(?:weapons?|(?:Fighting|Firearms)\s*\(|deals?\s+\d|\d+D\d+(?:\s*\+\s*\d+)?\s+(?:[a-z]+\s+)?damage|attack(?:s|ing)?\s+(?:with|as)|damage\s+to\s+(?:supernatural|mundane)|impale)\b/i;
 
 export function isArtefactWeapon(body: string): boolean {
   return WEAPON_CUES.test(body);
@@ -1219,9 +1231,11 @@ export function parseAppendixArtefacts(text: string): AppendixArtefact[] {
     let link = "";
     let body = chunk;
     const lm = chunk.match(/•\s*Link:\s*(.+?(?:page\s+\d+[^.]*\.?))/i);
-    const am = chunk.match(
-      /•\s*Appearance in the campaign:\s*(Chapter\s+\d+:\s*[A-Z][A-Za-z\-]+|\S[^•]{0,80}?)(?=\s+[A-Z][a-z]|\s*$)/i,
-    );
+    const am =
+      chunk.match(APPEARANCE_CHAPTERS) ??
+      chunk.match(
+        /•\s*Appearance in the campaign:\s*(Chapter\s+\d+:\s*[A-Z][A-Za-z\-]+|\S[^•]{0,80}?)(?=\s+[A-Z][a-z]|\s*$)/i,
+      );
     if (lm) {
       link = cleanSpaces(lm[1]);
       body = cleanSpaces(chunk.slice(lm.index! + lm[0].length));
