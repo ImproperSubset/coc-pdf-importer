@@ -1125,8 +1125,24 @@ export function parseAppendixTomes(text: string): AppendixTome[] {
     // "none" is the whole list; prose after it belongs to the entry.
     if (/^none\b/i.test(spells))
       spells = /^none\./i.test(spells) ? "none." : "none";
+    // The list ends where a sentence begins without a full stop before it
+    // ("Contact Yig Anyone performing an initial reading …"): right after a
+    // spell name (a capitalised word or a closing bracket), a capitalised word
+    // followed by an ordinary lowercase word. Spell names only join their
+    // words with connectors ("Eye of Light and Darkness"), and a list's own
+    // prose follows lowercase words ("others at the Keeper's discretion").
+    let trailing = "";
+    const prose =
+      /(?<=(?:\b[A-Z][A-Za-z'’-]*|\)))\s([A-Z][a-z'’-]*\s+(?!(?:of|the|and|from|to|in|a|an|or|with|for|on)\b)[a-z]{2,}\b[\s\S]*)$/.exec(
+        spells,
+      );
+    if (prose) {
+      trailing = prose[1].trim();
+      spells = spells.slice(0, prose.index).trim();
+    }
     if (spells.length > 800) spells = spells.slice(0, 800);
     const parsed = splitTomePreamble(before);
+    // (The sentence cut from the spell list closes the entry's description.)
     // The Serpent layout leads with "• Appearance in the campaign:" and keeps
     // the language among the stat bullets, which the bibliographic-line
     // reading above misses.
@@ -1163,7 +1179,9 @@ export function parseAppendixTomes(text: string): AppendixTome[] {
       date: parsed.date,
       physical: parsed.physical,
       link: parsed.link,
-      description: parsed.description,
+      description: trailing
+        ? [parsed.description, trailing].filter(Boolean).join("\n\n")
+        : parsed.description,
       relevance: parsed.relevance,
       sanityLoss: a.sanityLoss.replace(/\s+/g, ""),
       cthulhuMythos: { initial: a.initial, final: a.final },

@@ -535,6 +535,21 @@ Gospel of Yig
     assert.equal(tomes[1].study.units, "CoC7.days");
   });
 
+  test("a sentence run on after the spell list moves to the description", () => {
+    const tomes = parseAppendixTomes(`
+APPENDIX B
+TOMES
+TEST GOSPEL
+ • Appearance in the campaign: Chapter 4: Testland A worn book of hymns. Test Gospel
+ • Sanity Loss: 1D6 • Cthulhu Mythos (Initial Reading): +2% • Cthulhu Mythos (Full Study): +4% • Mythos Rating: 18 • Study: 7 days • Spells: Contact Test Being Anyone reading the book also learns some Latin.
+`);
+    assert.equal(tomes[0].spells, "Contact Test Being");
+    assert.equal(
+      tomes[0].description,
+      "A worn book of hymns.\n\nAnyone reading the book also learns some Latin.",
+    );
+  });
+
   test("reads the link, bibliography and language of Appearance-first entries", () => {
     const tomes = parseAppendixTomes(`
 APPENDIX B
