@@ -19,8 +19,9 @@ function registerSettings() {
 }
 
 function registerWorker() {
+  // getRoute adds the server's route prefix, if any ("/pulp_cthulhu/...").
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-    "/modules/coc-pdf-importer/pdf.worker.min.mjs",
+    foundry.utils.getRoute("modules/coc-pdf-importer/pdf.worker.min.mjs"),
     window.location.origin,
   ).toString();
 }
