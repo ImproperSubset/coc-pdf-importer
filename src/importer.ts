@@ -148,7 +148,7 @@ async function importCharacter(
   // id (the system can't resolve them, which pops a "select weapon skill" modal).
   // Done after the base items so their skills — including ones the compendium
   // weapons created — can be reused.
-  await attachCustomWeapons(actor, customWeapons, indexes);
+  await attachCustomWeapons(actor, customWeapons, indexes, type);
 
   await applyDerivedOverrides(actor, character);
   return actor;
@@ -784,7 +784,13 @@ function buildItems(
   // compendium weapon is created now with its own backing skill; a thrown weapon
   // (compendium or custom) and any other custom weapon has its skill resolved in
   // the second pass, where a thrown weapon uses the actor's Throw skill.
-  for (const attack of character.combat) {
+  for (const printed of character.combat) {
+    // "Fighting (Bite)" is a Bite attack made with Fighting: keep the attack's
+    // own name; its skill is chosen like any other attack's.
+    const skillNamed = /^fighting\s*\((.+)\)$/i.exec(printed.name.trim());
+    const attack = skillNamed
+      ? { ...printed, name: skillNamed[1].trim() }
+      : printed;
     if (/^dodge$/i.test(attack.name)) {
       addSkill(skillItem("Dodge", attack.value ?? 0, {}, indexes.skill));
       continue;
@@ -846,7 +852,59 @@ function buildItems(
 }
 
 const FIREARM_RE =
-  /\b(revolver|pistol|rifle|shotgun|gun|firearm|automatic|carbine|derringer|colt|luger|mauser|musket|needle|bow|sling)\b|\.\d{2}\b/i;
+  /\b(revolver|pistol|rifle|shotgun|gun|firearm|automatic|carbine|derringer|colt|luger|mauser|musket|needle|bow|sling|thompson|tommy|smg|submachine)\b|\.\d{2}\b/i;
+
+// The Firearms specialization a custom firearm's name implies, or "" when the
+// name doesn't say.
+const FIREARM_CATEGORIES: [RegExp, string][] = [
+  [/\b(?:thompson|tommy|smg|sub-?machine|mp[\s-]?\d{2})\b/i, "Submachine Gun"],
+  [/\b(?:lewis|vickers|bren|machine[\s-]?gun)\b/i, "Machine Gun"],
+  [/\b(?:bow|crossbow)\b/i, "Bow"],
+  [
+    /\b(?:rifle|carbine|shotgun|musket|elephant\s+gun|enfield|springfield|garand|winchester)\b|\b\d{2}[\s-]?(?:g|ga|gauge|gage)\b/i,
+    "Rifle/Shotgun",
+  ],
+  [
+    /\b(?:revolver|pistol|automatic|auto|derringer|colt|luger|webley|nambu|handgun)\b|\.\d{2}\b/i,
+    "Handgun",
+  ],
+];
+
+// The Fighting specialization a custom melee weapon's name implies; anything
+// else a human wields uses Brawl.
+const FIGHTING_CATEGORIES: [RegExp, string][] = [
+  [/\b(?:sword|sabre|saber|rapier|cutlass|katana|scimitar)\b/i, "Sword"],
+  [/\b(?:axe|hatchet)\b/i, "Axe"],
+  [/\b(?:spear|lance|javelin)\b/i, "Spear"],
+  [/\bwhip\b/i, "Whip"],
+  [/\bgarrott?e\b/i, "Garrote"],
+  [/\bchainsaw\b/i, "Chainsaw"],
+  [/\bflail\b/i, "Flail"],
+];
+
+// The most common value, the first-seen on a tie.
+function mostCommon(values: number[]): number {
+  const counts = new Map<number, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  let best = values[0];
+  for (const v of values) if (counts.get(v)! > counts.get(best)!) best = v;
+  return best;
+}
+
+// The skill category for a custom weapon: a creature's melee attacks all use
+// its generic Fighting skill ("Fighting (Fighting)", as the system's creatures
+// do); a human's use the weapon's own category or Brawl; a firearm uses the
+// category its name implies, or "" (no category: a per-weapon skill).
+function weaponCategory(
+  name: string,
+  ranged: boolean,
+  creature: boolean,
+): string {
+  if (ranged)
+    return FIREARM_CATEGORIES.find(([re]) => re.test(name))?.[1] ?? "";
+  if (creature) return "Fighting";
+  return FIGHTING_CATEGORIES.find(([re]) => re.test(name))?.[1] ?? "Brawl";
+}
 
 // Half of a damage bonus, matching CoC7Utilities.halfDB: halve each die's sides
 // ("+1D6" -> "+1D3", "+2D6" -> "+2D3") and each flat term. Thrown weapons add it.
@@ -972,16 +1030,23 @@ function customWeaponData(
 }
 
 // Resolve and attach a backing skill to each custom weapon, then create them.
-// Algorithm (per the system's own weapon-skill behaviour):
-//   1. Reuse an already-present Fighting/Firearms skill whose value matches the
-//      weapon's — most likely the same underlying skill (e.g. a second handgun).
-//   2. Otherwise create a "Fighting (weapon)" / "Firearms (weapon)" skill (from
-//      the "(Any)" template) at the weapon's value, reusing it for later weapons.
-//   3. Link the weapon to that skill by id, so the sheet doesn't prompt.
+// Algorithm:
+//   1. Find the weapon's category skill (weaponCategory): "Firearms (Handgun)",
+//      "Fighting (Brawl)", a creature's "Fighting (Fighting)", ...
+//   2. Settle each category skill's value before assigning any weapon: the
+//      actor's own skill of that name, else the attack named for the category
+//      (a creature's "Fighting", a human's "Brawl"), else the most common value
+//      among the category's weapons (the first, on a tie).
+//   3. A weapon at that value uses the category skill. One at a different
+//      value — or whose name implies no category — uses a per-weapon
+//      "Fighting (weapon)" / "Firearms (weapon)" skill, so a printed
+//      percentage is never lost.
+//   4. Link the weapon to that skill by id, so the sheet doesn't prompt.
 async function attachCustomWeapons(
   actor: any,
   customWeapons: CustomWeapon[],
   indexes: CompendiumIndexes,
+  type: EntityType,
 ): Promise<void> {
   if (!customWeapons.length) return;
 
@@ -1006,7 +1071,69 @@ async function attachCustomWeapons(
   const newSkills: any[] = [];
   const resolved: { weapon: any; skill: any | null }[] = [];
 
-  for (const { weapon, value, ranged, thrown } of customWeapons) {
+  const named = (spec: string, skillName: string) => (s: any) =>
+    specOf(s) === spec &&
+    String(s?.system?.skillName ?? "").toLowerCase() ===
+      skillName.toLowerCase();
+  const find = (spec: string, skillName: string) =>
+    existing.find(named(spec, skillName)) ??
+    newSkills.find(named(spec, skillName));
+  const add = (spec: string, skillName: string, v: number, ranged: boolean) => {
+    const created = skillItem(
+      specName(spec, skillName),
+      v,
+      { special: true, fighting: !ranged, firearm: ranged, ranged },
+      indexes.skill,
+    );
+    newSkills.push(created);
+    return created;
+  };
+  const rounded = (value: number) => Math.max(0, Math.round(value));
+  // A thrown weapon has no category: if its value differs from Throw, it keeps
+  // its own skill.
+  const categoryOf = (w: CustomWeapon) =>
+    w.thrown || w.value == null
+      ? ""
+      : weaponCategory(w.weapon.name, w.ranged, type === "creature");
+
+  const groups = new Map<
+    string,
+    {
+      spec: string;
+      category: string;
+      ranged: boolean;
+      values: number[];
+      generic: number | null;
+    }
+  >();
+  for (const w of customWeapons) {
+    const category = categoryOf(w);
+    if (!category) continue;
+    const spec = specFor(w.ranged);
+    const key = `${spec}|${category}`;
+    const group = groups.get(key) ?? {
+      spec,
+      category,
+      ranged: w.ranged,
+      values: [],
+      generic: null,
+    };
+    const v = rounded(w.value!);
+    group.values.push(v);
+    if (
+      group.generic == null &&
+      w.weapon.name.trim().toLowerCase() === category.toLowerCase()
+    )
+      group.generic = v;
+    groups.set(key, group);
+  }
+  for (const g of groups.values()) {
+    if (find(g.spec, g.category)) continue;
+    add(g.spec, g.category, g.generic ?? mostCommon(g.values), g.ranged);
+  }
+
+  for (const w of customWeapons) {
+    const { weapon, value, ranged, thrown } = w;
     if (value == null) {
       resolved.push({ weapon, skill: null });
       continue;
@@ -1028,18 +1155,12 @@ async function attachCustomWeapons(
 
     if (!skill) {
       const spec = specFor(ranged);
+      const category = categoryOf(w);
+      const held = category ? find(spec, category) : null;
       skill =
-        existing.find((s: any) => specOf(s) === spec && baseOf(s) === v) ??
-        newSkills.find((s: any) => specOf(s) === spec && baseOf(s) === v);
-      if (!skill) {
-        skill = skillItem(
-          specName(spec, weapon.name),
-          v,
-          { special: true, fighting: !ranged, firearm: ranged, ranged },
-          indexes.skill,
-        );
-        newSkills.push(skill);
-      }
+        held && baseOf(held) === v
+          ? held
+          : (find(spec, weapon.name) ?? add(spec, weapon.name, v, ranged));
     }
     resolved.push({ weapon, skill });
   }

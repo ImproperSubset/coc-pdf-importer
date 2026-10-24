@@ -408,10 +408,7 @@ describe("importCharacters — items", () => {
       (i: any) => i.type === "weapon" && i.name === ".38 revolver",
     );
     assert.equal(rev.system.properties.rngd, true);
-    assert.equal(
-      item(a, "Firearms (.38 revolver)").system.properties.firearm,
-      true,
-    );
+    assert.equal(item(a, "Firearms (Handgun)").system.properties.firearm, true);
   });
 
   test("Dodge is a skill, not a weapon", async () => {
@@ -482,12 +479,12 @@ describe("importCharacters — items", () => {
     assert.equal(weapon.system.skill.main.name, "Firearms (lightning gun)");
   });
 
-  test("custom weapons with the same value and type share one skill", async () => {
+  test("custom weapons of one category at the same value share one skill", async () => {
     await importCharacters(
       [
         makeCharacter({
           combat: [
-            attack("lightning gun", { value: 50, damage: "2D6" }),
+            attack(".38 auto", { value: 50, damage: "1D10" }),
             attack("plasma pistol", { value: 50, damage: "1D10" }),
           ],
         }),
@@ -498,11 +495,188 @@ describe("importCharacters — items", () => {
     const firearms = a.items.filter(
       (i: any) => i.type === "skill" && i.system.specialization === "Firearms",
     );
-    assert.equal(firearms.length, 1, "one shared firearms skill");
+    assert.deepEqual(
+      firearms.map((f: any) => f.name),
+      ["Firearms (Handgun)"],
+    );
     const weapons = a.items.filter((i: any) => i.type === "weapon");
     assert.equal(weapons.length, 2);
     for (const w of weapons)
       assert.equal(w.system.skill.main.id, firearms[0].id);
+  });
+
+  // The backing skill name of each weapon on the first created actor.
+  const skillOf = (name: string) =>
+    created[0].items.find((i: any) => i.type === "weapon" && i.name === name)
+      ?.system.skill.main.name;
+  const skillBase = (name: string) =>
+    created[0].items.find((i: any) => i.type === "skill" && i.name === name)
+      ?.system.base;
+
+  test("custom firearms take the skill their category implies", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [
+            attack(".38 auto", { value: 45, damage: "1D10" }),
+            attack(".303 rifle", { value: 50, damage: "2D6+4" }),
+            attack("Thompson SMG", { value: 40, damage: "1D10+2" }),
+            attack("Lewis gun", { value: 30, damage: "2D6+4" }),
+            attack("Long bow", { value: 35, damage: "1D8" }),
+            attack("lightning gun", { value: 55, damage: "2D6" }),
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    assert.equal(skillOf(".38 auto"), "Firearms (Handgun)");
+    assert.equal(skillOf(".303 rifle"), "Firearms (Rifle/Shotgun)");
+    assert.equal(skillOf("Thompson SMG"), "Firearms (Submachine Gun)");
+    assert.equal(skillOf("Lewis gun"), "Firearms (Machine Gun)");
+    assert.equal(skillOf("Long bow"), "Firearms (Bow)");
+    assert.equal(skillOf("lightning gun"), "Firearms (lightning gun)"); // no category
+    const thompson = created[0].items.find(
+      (i: any) => i.type === "weapon" && i.name === "Thompson SMG",
+    );
+    assert.equal(thompson.system.properties.rngd, true); // a firearm, not melee
+  });
+
+  test("a human's custom melee weapons take their category or Brawl", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [
+            attack("Brawl", { value: 50, damage: "1D3" }),
+            attack("Knife", { value: 50, damage: "1D4" }),
+            attack("Cavalry sabre", { value: 40, damage: "1D8" }),
+            attack("Hatchet", { value: 35, damage: "1D6" }),
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    assert.equal(skillOf("Brawl"), "Fighting (Brawl)");
+    assert.equal(skillOf("Knife"), "Fighting (Brawl)");
+    assert.equal(skillOf("Cavalry sabre"), "Fighting (Sword)");
+    assert.equal(skillOf("Hatchet"), "Fighting (Axe)");
+  });
+
+  test("a custom weapon printed at a different value gets its own skill", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [
+            attack(".38 auto", { value: 45, damage: "1D10" }),
+            attack(".32 revolver", { value: 30, damage: "1D8" }),
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    assert.equal(skillOf(".38 auto"), "Firearms (Handgun)");
+    assert.equal(skillBase("Firearms (Handgun)"), "45");
+    assert.equal(skillOf(".32 revolver"), "Firearms (.32 revolver)");
+    assert.equal(skillBase("Firearms (.32 revolver)"), "30");
+  });
+
+  test("a creature's named attacks are separate weapons on its Fighting skill", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          sanityLoss: "1/1D6",
+          combat: [
+            attack("Bite", { value: 60, damage: "1D6" }),
+            attack("Swallow (mnvr)", { value: 60, damage: null }),
+            attack("Tail slam", { value: 60, damage: "8D6" }),
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    const weapons = created[0].items.filter((i: any) => i.type === "weapon");
+    assert.deepEqual(
+      weapons.map((w: any) => [w.name, w.system.range.normal.damage]),
+      [
+        ["Bite", "1D6"],
+        ["Swallow (mnvr)", ""],
+        ["Tail slam", "8D6"],
+      ],
+    );
+    for (const w of weapons)
+      assert.equal(w.system.skill.main.name, "Fighting (Fighting)");
+    const fighting = created[0].items.filter(
+      (i: any) => i.type === "skill" && i.system.specialization === "Fighting",
+    );
+    assert.equal(fighting.length, 1); // one shared skill, no "Fighting (Bite)"
+    assert.equal(fighting[0].system.base, "60");
+  });
+
+  test("a creature's generic Fighting attack sets the skill, wherever it is listed", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          sanityLoss: "1/1D6",
+          combat: [
+            attack("Crush", { value: 80, damage: "5D6" }),
+            attack("Fighting", { value: 75, damage: "2D6" }),
+            attack("Hold (mnvr)", { value: 75, damage: null }),
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    assert.equal(skillOf("Fighting"), "Fighting (Fighting)");
+    assert.equal(skillBase("Fighting (Fighting)"), "75");
+    assert.equal(skillOf("Hold (mnvr)"), "Fighting (Fighting)");
+    assert.equal(skillOf("Crush"), "Fighting (Crush)");
+    assert.equal(skillBase("Fighting (Crush)"), "80");
+  });
+
+  test("without a generic attack, the most common value sets the skill", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          sanityLoss: "1/1D6",
+          combat: [
+            attack("Bite", { value: 50, damage: "1D6" }),
+            attack("Claws", { value: 60, damage: "1D8" }),
+            attack("Tail", { value: 60, damage: "2D6" }),
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    assert.equal(skillBase("Fighting (Fighting)"), "60");
+    assert.equal(skillOf("Claws"), "Fighting (Fighting)");
+    assert.equal(skillOf("Tail"), "Fighting (Fighting)");
+    assert.equal(skillOf("Bite"), "Fighting (Bite)");
+  });
+
+  test("an attack printed as 'Fighting (X)' is a weapon named X", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          sanityLoss: "1/1D6",
+          combat: [attack("Fighting (Bite)", { value: 50, damage: "1D6" })],
+        }),
+        makeCharacter({
+          name: "Thug",
+          combat: [attack("Fighting (Brawl)", { value: 55, damage: "1D3" })],
+        }),
+      ],
+      { notify: false },
+    );
+    const bite = created[0].items.find((i: any) => i.type === "weapon");
+    assert.equal(bite.name, "Bite");
+    assert.equal(bite.system.skill.main.name, "Fighting (Fighting)");
+    const brawl = created[1].items.find((i: any) => i.type === "weapon");
+    assert.equal(brawl.name, "Brawl");
+    assert.equal(brawl.system.skill.main.name, "Fighting (Brawl)");
+    assert.ok(
+      !created[1].items.some(
+        (i: any) => i.name === "Fighting (Fighting (Brawl))",
+      ),
+    );
   });
 
   test("a custom weapon reuses a matching skill already on the actor", async () => {
