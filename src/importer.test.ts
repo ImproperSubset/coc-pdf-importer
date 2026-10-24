@@ -264,6 +264,24 @@ describe("importCharacters — system data", () => {
 });
 
 describe("importCharacters — entity type", () => {
+  test("NPCs and creatures are created locked", async () => {
+    await importCharacters(
+      [
+        makeCharacter({ name: "Thug" }),
+        makeCharacter({ name: "Monster", sanityLoss: "1/1D6" }),
+      ],
+      { notify: false },
+    );
+    assert.equal(
+      created.find((a) => a.name === "Thug").system.flags.locked,
+      true,
+    );
+    assert.equal(
+      created.find((a) => a.name === "Monster").system.flags.locked,
+      true,
+    );
+  });
+
   test("a Sanity-loss stat block is a creature; otherwise an NPC", async () => {
     await importCharacters(
       [

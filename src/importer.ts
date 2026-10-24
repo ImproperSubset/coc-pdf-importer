@@ -278,6 +278,9 @@ function buildActorSystem(
   // "special" (sanLoss / attacksPerRound) exists on npc/creature only, not on the
   // Investigator "character" type.
   if (type !== "character") system.special = {};
+  // An unlocked NPC/creature sheet shows every inventory section, empty or not;
+  // the system defaults these types unlocked (Investigators are locked).
+  if (type !== "character") system.flags = { locked: true };
 
   // STR/CON/SIZ/DEX/INT/APP/POW/EDU are characteristics; SAN/HP are attribs.
   const charMap: Record<string, string> = {
