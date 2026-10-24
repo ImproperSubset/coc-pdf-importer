@@ -2944,6 +2944,13 @@ function parseCombat(text: string): CombatEntry[] {
     "($1/$2)",
   );
 
+  // A misprinted comma between the half/fifth values ("Trample 75% (37,15)")
+  // would hide the whole attack; read it as the usual slash.
+  text = text.replace(
+    /(\d{1,3}\s*%\s*,?\s*)\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)/g,
+    "$1($2/$3)",
+  );
+
   // Drop the "Attacks per round" preamble (and any "up to N (...)" clause).
   text = text
     .replace(
@@ -3017,13 +3024,16 @@ function parseCombat(text: string): CombatEntry[] {
   // comma and a lowercase clause. Such a row bounds the damage before it.
   const maneuverName = String.raw`(?!DB\b)(?!\d)[A-Z][a-z][A-Za-z/'’-]*(?:\s[A-Z][a-z][A-Za-z/'’-]*){0,2}`;
   const maneuverRow = String.raw`${maneuverName}(?:\s*\([^),]*\))?\s*,\s*[a-z]`;
-  const damage = String.raw`(.+?)(?=\s+${nextAttack}|\s+${autoAttack}|\s+${maneuverRow}|\s+${dodgeStop}|\s+[•·●⁃]|(?<=\*)\s+\*|\.(?:\s|$)|${proseComma}|$)`;
+  // A maneuver row with no skill value but a damage ("Grab and Bite (mnvr)
+  // damage 1D6+6D6") also bounds the damage before it.
+  const bareManeuver = String.raw`[A-Z][A-Za-z'’ -]*?\s*\((?:mnvr|maneuver|fighting maneuver)\)\s*,?\s*damage\s+(?=\d)`;
+  const damage = String.raw`(.+?)(?=\s+${nextAttack}|\s+${autoAttack}|\s+${maneuverRow}|\s+${bareManeuver}|\s+${dodgeStop}|\s+[•·●⁃]|(?<=\*)\s+\*|\.(?:\s|$)|${proseComma}|$)`;
   // A maneuver profile carries a prose effect instead of "damage X" after its
   // "(half/fifth)" ("Garrote 45% (22/9), mnvr. to escape or suffer 1D6 damage
   // per round"). Capture that clause as the note. It runs to the next attack /
   // Dodge / end — not to a sentence period, since it can hold an abbreviation
   // ("mnvr.").
-  const maneuverNote = String.raw`(?!damage\b)(.+?)(?=\s+${nextAttack}|\s+${autoAttack}|\s+${dodgeStop}|$)`;
+  const maneuverNote = String.raw`(?!damage\b)(.+?)(?=\s+${nextAttack}|\s+${autoAttack}|\s+${bareManeuver}|\s+${dodgeStop}|$)`;
   // A "damage" field left blank by a print error ("... 45% (22/9), damage
   // Thompson SMG 65% ...") — the value is missing before the next attack. Match
   // an empty damage so it reads as null (the importer then fills it in from the
@@ -3048,8 +3058,10 @@ function parseCombat(text: string): CombatEntry[] {
   // The effect clause of a maneuver row without a skill value, up to the row
   // that follows.
   const rowEffect = String.raw`([a-z][^%]{2,120}?)(?=\s+${nextAttack}|\s+${autoAttack}|\s+${maneuverRow}|\s+${dodgeStop}|\.(?:\s|$)|$)`;
+  // A name never starts inside a dice term ("2D6+6D6 Dodge" is not an attack
+  // named "D6+6D6 Dodge").
   const re = new RegExp(
-    String.raw`(${attackName})(?:\s+(?:(\d{1,3})\s*%?\s*,?\s*(?:\(\s*(\d{1,3})\s*\/\s*(\d{1,3})\s*\)(?:\s*,?\s*damage\s+${damageOrBlank}|\s*,\s*${maneuverNote})?|damage\s+${damage})|damage\s+(?=\d)${damage}|[Aa]utomatic\b${autoCondition}(?:\s*,?\s*damage[,]?\s+${damage}|\s*,\s*${autoEffect}))|\s*,\s*(?:(?:([a-z][^,%]{1,60}?),\s*)?damage\s+(?=\d)${damage}|${rowEffect}))`,
+    String.raw`(?<![0-9+])(?<![0-9][dD])(${attackName})(?:\s+(?:(\d{1,3})\s*%?\s*,?\s*(?:\(\s*(\d{1,3})\s*\/\s*(\d{1,3})\s*\)(?:\s*,?\s*damage\s+${damageOrBlank}|\s*,\s*${maneuverNote})?|damage\s+${damage})|damage\s+(?=\d)${damage}|[Aa]utomatic\b${autoCondition}(?:\s*,?\s*damage[,]?\s+${damage}|\s*,\s*${autoEffect}))|\s*,\s*(?:(?:([a-z][^,%]{1,60}?),\s*)?damage\s+(?=\d)${damage}|${rowEffect}))`,
     "g",
   );
 

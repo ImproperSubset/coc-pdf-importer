@@ -157,6 +157,42 @@ describe("parseCocCharacters (unit)", () => {
     assert.equal(c.attacksPerRound, "up to 4 (1D4 lash or 1 consume)");
   });
 
+  test("a comma between half/fifth values still reads the attack", () => {
+    const [c] = parseCocCharacters(
+      "The Thing, horror STR 70 CON 70 SIZ 90 DEX 80 INT 80 APP 50 POW 100 EDU 50 SAN 50 HP 16 " +
+        "DB: +3D6 Build: 4 Move: 9 MP: 20 Combat Attacks per round: 1 " +
+        "Charge 45% (22/9), damage 2D6 + 3D6 + knockdown " +
+        "Trample 75% (37,15), damage 3D6 + 3D6 (to downed foe only) Dodge 17% (8/3)",
+    );
+    assert.deepEqual(
+      c.combat.map((a) => [a.name, a.value, a.half, a.fifth, a.damage]),
+      [
+        ["Charge", 45, 22, 9, "2D6+3D6 + knockdown"],
+        ["Trample", 75, 37, 15, "3D6+3D6"],
+        ["Dodge", 17, 8, 3, null],
+      ],
+    );
+  });
+
+  test("a maneuver with no value but a damage ends the attack before it", () => {
+    const [c] = parseCocCharacters(
+      "The Thing, horror STR 70 CON 70 SIZ 90 DEX 80 INT 80 APP 50 POW 100 EDU 50 SAN 50 HP 16 " +
+        "DB: +6D6 Build: 7 Move: 9 MP: 20 Combat Attacks per round: 1 " +
+        "Fighting 50% (25/10), damage 2D6 + 6D6, or kick 1D6 + 6D6 (thrown 2D10 yards) " +
+        "Grab and Bite (mnvr) damage 1D6 + 6D6, following round automatic bite 2D6 + 6D6 " +
+        "Dodge 40% (20/8)",
+    );
+    assert.deepEqual(
+      c.combat.map((a) => [a.name, a.value, a.damage]),
+      [
+        ["Fighting", 50, "2D6+6D6"],
+        ["Kick", 50, "1D6+6D6"],
+        ["Grab and Bite (mnvr)", null, "1D6+6D6"],
+        ["Dodge", 40, null],
+      ],
+    );
+  });
+
   test("attack names shed prose/range/count that bled in from the prior attack", () => {
     const [c] = parseCocCharacters(
       "The Thing, horror STR 70 CON 70 SIZ 90 DEX 80 INT 80 APP 50 POW 100 EDU 50 SAN 50 HP 16 " +

@@ -670,6 +670,22 @@ describe("importCharacters — items", () => {
     assert.equal(skillOf("Bite"), "Fighting (Bite)");
   });
 
+  test("an attack with no printed value uses the category skill", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          sanityLoss: "1/1D6",
+          combat: [
+            attack("Fighting", { value: 50, damage: "2D6" }),
+            attack("Grab and Bite (mnvr)", { value: null, damage: "1D6" }),
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    assert.equal(skillOf("Grab and Bite (mnvr)"), "Fighting (Fighting)");
+  });
+
   test("an attack printed as 'Fighting (X)' is a weapon named X", async () => {
     await importCharacters(
       [
