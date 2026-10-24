@@ -146,8 +146,5 @@ contents page's sections and gives each actor its `page` and `chapter`.
 - Give imported actors CoC IDs (`a.creature.<kebab-name>`); first check how
   CoC7 resolves an id shared with a Core Content creature.
 - Harden `release.yml`: pin actions to commit SHAs, `persist-credentials: false`.
-- A spell's description can run on into the next appendix (Two-Headed
-  Serpent's Skinwalking takes in the Hybridization appendix), and subheadings
-  inside an entry ("Function") stay glued to the paragraph before them.
 - Spell lists can run on into the following sentence (the Gospel of Yig's).
 - Remove the deprecated `includeCoAuthoredBy` from the operator's settings.

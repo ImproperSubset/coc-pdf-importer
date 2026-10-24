@@ -2681,6 +2681,23 @@ describe("paragraphs", () => {
     assert.match(paras[3], /^After a wider gap/);
   });
 
+  test("a subheading slightly larger than body text starts a paragraph", () => {
+    const withHeading = [
+      line(700, "A plain full line of body text to set the column edge at"),
+      line(688, "the left margin, and it ends this short paragraph here."),
+      line(665, "Purpose", 66, 40, 11),
+      line(652, "The device described here serves a purpose of its own"),
+      line(640, "and carries on to the end of this test paragraph, too."),
+    ];
+    const starts = paragraphStarts([withHeading]);
+    const text = withHeading.map((l) => l.str).join(" ");
+    const paras = markParagraphs(text, starts).split("\n\n");
+    assert.deepEqual(
+      paras.map((p) => p.split(" ")[0]),
+      ["A", "Purpose", "The"],
+    );
+  });
+
   test("a continuation of an indented bullet line is not a start", () => {
     const bullets = [
       line(700, "A plain full line of body text to set the column edge at"),

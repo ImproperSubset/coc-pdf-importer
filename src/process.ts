@@ -4066,6 +4066,17 @@ export function paragraphStarts(pages: RawItem[][]): Set<string> {
   const allLines = pages.map(pageLines);
   const bodyHeight = modeOf(allLines.flat().map((l) => l.height));
   const squash = (t: string) => t.replace(/\s+/g, " ").trim();
+  // Record the paragraph opening at lines[i]: its first characters, as the
+  // parsed text spells them (raw and normalized).
+  const record = (lines: PageLine[], i: number) => {
+    let text = "";
+    for (let j = i; j < lines.length && text.length < PARAGRAPH_SNIPPET; j++)
+      text += " " + lines[j].text;
+    text = squash(text);
+    if (text.length < PARAGRAPH_SNIPPET) return;
+    starts.add(text.slice(0, PARAGRAPH_SNIPPET));
+    starts.add(squash(normalizeText(text)).slice(0, PARAGRAPH_SNIPPET));
+  };
   for (const lines of allLines) {
     const body = lines.filter((l) => l.height === bodyHeight);
     const width = (l: PageLine) => l.right - l.x;
@@ -4103,14 +4114,21 @@ export function paragraphStarts(pages: RawItem[][]): Set<string> {
         /^[“"‘A-Z0-9]/.test(cur.text.trim());
       const afterGap = dy > 1.6 * leading;
       if (!indented && !afterShort && !afterGap) continue;
-      let text = "";
-      for (let j = i; j < body.length && text.length < PARAGRAPH_SNIPPET; j++)
-        text += " " + body[j].text;
-      text = squash(text);
-      if (text.length < PARAGRAPH_SNIPPET) continue;
-      starts.add(text.slice(0, PARAGRAPH_SNIPPET));
-      starts.add(squash(normalizeText(text)).slice(0, PARAGRAPH_SNIPPET));
+      record(body, i);
     }
+    // A subheading inside a column ("Function"): a short line set a little
+    // larger than body text (entry titles are larger still) starts a paragraph
+    // of its own, before the body paragraph that follows it.
+    lines.forEach((l, i) => {
+      if (
+        bodyHeight !== undefined &&
+        l.height > bodyHeight &&
+        l.height <= bodyHeight * 1.5 &&
+        width(l) < columnWidth / 2 &&
+        columnOf(l) !== undefined
+      )
+        record(lines, i);
+    });
   }
   return starts;
 }
