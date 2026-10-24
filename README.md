@@ -106,7 +106,7 @@ Appendices B–D), or that print appendix-style entries inline in their chapters
 1. Install the module from
 
    ```console
-   https://github.com/dgladkov/coc-pdf-importer/releases/latest/download/module.json
+   https://github.com/ImproperSubset/coc-pdf-importer/releases/latest/download/module.json
    ```
 
 2. Go to Settings → Game Settings → Call of Cthulhu PDF Importer → Import button
@@ -239,6 +239,12 @@ Without the worker shim, text extraction silently truncates glyph runs.
 7-Zip must be installed (`7z` or `7zz` on PATH).
 
 ### Releasing
+
+Versions are `<upstream>-hh-<n>`: the upstream
+([dgladkov/coc-pdf-importer](https://github.com/dgladkov/coc-pdf-importer))
+version the code is based on, then this fork's release count on that base,
+starting at 1 (`1.1.2-hh-1`, `1.1.2-hh-2`, …). A push whose `module.json`
+carries a bare upstream version never cuts a release.
 
 Pushing a `Release <version>` commit to `main` (see `npm run release`) runs the
 release workflow, which tags the version, builds the module, and creates the

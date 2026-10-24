@@ -2,7 +2,11 @@
 //
 //   npm run release
 //
-// Shows the current version, prompts for the new one (default: next patch),
+// Versions are "<upstream>-hh-<n>": the upstream version the code is based on,
+// then a count of this fork's releases on that base, starting at 1.
+//
+// Shows the current version, prompts for the new one (default: the next
+// release on the current base),
 // then writes it to module.json (with `download` pointed at the versioned
 // asset URL), package.json and package-lock.json, and commits them as
 // "Release <version>" — the shape the release workflow detects. Nothing is pushed or tagged here: push
@@ -47,7 +51,8 @@ async function ask(prompt) {
 const MODULE = "module.json";
 const PACKAGE = "package.json";
 const LOCK = "package-lock.json";
-const SEMVER = /^\d+\.\d+\.\d+$/;
+const VERSION = /^(\d+\.\d+\.\d+)-hh-(\d+)$/;
+const UPSTREAM = /^\d+\.\d+\.\d+$/;
 
 function git(...args) {
   return execFileSync("git", args, { encoding: "utf8" }).trim();
@@ -58,16 +63,26 @@ function fail(message) {
   process.exit(1);
 }
 
+// Compare "<upstream>-hh-<n>" or bare upstream versions: upstream part first,
+// then the fork count (a bare upstream version counts as 0).
 function compareVersions(a, b) {
-  const pa = a.split(".").map(Number);
-  const pb = b.split(".").map(Number);
-  for (let i = 0; i < 3; i++) if (pa[i] !== pb[i]) return pa[i] - pb[i];
+  const parts = (v) => {
+    const [base, n = "0"] = v.split("-hh-");
+    return [...base.split(".").map(Number), Number(n)];
+  };
+  const pa = parts(a);
+  const pb = parts(b);
+  for (let i = 0; i < 4; i++) if (pa[i] !== pb[i]) return pa[i] - pb[i];
   return 0;
 }
 
-function nextPatch(version) {
-  const [major, minor, patch] = version.split(".").map(Number);
-  return `${major}.${minor}.${patch + 1}`;
+// The next release on the current base: "1.1.2-hh-1" -> "1.1.2-hh-2"; a bare
+// upstream version "1.1.2" -> "1.1.2-hh-1".
+function nextRelease(version) {
+  const m = VERSION.exec(version);
+  if (m) return `${m[1]}-hh-${Number(m[2]) + 1}`;
+  if (UPSTREAM.test(version)) return `${version}-hh-1`;
+  return "";
 }
 
 // Rewrite one top-level "key": "value" line in place, keeping the file's
@@ -119,13 +134,15 @@ console.log(
   `Current version: ${current}` +
     (pkg.version !== current ? ` (package.json says ${pkg.version})` : ""),
 );
-const suggested = nextPatch(current);
-const answer = await ask(`New version [${suggested}]: `);
+const suggested = nextRelease(current);
+const answer = await ask(
+  suggested ? `New version [${suggested}]: ` : "New version: ",
+);
 if (answer === null) fail("Aborted.");
 const version = answer || suggested;
 
-if (!SEMVER.test(version))
-  fail(`"${version}" is not a MAJOR.MINOR.PATCH version.`);
+if (!VERSION.test(version))
+  fail(`"${version}" is not an <upstream MAJOR.MINOR.PATCH>-hh-<n> version.`);
 if (version === current) fail(`${version} is already the current version.`);
 if (git("tag", "--list", version)) fail(`Tag ${version} already exists.`);
 if (compareVersions(version, current) < 0) {
