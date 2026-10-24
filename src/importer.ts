@@ -369,7 +369,9 @@ function buildActorSystem(
     system.backstory = backstoryHtml(character.background);
     system.biography = character.background.map((s) => ({
       title: s.title,
-      value: `<p>${escapeHtml(s.text)}</p>`,
+      value: /\n{2,}/.test(s.text)
+        ? paragraphsHtml(s.text)
+        : `<p>${escapeHtml(s.text)}</p>`,
     }));
   }
 
@@ -382,7 +384,7 @@ function backstoryHtml(sections: BackgroundSection[]): string {
   const block = sections
     .map(
       (s) =>
-        `<h3>${escapeHtml(s.title)}</h3>\n<div>\n${escapeHtml(s.text)}\n</div>`,
+        `<h3>${escapeHtml(s.title)}</h3>\n<div>\n${paragraphsHtml(s.text)}\n</div>`,
     )
     .join("\n");
   return `<h2>Backstory</h2>\n${block}`;
@@ -1617,8 +1619,9 @@ function notesToHtml(character: CocCharacter, type: EntityType): string {
   if (character.sanityLoss) parts.push(`Sanity loss: ${character.sanityLoss}`);
   for (const note of character.notes) parts.push(note);
   let html = parts
-    .filter(Boolean)
-    .map((p) => `<p>${escapeHtml(p)}</p>`)
+    .flatMap((p) => p.split(/\n{2,}/))
+    .filter((p) => p.trim())
+    .map((p) => `<p>${escapeHtml(p.trim())}</p>`)
     .join("");
   // A non-investigator (NPC/creature) has no backstory/biography on its sheet,
   // so its background sections would otherwise be dropped. Keep them in the
@@ -1627,6 +1630,17 @@ function notesToHtml(character: CocCharacter, type: EntityType): string {
     html += backstoryHtml(character.background);
   }
   return html;
+}
+
+// Text with blank-line paragraph breaks (marked by the parser) as <p>
+// paragraphs; text without them is left as escaped plain text.
+function paragraphsHtml(text: string): string {
+  if (!/\n{2,}/.test(text)) return escapeHtml(text);
+  return text
+    .split(/\n{2,}/)
+    .filter((p) => p.trim())
+    .map((p) => `<p>${escapeHtml(p.trim())}</p>`)
+    .join("");
 }
 
 function escapeHtml(text: string): string {

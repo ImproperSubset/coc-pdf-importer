@@ -1980,6 +1980,27 @@ describe("importCharacters — source citation", () => {
   });
 });
 
+describe("importCharacters — paragraphs", () => {
+  test("an investigator's background sections keep their paragraphs", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          age: 30,
+          background: [
+            { title: "Personal Description", text: "Tall.\n\nQuiet." },
+            { title: "Significant People", text: "A friend." },
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    const bio = created[0].system.biography;
+    assert.equal(bio[0].value, "<p>Tall.</p><p>Quiet.</p>");
+    assert.equal(bio[1].value, "<p>A friend.</p>");
+    assert.match(created[0].system.backstory, /<p>Tall\.<\/p><p>Quiet\.<\/p>/);
+  });
+});
+
 describe("importCharacters — chapter folders", () => {
   const folderNamed = (name: string) => folders.find((f) => f.name === name);
   const parentId = (f: any) => f?.folder?.id ?? f?.folder ?? null;

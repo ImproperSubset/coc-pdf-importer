@@ -51,11 +51,20 @@ function escapeHtml(text: string): string {
     .replace(/>/g, "&gt;");
 }
 
+// Each part as one or more <p> paragraphs: a blank line ("\n\n", marked by the
+// parser where the book starts a paragraph) separates paragraphs within a part.
 function paragraphs(parts: string[]): string {
   return parts
-    .filter((p) => p && p.trim())
+    .flatMap((p) => (p ?? "").split(/\n{2,}/))
+    .filter((p) => p.trim())
     .map((p) => `<p>${escapeHtml(p.trim())}</p>`)
     .join("");
+}
+
+// A talent's or archetype's description: unwrapped escaped text, as the
+// system's own items store it, unless it has paragraphs.
+function descriptionHtml(text: string): string {
+  return /\n{2,}/.test(text) ? paragraphs([text]) : escapeHtml(text);
 }
 
 // Resolve a skill name to its CoCID, mirroring CoC7Utilities.toKebabCase so
@@ -79,7 +88,11 @@ function talentDoc(t: PulpTalent, source: string): any {
     type: "talent",
     system: {
       source,
-      description: { value: escapeHtml(t.description), notes: "", keeper: "" },
+      description: {
+        value: descriptionHtml(t.description),
+        notes: "",
+        keeper: "",
+      },
       type,
       adjustments: [],
     },
@@ -96,7 +109,7 @@ function archetypeDoc(a: PulpArchetype, source: string): any {
     name: a.name,
     type: "archetype",
     system: {
-      description: { value: escapeHtml(a.description), keeper: "" },
+      description: { value: descriptionHtml(a.description), keeper: "" },
       source,
       bonusPoints: a.bonusPoints,
       coreCharacteristics,

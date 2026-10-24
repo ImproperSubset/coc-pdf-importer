@@ -11,6 +11,8 @@ import {
   printedPageOffset,
   locateItemPages,
   joinLigatureSplits,
+  paragraphStarts,
+  markParagraphs,
 } from "./process.ts";
 
 describe("parseCocCharacters (unit)", () => {
@@ -2624,5 +2626,80 @@ describe("joinLigatureSplits", () => {
         "unf inished, half life",
       ],
     );
+  });
+});
+
+describe("paragraphs", () => {
+  // A one-column page: 216pt-wide lines at x=66, 12pt apart.
+  const line = (y: number, text: string, x = 66, w = 216, height = 9) => ({
+    str: text,
+    font: "f",
+    height,
+    eol: true,
+    x,
+    y,
+    w,
+  });
+  const page = [
+    line(700, "TEST HEADING", 66, 80, 14),
+    line(680, "The first paragraph opens here with words enough to"),
+    line(668, "fill a line, and it carries on to the end of this"),
+    line(656, "sentence.", 66, 40), // a short last line
+    line(644, "Another paragraph follows after that short line, and"),
+    line(632, "it also runs across two lines before it ends here."),
+    line(
+      620,
+      "An indented paragraph begins on this third line, which",
+      75,
+      207,
+    ),
+    line(608, "wraps once more before it finishes, as lines do in"),
+    line(596, "books; the bullet list below must not be broken up."),
+    line(572, "After a wider gap, a fresh paragraph begins on this"),
+    line(560, "line and closes the page with a final full stop here."),
+  ];
+
+  test("starts are found from indents, short lines and wider gaps", () => {
+    const starts = paragraphStarts([page]);
+    assert.ok(starts.has("Another paragraph follows after "));
+    assert.ok(starts.has("An indented paragraph begins on "));
+    assert.ok(starts.has("After a wider gap, a fresh parag"));
+    assert.ok(!starts.has("fill a line, and it carries on t"));
+  });
+
+  test("a parsed text gets a blank line before each start", () => {
+    const starts = paragraphStarts([page]);
+    const text = page
+      .slice(1)
+      .map((l) => l.str)
+      .join(" ");
+    const paras = markParagraphs(text, starts).split("\n\n");
+    assert.equal(paras.length, 4);
+    assert.match(paras[0], /^The first paragraph/);
+    assert.match(paras[1], /^Another paragraph/);
+    assert.match(paras[2], /^An indented paragraph/);
+    assert.match(paras[3], /^After a wider gap/);
+  });
+
+  test("a continuation of an indented bullet line is not a start", () => {
+    const bullets = [
+      line(700, "A plain full line of body text to set the column edge at"),
+      line(688, "the left margin, wide enough to count as a full line too."),
+      line(
+        676,
+        "• A bullet item whose text runs right across the column",
+        70,
+        212,
+      ),
+      line(
+        664,
+        "continues here, indented to the bullet's own text edge.",
+        78,
+        150,
+      ),
+      line(652, "A last full line closes the test page with its own words."),
+    ];
+    const starts = paragraphStarts([bullets]);
+    assert.ok(!starts.has("continues here, indented to the "));
   });
 });

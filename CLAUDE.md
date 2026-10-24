@@ -70,9 +70,14 @@ its architecture; this file holds what a session needs beyond it.
 
 ## How it reads PDFs
 
-pdf.js `getTextContent()` per page; each text item keeps only its string, font
-name, height (font size) and end-of-line flag — not its x/y position, so reading
-order is the PDF's content order. The actor parser merges items into font/height
+pdf.js `getTextContent()` per page; each text item keeps its string, font name,
+height (font size), end-of-line flag, and x/y/width. Reading order is the
+PDF's content order. The books are not tagged PDFs (no structure tree), so
+paragraph starts are read from the layout (`paragraphStarts`: an indented body
+line, a line after a short sentence-ending line, or a wider gap) and marked as
+blank lines in parsed descriptions, notes and backgrounds (`markParagraphs`);
+the importer renders them as `<p>` paragraphs. Ligature-split words ("Kornf
+ield") are joined when the document prints the word whole elsewhere. The actor parser merges items into font/height
 runs, strips running headers and footers (non-body runs repeated on 8+ pages),
 finds stat blocks by their `STR … CON` run and recovers names from heading
 sizes. The item parsers read the whole document as one flattened string.
@@ -141,7 +146,8 @@ contents page's sections and gives each actor its `page` and `chapter`.
 - Give imported actors CoC IDs (`a.creature.<kebab-name>`); first check how
   CoC7 resolves an id shared with a Core Content creature.
 - Harden `release.yml`: pin actions to commit SHAs, `persist-credentials: false`.
-- PDF ligature splits ("Kornf ield", "unf inished", "Brief ing") are not joined
-  generally.
+- A spell's description can run on into the next appendix (Two-Headed
+  Serpent's Skinwalking takes in the Hybridization appendix), and subheadings
+  inside an entry ("Function") stay glued to the paragraph before them.
 - Spell lists can run on into the following sentence (the Gospel of Yig's).
 - Remove the deprecated `includeCoAuthoredBy` from the operator's settings.

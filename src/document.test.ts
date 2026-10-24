@@ -590,6 +590,24 @@ describe("createPulpItems", () => {
     );
   });
 
+  test("paragraph breaks in a description become separate paragraphs", async () => {
+    await createPulpItems(
+      [
+        { ...talent("Alpha"), description: "First part.\n\nSecond part." },
+        talent("Bravo"),
+      ],
+      { folderName: "Book", notify: false },
+    );
+    assert.equal(
+      created.find((i) => i.name === "Alpha").system.description.value,
+      "<p>First part.</p><p>Second part.</p>",
+    );
+    assert.equal(
+      created.find((i) => i.name === "Bravo").system.description.value,
+      "x.",
+    );
+  });
+
   test("files spells, tomes, and artefacts into typed subfolders", async () => {
     await createPulpItems(
       [

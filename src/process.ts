@@ -3689,6 +3689,9 @@ interface RawItem {
   font: string;
   height: number;
   eol: boolean;
+  x: number; // left edge, in PDF points
+  y: number; // baseline, in PDF points (up is larger)
+  w: number; // width, in PDF points
 }
 
 async function processPage(
@@ -3702,6 +3705,8 @@ async function processPage(
       str?: string;
       fontName?: string;
       height?: number;
+      width?: number;
+      transform?: number[];
       hasEOL?: boolean;
     };
     return {
@@ -3709,6 +3714,9 @@ async function processPage(
       font: item.fontName ?? "",
       height: Math.round((item.height ?? 0) * 10) / 10,
       eol: item.hasEOL ?? false,
+      x: item.transform?.[4] ?? 0,
+      y: item.transform?.[5] ?? 0,
+      w: item.width ?? 0,
     };
   });
 }
@@ -3994,6 +4002,129 @@ export function locateItemPages(
   }
 }
 
+// --- paragraphs --------------------------------------------------------------
+
+// The extracted text carries no paragraph structure (the books are not tagged
+// PDFs), so paragraph starts are read from the layout: a body line that is
+// indented from its column's left edge, follows a short line ending a
+// sentence, or follows a wider gap than the page's line spacing. Each start is
+// recorded by its opening characters, which markParagraphs later finds in the
+// parsed text.
+const PARAGRAPH_SNIPPET = 32;
+
+interface PageLine {
+  x: number;
+  y: number;
+  right: number;
+  height: number;
+  text: string;
+}
+
+function pageLines(items: RawItem[]): PageLine[] {
+  const lines: PageLine[] = [];
+  let line: PageLine | null = null;
+  let broken = true;
+  for (const it of items) {
+    if (it.str.trim()) {
+      if (!line || broken || Math.abs(it.y - line.y) > 1) {
+        line = {
+          x: it.x,
+          y: it.y,
+          right: it.x + it.w,
+          height: it.height,
+          text: it.str,
+        };
+        lines.push(line);
+      } else {
+        line.text += " " + it.str;
+        line.right = Math.max(line.right, it.x + it.w);
+        line.height = Math.max(line.height, it.height);
+      }
+      broken = false;
+    }
+    if (it.eol) broken = true;
+  }
+  return lines;
+}
+
+function modeOf(values: number[]): number | undefined {
+  const tally = new Map<number, number>();
+  for (const v of values) tally.set(v, (tally.get(v) ?? 0) + 1);
+  let best: number | undefined;
+  let count = 0;
+  for (const [v, c] of tally) if (c > count) [best, count] = [v, c];
+  return best;
+}
+
+export function paragraphStarts(pages: RawItem[][]): Set<string> {
+  const starts = new Set<string>();
+  const allLines = pages.map(pageLines);
+  const bodyHeight = modeOf(allLines.flat().map((l) => l.height));
+  const squash = (t: string) => t.replace(/\s+/g, " ").trim();
+  for (const lines of allLines) {
+    const body = lines.filter((l) => l.height === bodyHeight);
+    const width = (l: PageLine) => l.right - l.x;
+    const maxWidth = Math.max(0, ...body.map(width));
+    const full = body.filter((l) => width(l) >= 0.9 * maxWidth);
+    if (full.length < 3) continue;
+    const columnWidth = full.map(width).sort((a, b) => a - b)[
+      Math.floor(full.length / 2)
+    ];
+    // A column's left edge is the leftmost of the full lines starting near it:
+    // bullet lines and indented first lines can be nearly full width too.
+    const columns: number[] = [];
+    for (const x of full.map((l) => l.x).sort((a, b) => a - b))
+      if (!columns.length || x - columns[columns.length - 1] > 20)
+        columns.push(x);
+    const columnOf = (l: PageLine) =>
+      columns.find((c) => l.x >= c - 2 && l.x <= c + 20);
+    const leading =
+      modeOf(
+        body
+          .slice(1)
+          .map((l, i) => Math.round((body[i].y - l.y) * 2) / 2)
+          .filter((dy) => dy > 0),
+      ) ?? (bodyHeight ?? 10) * 1.3;
+    for (let i = 1; i < body.length; i++) {
+      const [prev, cur] = [body[i - 1], body[i]];
+      const column = columnOf(cur);
+      if (column === undefined || columnOf(prev) !== column) continue;
+      const dy = prev.y - cur.y;
+      if (dy <= 0) continue;
+      const indented = cur.x - column >= 4 && prev.x - column < 2;
+      const afterShort =
+        prev.right < column + columnWidth - 25 &&
+        /[.!?:”"’)]$/.test(prev.text.trim()) &&
+        /^[“"‘A-Z0-9]/.test(cur.text.trim());
+      const afterGap = dy > 1.6 * leading;
+      if (!indented && !afterShort && !afterGap) continue;
+      let text = "";
+      for (let j = i; j < body.length && text.length < PARAGRAPH_SNIPPET; j++)
+        text += " " + body[j].text;
+      text = squash(text);
+      if (text.length < PARAGRAPH_SNIPPET) continue;
+      starts.add(text.slice(0, PARAGRAPH_SNIPPET));
+      starts.add(squash(normalizeText(text)).slice(0, PARAGRAPH_SNIPPET));
+    }
+  }
+  return starts;
+}
+
+// Mark the paragraph breaks in a parsed text: a space before a recorded
+// paragraph start becomes a blank line ("\n\n").
+export function markParagraphs(text: string, starts: Set<string>): string {
+  if (!text || !starts.size) return text;
+  let out = "";
+  let from = 0;
+  for (let i = 1; i < text.length; i++) {
+    if (text[i - 1] !== " ") continue;
+    if (!starts.has(text.slice(i, i + PARAGRAPH_SNIPPET))) continue;
+    out += text.slice(from, i - 1) + "\n\n";
+    from = i;
+  }
+  return out + text.slice(from);
+}
+
 // The title of the section a PDF page falls in, or "" when none does.
 export function sectionOfPage(
   sections: { title: string; page: number }[],
@@ -4035,6 +4166,18 @@ export async function processPDF(data: Uint8Array): Promise<ProcessedDocument> {
   for (const item of items) {
     const printedPage = printed(item.page);
     if (printedPage) item.printedPage = printedPage;
+  }
+  const starts = paragraphStarts(pageItems);
+  for (const item of items) {
+    const entry = item as unknown as Record<string, unknown>;
+    for (const key of ["description", "keeper", "relevance"])
+      if (typeof entry[key] === "string")
+        entry[key] = markParagraphs(entry[key] as string, starts);
+  }
+  for (const actor of actors) {
+    actor.notes = actor.notes.map((n) => markParagraphs(n, starts));
+    for (const section of actor.background)
+      section.text = markParagraphs(section.text, starts);
   }
   return { actors, items };
 }
