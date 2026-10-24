@@ -1,3 +1,4 @@
+import { CORRECTIONS, applyCorrections, bookCode } from "./errata.ts";
 import * as pdfjs from "pdfjs-dist";
 import { parsePulpItems } from "./pulp.ts";
 import type { PulpItem } from "./pulp.ts";
@@ -4163,7 +4164,11 @@ export function sectionOfPage(
 // page once into the shared page-item representation, then runs the actor parser
 // and the (Foundry-free) item parser over it independently. Neither this nor the
 // parsers touch Foundry — turning items into world documents is the importer's job.
-export async function processPDF(data: Uint8Array): Promise<ProcessedDocument> {
+// With the PDF's file name, the book's corrections (errata.ts) are applied.
+export async function processPDF(
+  data: Uint8Array,
+  options: { fileName?: string } = {},
+): Promise<ProcessedDocument> {
   const pageItems = await extractPages(data);
   const text = pagesToText(pageItems);
   const actors = parseActors(pageItems);
@@ -4208,5 +4213,11 @@ export async function processPDF(data: Uint8Array): Promise<ProcessedDocument> {
     for (const section of actor.background)
       section.text = markParagraphs(section.text, starts);
   }
+  const corrections = CORRECTIONS[bookCode(options.fileName ?? "")];
+  if (corrections)
+    for (const c of applyCorrections(corrections, actors, items))
+      console.warn(
+        `coc-pdf-importer: correction of "${c.printed}" applies nowhere in ${options.fileName}`,
+      );
   return { actors, items };
 }

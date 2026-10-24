@@ -85,6 +85,11 @@ content order.
   the whole document as one flattened string.
 - Book quirks are handled by general rules (commented with the book that
   motivated them), never by per-book switches.
+  The one per-book exception is content corrections (`src/errata.ts`, keyed
+  by the product code that starts the file name): published errata, and
+  readings of names a book misprints, each citing its source. They correct
+  what a book says, never how the parser reads it; `processPDF` applies them
+  when given the file name, and warns about one that applies nowhere.
 - The books are untagged PDFs: pdf.js's `getMarkInfo()` and `getStructTree()`
   give nothing, and pdf.js has no paragraph detection. Paragraph starts are
   read from the layout (`paragraphStarts`: an indented body line, a line after
@@ -203,6 +208,9 @@ content order.
 - A tome's Spells tab holds the spells its printed list names: the book's own
   spell as an embedded copy (of the created item, under its id), else a system
   spell by CoC ID. The Keeper notes' "Spells:" line stays as printed.
+- A corrected spell name takes the corrected name in the actor's or tome's
+  spell list, and its Keeper notes carry an "Errata:" line naming what was
+  printed and the source.
 - An actor's spell is a copy of the matched spell under that spell's name, so
   its CoC ID (which follows the name) is the system's; an unmatched one is a
   bare spell under the printed name.

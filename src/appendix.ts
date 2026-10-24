@@ -44,6 +44,8 @@ export interface AppendixTome {
   spells: string;
   /** Campaign chapter banner when present (Peru, Egypt, …). */
   region: string;
+  /** Notes on the book's corrected spell names (errata.ts). */
+  errata?: string[];
 }
 
 export interface AppendixArtefact {

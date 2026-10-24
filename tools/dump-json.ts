@@ -7,6 +7,7 @@
 //
 // Reads from fixtures/ (see fixtures/README.md); writes gitignored out/*.json.
 import fs from "node:fs/promises";
+import path from "node:path";
 import process from "node:process";
 import { processPDF } from "../src/process.ts";
 import { FIXTURES, OUT, pdfInputs, outPath } from "./fixtures.ts";
@@ -28,7 +29,9 @@ for (const input of inputs) {
     console.warn(`skip ${input} (not found)`);
     continue;
   }
-  const doc = await processPDF(new Uint8Array(buf));
+  const doc = await processPDF(new Uint8Array(buf), {
+    fileName: path.basename(input, ".pdf"),
+  });
   await fs.writeFile(output, JSON.stringify(doc, null, 2));
   console.log(
     output,

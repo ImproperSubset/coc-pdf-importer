@@ -253,6 +253,7 @@ function bookDoc(t: AppendixTome, source: string): any {
     t.link && `Link: ${t.link}`,
     t.relevance && `Relevance: ${t.relevance}`,
     t.spells && `Spells: ${t.spells}`,
+    ...(t.errata ?? []),
   ].filter(Boolean) as string[];
   const mythos =
     t.mythosRating > 0 ||
@@ -917,8 +918,8 @@ export async function importDocument(
   data: Uint8Array,
   options: ImportDocumentOptions = {},
 ): Promise<ImportDocumentResult> {
-  const { actors, items } = await processPDF(data);
   const sourceFile = options.folderName ?? "PDF Import";
+  const { actors, items } = await processPDF(data, { fileName: sourceFile });
   const title = options.bookTitle || bookTitleFromFileName(sourceFile);
   const actorResult = await importCharacters(actors, {
     folderName: title,

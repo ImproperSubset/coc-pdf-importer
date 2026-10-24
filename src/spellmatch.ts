@@ -28,6 +28,11 @@ function looseName(name: string): string {
     .join(" ");
 }
 
+// Whether two printed names are the same spell name, loosely.
+export function sameSpellName(a: string, b: string): boolean {
+  return looseName(a) === looseName(b);
+}
+
 // The names in a spell's "alternative names" text, when it is a list of names
 // ("The Salt Gift, Ye Watery Doom."); prose about naming gives none.
 export function alternativeNames(html: string): string[] {
