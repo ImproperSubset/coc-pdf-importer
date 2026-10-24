@@ -1,7 +1,7 @@
 import * as pdfjs from "pdfjs-dist";
 import { parsePulpItems } from "./pulp.ts";
 import type { PulpItem } from "./pulp.ts";
-import { parseAppendixItems } from "./appendix.ts";
+import { parseAppendixItems, SECTION_MARK } from "./appendix.ts";
 import { parseOldWestItems } from "./oldwest.ts";
 import type { OldWestItem } from "./oldwest.ts";
 
@@ -3756,10 +3756,15 @@ export function joinLigatureSplits(strings: string[]): string[] {
 // The full plain text of the document — every item's string joined, whitespace
 // collapsed. This is what the pulp item parser reads (headings, tables, and prose
 // in reading order; no font/height needed).
-function pagesToText(pageItems: RawItem[][]): string {
+function pagesToText(
+  pageItems: RawItem[][],
+  sectionPages: Set<number> = new Set(),
+): string {
   let out = "";
-  for (const items of pageItems)
+  pageItems.forEach((items, i) => {
+    if (sectionPages.has(i + 1)) out += " " + SECTION_MARK;
     out += " " + items.map((it) => it.str).join(" ");
+  });
   return out.replace(/\s+/g, " ").trim();
 }
 
@@ -4148,6 +4153,12 @@ export async function processPDF(data: Uint8Array): Promise<ProcessedDocument> {
     items.map((it) => it.str).join(" "),
   );
   const sections = parseBookSections(pageTexts);
+  // The appendix parsers end a section at the next book section (from the
+  // contents page), which they read as SECTION_MARK in their text.
+  const appendixText = pagesToText(
+    pageItems,
+    new Set(sections.map((s) => s.page)),
+  );
   const offset = printedPageOffset(pageTexts);
   const printed = (page: number | undefined) =>
     page && offset !== null && page - offset >= 1 ? page - offset : undefined;
@@ -4159,7 +4170,7 @@ export async function processPDF(data: Uint8Array): Promise<ProcessedDocument> {
   }
   const items: ((PulpItem | OldWestItem) & SourcePage)[] = [
     ...parsePulpItems(text),
-    ...parseAppendixItems(text),
+    ...parseAppendixItems(appendixText),
     ...parseOldWestItems(text),
   ];
   locateItemPages(items, pageTexts);

@@ -326,6 +326,23 @@ function findSpellsStart(text: string): number {
   return best;
 }
 
+// Where a book section from the contents page begins ("Appendix C:
+// Hybridization"): an appendix's own section never runs past it.
+export const SECTION_MARK = "\uE000";
+
+// The text from `start` to `end` (or the end of the text), cut at the first
+// section mark after `start`, with any other marks removed.
+function sliceToSection(raw: string, start: number, end: number): string {
+  let stop = end > 0 ? end : raw.length;
+  const mark = raw.indexOf(SECTION_MARK, start + 1);
+  if (mark >= 0 && mark < stop) stop = mark;
+  return withoutSectionMarks(raw.slice(start, stop));
+}
+
+function withoutSectionMarks(text: string): string {
+  return text.split(SECTION_MARK).join("");
+}
+
 function sliceAppendix(
   text: string,
   letter: string,
@@ -342,12 +359,11 @@ function sliceAppendix(
   if (letter === "B") {
     if (spellsStart < 0) return "";
     const end = nextBound(spellsStart, tomesStart, artefactsStart);
-    return raw.slice(spellsStart, end > 0 ? end : raw.length);
+    return sliceToSection(raw, spellsStart, end);
   }
   if (letter === "C") {
     const end = nextBound(tomesStart, artefactsStart, spellsStart);
-    const section =
-      tomesStart < 0 ? "" : raw.slice(tomesStart, end > 0 ? end : raw.length);
+    const section = tomesStart < 0 ? "" : sliceToSection(raw, tomesStart, end);
     if (/•\s*Sanity (?:Loss|Cost):/.test(section)) return section;
     // No tomes appendix (or only a banner without stat blocks — Innsmouth's
     // "The Deep Ones in Tomes" is a fiction bibliography) — but a book may
@@ -367,12 +383,12 @@ function sliceAppendix(
       if (lastTomeMeta(raw.slice(Math.max(0, m.index - 2500), m.index)))
         inline++;
     }
-    return inline >= 2 ? raw : "";
+    return inline >= 2 ? withoutSectionMarks(raw) : "";
   }
   if (letter === "D") {
     if (artefactsStart < 0) return "";
     const end = nextBound(artefactsStart, tomesStart, spellsStart);
-    return raw.slice(artefactsStart, end > 0 ? end : raw.length);
+    return sliceToSection(raw, artefactsStart, end);
   }
   return "";
 }

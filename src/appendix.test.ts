@@ -12,6 +12,7 @@ import {
   parseAppendixArtefacts,
   parseAppendixItems,
   isArtefactWeapon,
+  SECTION_MARK,
   splitArtefactBlurb,
 } from "./appendix.ts";
 
@@ -541,6 +542,23 @@ describe("parseAppendixTomes — inline entries (Innsmouth-style)", () => {
       "SAMPLE BOOKS An Account of Travels • Language: Spanish • Sanity Loss: 1D2 • Cthulhu Mythos: 0/1 point • Mythos Rating: 3% • Study: 4 weeks • Spells: none • Skill Points: none. " +
       "Myths and Legends • Language: Spanish • Sanity Loss: 1D3 • Cthulhu Mythos: 1/2 points • Mythos Rating: 9% • Study: 5 weeks • Spells: none • Skill Points: none.";
     assert.deepEqual(parseAppendixTomes(ddt), []);
+  });
+});
+
+describe("parseAppendixSpells — section boundary", () => {
+  test("the last spell ends where the next book section begins", () => {
+    const spells = parseAppendixSpells(`
+APPENDIX B
+NEW SPELLS
+TEST WARD
+ • Cost: 4 magic points
+ • Casting time: 1 round
+A shimmering ward rises around the caster.
+${SECTION_MARK} APPENDIX C TEST PROCEDURES
+An unrelated procedure that is not part of any spell.
+`);
+    assert.equal(spells.length, 1);
+    assert.match(spells[0].description, /ward rises around the caster\.$/);
   });
 });
 
