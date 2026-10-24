@@ -28,6 +28,7 @@ const FILES = [
   "CHA23196_Call_of_Cthulhu_Innsmouth",
   "The Two-Headed Serpent - Keeper Reference Booklet",
   "The Two-Headed Serpent",
+  "cha23125_-_the_two-headed_serpent_v1.2",
 ];
 
 async function readOrNull(path: string): Promise<Buffer | null> {
