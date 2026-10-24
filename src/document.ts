@@ -493,18 +493,19 @@ export interface CreatePulpItemsOptions {
 
 export interface CreatePulpItemsResult {
   created: number;
+  failed: number;
   items: any[];
 }
 
 // Build and create world item documents under a "<folderName>" Item folder, one
-// subfolder per item kind ("Talents", "Spells", ...). Artefacts nest further
-// under a region folder when the appendix printed one (Artefacts/Peru/...).
+// subfolder per item kind ("Talents", "Spells", ...). Artefacts and tomes nest
+// further under a region folder when the appendix printed one (Artefacts/Peru/...).
 // Idempotent per leaf folder: a re-import replaces same-named items.
 export async function createPulpItems(
   items: (PulpItem | OldWestItem)[],
   options: CreatePulpItemsOptions = {},
 ): Promise<CreatePulpItemsResult> {
-  const result: CreatePulpItemsResult = { created: 0, items: [] };
+  const result: CreatePulpItemsResult = { created: 0, failed: 0, items: [] };
   if (items.length === 0) return result;
 
   const source = options.source ?? options.folderName ?? "PDF Import";
@@ -513,7 +514,7 @@ export async function createPulpItems(
     null,
   );
 
-  // Group by kind, then (for artefacts) by region, so each leaf folder is filled
+  // Group by kind, then (for artefacts and tomes) by region, so each leaf folder is filled
   // in one pass and re-import replace stays scoped to that folder.
   type Leaf = { folderPath: string[]; group: (PulpItem | OldWestItem)[] };
   const leaves: Leaf[] = [];
@@ -526,26 +527,10 @@ export async function createPulpItems(
 
   for (const [kind, group] of byKind) {
     const typeFolder = ITEM_TYPE_FOLDERS[kind] ?? kind;
-    if (kind === "artefact") {
+    if (kind === "artefact" || kind === "tome") {
       const byRegion = new Map<string, (PulpItem | OldWestItem)[]>();
       for (const item of group) {
-        const region =
-          item.kind === "artefact" && item.region ? item.region : "";
-        const list = byRegion.get(region) ?? [];
-        list.push(item);
-        byRegion.set(region, list);
-      }
-      for (const [region, regionGroup] of byRegion) {
-        leaves.push({
-          folderPath: region ? [typeFolder, region] : [typeFolder],
-          group: regionGroup,
-        });
-      }
-    } else if (kind === "tome") {
-      // Optional region nesting for tomes (same appendix banners).
-      const byRegion = new Map<string, (PulpItem | OldWestItem)[]>();
-      for (const item of group) {
-        const region = item.kind === "tome" && item.region ? item.region : "";
+        const region = "region" in item && item.region ? item.region : "";
         const list = byRegion.get(region) ?? [];
         list.push(item);
         byRegion.set(region, list);
@@ -580,6 +565,7 @@ export async function createPulpItems(
         result.items.push(created);
         result.created++;
       } catch (err) {
+        result.failed++;
         console.error(
           `coc-pdf-importer: failed to create ${kind} "${doc.name}"`,
           err,
@@ -588,7 +574,11 @@ export async function createPulpItems(
     }
   }
   if (options.notify !== false) {
-    ui.notifications.info(`Imported ${result.created} items.`);
+    ui.notifications.info(
+      result.failed
+        ? `Imported ${result.created} items, ${result.failed} failed (see console).`
+        : `Imported ${result.created} items.`,
+    );
   }
   return result;
 }
@@ -670,8 +660,10 @@ export async function importDocument(
     notify: false,
   });
   if (options.notify !== false) {
+    const failed = actorResult.failed + itemResult.failed;
     ui.notifications.info(
-      `Imported ${actorResult.created} actors and ${itemResult.created} items.`,
+      `Imported ${actorResult.created} actors and ${itemResult.created} items` +
+        (failed ? `, ${failed} failed (see console).` : "."),
     );
   }
   return { actors: actorResult, items: itemResult };

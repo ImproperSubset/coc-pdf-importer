@@ -479,6 +479,68 @@ describe("createPulpItems", () => {
     assert.match(notes[0], /1 items/);
   });
 
+  test("a failed Item.create is counted as failed without aborting the rest", async () => {
+    const ok = (globalThis as any).Item.create;
+    (globalThis as any).Item.create = async (d: any) => {
+      if (d.name === "Bravo") throw new Error("boom");
+      return ok(d);
+    };
+    const res = await createPulpItems(
+      [talent("Alpha"), talent("Bravo"), talent("Charlie")],
+      { folderName: "Book" },
+    );
+    assert.equal(res.created, 2);
+    assert.equal(res.failed, 1);
+    assert.deepEqual(
+      created.map((i) => i.name),
+      ["Alpha", "Charlie"],
+    );
+    assert.match(notes[0], /2 items, 1 failed/);
+  });
+
+  test("tomes and artefacts without a region sit directly in their type folder", async () => {
+    await createPulpItems(
+      [
+        {
+          kind: "tome",
+          name: "Plain Tome",
+          language: "English",
+          author: "",
+          date: "",
+          physical: "",
+          link: "",
+          description: "d.",
+          relevance: "",
+          sanityLoss: "",
+          cthulhuMythos: { initial: 0, final: 0 },
+          mythosRating: 0,
+          study: { necessary: 0, units: "" },
+          spells: "",
+          region: "",
+        },
+        {
+          kind: "artefact",
+          name: "Plain Charm",
+          link: "",
+          description: "d.",
+          keeper: "",
+          isWeapon: false,
+          region: "",
+        },
+      ],
+      { folderName: "Book", notify: false },
+    );
+    assert.equal(
+      created.find((i) => i.name === "Plain Tome").folder,
+      byName("Tomes").id,
+    );
+    assert.equal(
+      created.find((i) => i.name === "Plain Charm").folder,
+      byName("Artefacts").id,
+    );
+    assert.equal(folders.length, 3); // Book, Tomes, Artefacts — no region folders
+  });
+
   test("files spells, tomes, and artefacts into typed subfolders", async () => {
     await createPulpItems(
       [

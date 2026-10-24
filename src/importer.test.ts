@@ -1376,6 +1376,22 @@ describe("importCharacters — folders and de-duplication", () => {
     assert.equal(folders.length, 1); // none created
   });
 
+  test("does not reuse a same-named Actor folder nested inside another", async () => {
+    folders.push({
+      id: "nested",
+      name: "My Import",
+      type: "Actor",
+      folder: { id: "other" },
+    });
+    await importCharacters([makeCharacter()], {
+      folderName: "My Import",
+      notify: false,
+    });
+    assert.equal(folders.length, 2);
+    assert.notEqual(created[0].folder, "nested");
+    assert.equal(folders[1].folder, undefined); // created at the top level
+  });
+
   test("creates the named folder when none exists", async () => {
     await importCharacters([makeCharacter()], {
       folderName: "New Folder",

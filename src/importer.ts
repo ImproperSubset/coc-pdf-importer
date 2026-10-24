@@ -1188,9 +1188,13 @@ function languageItem(
 // Helpers
 // ---------------------------------------------------------------------------
 
+// Find or create a top-level Actor folder; a same-named nested folder is not it.
 async function ensureActorFolder(name: string): Promise<any> {
   const existing = game.folders?.find(
-    (f: any) => f.name === name && f.type === "Actor",
+    (f: any) =>
+      f.name === name &&
+      f.type === "Actor" &&
+      (f.folder?.id ?? f.folder ?? null) === null,
   );
   if (existing) return existing;
   try {

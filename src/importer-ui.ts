@@ -114,7 +114,7 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
         );
         entry.status = "done";
         entry.created = result.actors.created;
-        entry.failed = result.actors.failed;
+        entry.failed = result.actors.failed + result.items.failed;
         entry.items = result.items.created;
         entry.pulp = result.actors.pulp;
       } catch (e) {
