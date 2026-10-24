@@ -18,6 +18,7 @@ interface FoundryFolder {
   /** "a" (alphabetical) or "m" (manual, by `sort`). */
   sorting?: string;
   update?(data: object): Promise<unknown>;
+  delete?(): Promise<unknown>;
 }
 
 interface FoundryActor {
@@ -55,6 +56,7 @@ interface FoundryGame {
     find(
       predicate: (folder: FoundryFolder) => boolean,
     ): FoundryFolder | undefined;
+    filter(predicate: (folder: FoundryFolder) => boolean): FoundryFolder[];
   };
   settings: {
     registerMenu(namespace: string, key: string, config: object): void;

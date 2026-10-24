@@ -62,9 +62,9 @@ running the game.
 
 Some books (Masks of Nyarlathotep, Escape from Innsmouth, The Two-Headed
 Serpent) print optional **Pulp Combat** and **Pulp Talents** sections inside a
-stat block. Such an actor is imported twice: the standard version into the
-document's folder, and a Pulp variant into a sibling `<file name> (Pulp)` Actor
-folder, created only when the document has at least one. The variant takes the
+stat block. Such an actor is imported twice: the standard version, and beside
+it in the same folder a Pulp variant named `<name> (Pulp)`, so the choice
+between them is plain to see. The variant takes the
 pulp combat profiles in place of the standard ones (and, where printed, the
 pulp HP and Luck), and carries its talents as `talent` items. An existing
 talent of the same name in the world is used (icon, category and CoCID kept)

@@ -111,6 +111,9 @@ contents page's sections and gives each actor its `page` and `chapter`.
 - Actors go into chapter subfolders (`Chapter 1: Bolivia`, `Appendix A: …`) in
   printed order when the book's contents page lists chapters; otherwise flat.
   Items stay grouped by type (`Talents`, `Spells`, `Tomes`, `Artefacts`, …).
+- A Pulp variant is named `<name> (Pulp)` and filed beside its standard actor.
+  A variant an older import put in a separate `<folder> (Pulp)` folder is
+  replaced under its id, and that folder is deleted once empty.
 - Each printed attack stays its own named weapon, with its own damage. An
   unmatched weapon's skill comes from its category: a creature's melee attacks
   and manoeuvres use `Fighting (Fighting)`; a human's melee uses its weapon

@@ -75,24 +75,35 @@ export async function importCharacters(
   }
 
   // Stat blocks that carry "Pulp Combat" / "Pulp Talents" sections are imported
-  // a second time as their Pulp Cthulhu variant, into a sibling "<folder>
-  // (Pulp)" folder created only when there is at least one of them.
+  // a second time as their Pulp Cthulhu variant, "<name> (Pulp)", beside the
+  // standard actor so the choice between them is in plain sight. A variant an
+  // older import filed in a separate "<folder> (Pulp)" folder, under the
+  // standard name, is replaced under its id, and that folder is removed once
+  // empty.
   const pulpCharacters = characters.filter((c) => c.pulp);
   if (pulpCharacters.length) {
-    const pulpFolder = await ensureActorFolder(
+    const variantName = (c: CocCharacter) => `${c.name || "Unknown"} (Pulp)`;
+    const variants = pulpCharacters.map((c) => ({
+      ...c,
+      name: variantName(c),
+    }));
+    const pulpReplaced = await claimReplacedActors(folder, variants);
+    const legacyFolder = findTopActorFolder(
       `${options.folderName ?? "PDF Import"} (Pulp)`,
     );
-    const pulpReplaced = await claimReplacedActors(pulpFolder, pulpCharacters);
-    const pulpChapters = chapterFolders(pulpFolder, pulpCharacters);
-    for (const character of pulpCharacters) {
+    const legacyReplaced = await claimReplacedActors(
+      legacyFolder,
+      pulpCharacters,
+    );
+    for (const [i, character] of pulpCharacters.entries()) {
       try {
         const actor = await importCharacter(
-          pulpVariant(character),
-          await pulpChapters.folderFor(character),
+          { ...pulpVariant(character), name: variantName(character) },
+          await chapters.folderFor(character),
           options.entity ?? "auto",
           indexes,
           talentItems(character.pulp!.talents, indexes.talent),
-          pulpReplaced.take(character),
+          pulpReplaced.take(variants[i]) ?? legacyReplaced.take(character),
           options.source,
         );
         result.actors.push(actor);
@@ -106,6 +117,7 @@ export async function importCharacters(
         );
       }
     }
+    await removeEmptyFolderTree(legacyFolder);
   }
   let msg: string;
   if (!result.failed) {
@@ -1432,6 +1444,49 @@ async function ensureActorFolder(name: string): Promise<any> {
     return await Folder.create({ name, type: "Actor" });
   } catch {
     return null;
+  }
+}
+
+// A top-level Actor folder by name, without creating it.
+function findTopActorFolder(name: string): FoundryFolder | null {
+  return (
+    game.folders?.find(
+      (f: any) =>
+        f.name === name &&
+        f.type === "Actor" &&
+        (f.folder?.id ?? f.folder ?? null) === null,
+    ) ?? null
+  );
+}
+
+// Delete a folder and its subfolders when no actor is left anywhere in them;
+// subfolders go first, deepest first, so each deletion is of an empty folder.
+async function removeEmptyFolderTree(
+  root: FoundryFolder | null,
+): Promise<void> {
+  if (!root?.id) return;
+  if (game.actors?.filter((a) => isWithinFolder(a.folder?.id, root.id!)).length)
+    return;
+  const depth = (f: FoundryFolder): number => {
+    let d = 0;
+    for (let id: any = f.id; id && id !== root.id && d < 8; d++) {
+      const folder = game.folders?.find((x) => x.id === id);
+      id = (folder?.folder as any)?.id ?? folder?.folder ?? null;
+    }
+    return d;
+  };
+  const tree = (
+    game.folders?.filter((f) => isWithinFolder(f.id, root.id!)) ?? []
+  ).sort((a, b) => depth(b) - depth(a));
+  for (const folder of tree) {
+    try {
+      await folder.delete?.();
+    } catch (err) {
+      console.error(
+        `coc-pdf-importer: failed to remove folder "${folder.name}"`,
+        err,
+      );
+    }
   }
 }
 
