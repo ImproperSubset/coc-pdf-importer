@@ -271,7 +271,7 @@ describe("importCharacters — entity type", () => {
         makeCharacter({ name: "Thug", description: "night watchman" }),
         makeCharacter({
           name: "Monster",
-          description: "king of the dinosaurs",
+          description: "giant test lizard",
           sanityLoss: "0/1D6",
         }),
       ],
@@ -281,7 +281,7 @@ describe("importCharacters — entity type", () => {
     const monster = created.find((a) => a.name === "Monster").system.infos;
     assert.equal(thug.occupation, "night watchman");
     assert.equal(thug.type, undefined);
-    assert.equal(monster.type, "king of the dinosaurs");
+    assert.equal(monster.type, "giant test lizard");
     assert.equal(monster.occupation, undefined);
   });
 
@@ -625,8 +625,8 @@ describe("importCharacters — items", () => {
           sanityLoss: "1/1D6",
           combat: [
             attack("Bite", { value: 60, damage: "1D6" }),
-            attack("Swallow (mnvr)", { value: 60, damage: null }),
-            attack("Tail slam", { value: 60, damage: "8D6" }),
+            attack("Engulf (mnvr)", { value: 60, damage: null }),
+            attack("Tail sweep", { value: 60, damage: "8D6" }),
           ],
         }),
       ],
@@ -637,8 +637,8 @@ describe("importCharacters — items", () => {
       weapons.map((w: any) => [w.name, w.system.range.normal.damage]),
       [
         ["Bite", "1D6"],
-        ["Swallow (mnvr)", ""],
-        ["Tail slam", "8D6"],
+        ["Engulf (mnvr)", ""],
+        ["Tail sweep", "8D6"],
       ],
     );
     for (const w of weapons)
@@ -656,7 +656,7 @@ describe("importCharacters — items", () => {
         makeCharacter({
           sanityLoss: "1/1D6",
           combat: [
-            attack("Crush", { value: 80, damage: "5D6" }),
+            attack("Squeeze", { value: 80, damage: "5D6" }),
             attack("Fighting", { value: 75, damage: "2D6" }),
             attack("Hold (mnvr)", { value: 75, damage: null }),
           ],
@@ -667,8 +667,8 @@ describe("importCharacters — items", () => {
     assert.equal(skillOf("Fighting"), "Fighting (Fighting)");
     assert.equal(skillBase("Fighting (Fighting)"), "75");
     assert.equal(skillOf("Hold (mnvr)"), "Fighting (Fighting)");
-    assert.equal(skillOf("Crush"), "Fighting (Crush)");
-    assert.equal(skillBase("Fighting (Crush)"), "80");
+    assert.equal(skillOf("Squeeze"), "Fighting (Squeeze)");
+    assert.equal(skillBase("Fighting (Squeeze)"), "80");
   });
 
   test("without a generic attack, the most common value sets the skill", async () => {
@@ -698,13 +698,13 @@ describe("importCharacters — items", () => {
           sanityLoss: "1/1D6",
           combat: [
             attack("Fighting", { value: 50, damage: "2D6" }),
-            attack("Grab and Bite (mnvr)", { value: null, damage: "1D6" }),
+            attack("Seize and Gnaw (mnvr)", { value: null, damage: "1D6" }),
           ],
         }),
       ],
       { notify: false },
     );
-    assert.equal(skillOf("Grab and Bite (mnvr)"), "Fighting (Fighting)");
+    assert.equal(skillOf("Seize and Gnaw (mnvr)"), "Fighting (Fighting)");
   });
 
   test("an attack printed as 'Fighting (X)' is a weapon named X", async () => {
@@ -962,7 +962,7 @@ describe("importCharacters — items", () => {
     );
   });
 
-  test("a laser staff is a Rifle/Shotgun firearm, not a club", async () => {
+  test("a beam staff is a Rifle/Shotgun firearm, not a club", async () => {
     mockCompendium({
       weapons: [weaponDoc("Club, large (baseball, cricket bat, poker)")],
     });
@@ -970,23 +970,23 @@ describe("importCharacters — items", () => {
       [
         makeCharacter({
           combat: [
-            attack("Laser staff", { value: 45, damage: "1D10+5" }),
-            attack("Laser", { value: 50, damage: "1D8" }),
+            attack("Beam staff", { value: 45, damage: "1D10+5" }),
+            attack("Blaster", { value: 50, damage: "1D8" }),
           ],
         }),
       ],
       { notify: false },
     );
     const staff = created[0].items.find(
-      (i: any) => i.type === "weapon" && i.name === "Laser staff",
+      (i: any) => i.type === "weapon" && i.name === "Beam staff",
     );
     assert.equal(staff.flags?.CoC7?.cocidFlag, undefined); // no club match
     assert.equal(staff.system.properties.rngd, true);
     assert.equal(staff.system.skill.main.name, "Firearms (Rifle/Shotgun)");
     const laser = created[0].items.find(
-      (i: any) => i.type === "weapon" && i.name === "Laser",
+      (i: any) => i.type === "weapon" && i.name === "Blaster",
     );
-    assert.equal(laser.system.skill.main.name, "Firearms (Laser)");
+    assert.equal(laser.system.skill.main.name, "Firearms (Blaster)");
   });
 
   test("a weapon marked '(Throw)' uses the Throw skill", async () => {
@@ -994,9 +994,7 @@ describe("importCharacters — items", () => {
       [
         makeCharacter({
           skills: { Throw: 65 },
-          combat: [
-            attack("Winged Viper (Throw)", { value: 65, damage: "1D6" }),
-          ],
+          combat: [attack("Jade Dart (Throw)", { value: 65, damage: "1D6" })],
         }),
       ],
       { notify: false },
@@ -1010,7 +1008,7 @@ describe("importCharacters — items", () => {
       [
         makeCharacter({
           skills: { Throw: 40 },
-          combat: [attack("Throw boulder", { value: 40, damage: "4D6" })],
+          combat: [attack("Throw rock", { value: 40, damage: "4D6" })],
         }),
       ],
       { notify: false },

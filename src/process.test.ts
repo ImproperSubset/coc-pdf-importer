@@ -166,17 +166,17 @@ describe("parseCocCharacters (unit)", () => {
   test("a weapon alternative keeps its own note; a trailing clause is a note", () => {
     const [c] = parseCocCharacters(
       "The Thing, horror STR 70 CON 70 SIZ 90 DEX 80 INT 80 APP 50 POW 100 EDU 50 SAN 50 HP 16 " +
-        "DB: +6D6 Build: 7 Move: 9 MP: 20 Combat Attacks per round: 1 " +
-        "Fighting 50% (25/10), damage 2D6 + 6D6, or kick 1D6 + 6D6 (thrown 2D10 yards) " +
-        "Grab and Bite (mnvr) damage 1D6 + 6D6, following round automatic bite 2D6 + 6D6 " +
-        "Dodge 40% (20/8)",
+        "DB: +4D6 Build: 6 Move: 8 MP: 18 Combat Attacks per round: 1 " +
+        "Fighting 45% (22/9), damage 2D8 + 4D6, or stomp 1D8 + 4D6 (flung 3D6 yards) " +
+        "Seize and Gnaw (mnvr) damage 1D8 + 4D6, following round automatic gnaw 2D8 + 4D6 " +
+        "Dodge 30% (15/6)",
     );
     assert.deepEqual(
       c.combat.map((a) => [a.name, a.note]),
       [
         ["Fighting", null],
-        ["Kick", "thrown 2D10 yards"],
-        ["Grab and Bite (mnvr)", "following round automatic bite 2D6+6D6"],
+        ["Stomp", "flung 3D6 yards"],
+        ["Seize and Gnaw (mnvr)", "following round automatic gnaw 2D8+4D6"],
         ["Dodge", null],
       ],
     );
@@ -185,16 +185,16 @@ describe("parseCocCharacters (unit)", () => {
   test("a comma between half/fifth values still reads the attack", () => {
     const [c] = parseCocCharacters(
       "The Thing, horror STR 70 CON 70 SIZ 90 DEX 80 INT 80 APP 50 POW 100 EDU 50 SAN 50 HP 16 " +
-        "DB: +3D6 Build: 4 Move: 9 MP: 20 Combat Attacks per round: 1 " +
-        "Charge 45% (22/9), damage 2D6 + 3D6 + knockdown " +
-        "Trample 75% (37,15), damage 3D6 + 3D6 (to downed foe only) Dodge 17% (8/3)",
+        "DB: +2D6 Build: 3 Move: 8 MP: 18 Combat Attacks per round: 1 " +
+        "Ram 40% (20/8), damage 2D6 + 2D6 + knockdown " +
+        "Stamp 70% (35,14), damage 2D8 + 2D6 (to prone foe only) Dodge 15% (7/3)",
     );
     assert.deepEqual(
       c.combat.map((a) => [a.name, a.value, a.half, a.fifth, a.damage]),
       [
-        ["Charge", 45, 22, 9, "2D6+3D6 + knockdown"],
-        ["Trample", 75, 37, 15, "3D6+3D6"],
-        ["Dodge", 17, 8, 3, null],
+        ["Ram", 40, 20, 8, "2D6+2D6 + knockdown"],
+        ["Stamp", 70, 35, 14, "2D8+2D6"],
+        ["Dodge", 15, 7, 3, null],
       ],
     );
   });
@@ -202,18 +202,18 @@ describe("parseCocCharacters (unit)", () => {
   test("a maneuver with no value but a damage ends the attack before it", () => {
     const [c] = parseCocCharacters(
       "The Thing, horror STR 70 CON 70 SIZ 90 DEX 80 INT 80 APP 50 POW 100 EDU 50 SAN 50 HP 16 " +
-        "DB: +6D6 Build: 7 Move: 9 MP: 20 Combat Attacks per round: 1 " +
-        "Fighting 50% (25/10), damage 2D6 + 6D6, or kick 1D6 + 6D6 (thrown 2D10 yards) " +
-        "Grab and Bite (mnvr) damage 1D6 + 6D6, following round automatic bite 2D6 + 6D6 " +
-        "Dodge 40% (20/8)",
+        "DB: +4D6 Build: 6 Move: 8 MP: 18 Combat Attacks per round: 1 " +
+        "Fighting 45% (22/9), damage 2D8 + 4D6, or stomp 1D8 + 4D6 (flung 3D6 yards) " +
+        "Seize and Gnaw (mnvr) damage 1D8 + 4D6, following round automatic gnaw 2D8 + 4D6 " +
+        "Dodge 30% (15/6)",
     );
     assert.deepEqual(
       c.combat.map((a) => [a.name, a.value, a.damage]),
       [
-        ["Fighting", 50, "2D6+6D6"],
-        ["Kick", 50, "1D6+6D6"],
-        ["Grab and Bite (mnvr)", null, "1D6+6D6"],
-        ["Dodge", 40, null],
+        ["Fighting", 45, "2D8+4D6"],
+        ["Stomp", 45, "1D8+4D6"],
+        ["Seize and Gnaw (mnvr)", null, "1D8+4D6"],
+        ["Dodge", 30, null],
       ],
     );
   });
@@ -2542,7 +2542,7 @@ describe("parseBookSections", () => {
   // page number one lower than the PDF page.
   const pages = [
     "CONTENTS INTRODUCTION . . . . 2 CHAPTER 1: TEST LAND . . . 5 " +
-      "CHAPTER 2: NEW TEST CITY . . . 12 APPENDIX A: RECURRING NPCS AND MONSTERS 20",
+      "CHAPTER 2: NEW TEST CITY . . . 12 APPENDIX A: TEST NPCS AND FOES 20",
     ...Array.from({ length: 29 }, (_, i) => `${i + 1} BODY TEXT`),
   ];
 
@@ -2551,7 +2551,7 @@ describe("parseBookSections", () => {
       { title: "Introduction", page: 3 },
       { title: "Chapter 1: Test Land", page: 6 },
       { title: "Chapter 2: New Test City", page: 13 },
-      { title: "Appendix A: Recurring NPCs and Monsters", page: 21 },
+      { title: "Appendix A: Test NPCs and Foes", page: 21 },
     ]);
   });
 

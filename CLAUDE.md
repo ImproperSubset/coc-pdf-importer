@@ -17,6 +17,12 @@ its architecture; this file holds what a session needs beyond it.
 - Do only what was asked; raise extras, alternatives and suggestions as
   questions first. Give a short plan before multi-step work.
 - No attribution trailers on commits.
+- Book content: fixture PDFs, dumps (`out/`) and golden snapshots (`golden/`)
+  never enter git. Tests use made-up names and text. Comments, docs and commit
+  messages may name Chaosium characters, creatures, places, items and chapters
+  (the Fan Material Policy allows names, marked as Chaosium's), but never quote
+  book prose, stat lines, rules text or bibliographic lines: write made-up text
+  with the same structure instead.
 - Verify claims about Foundry and CoC7 against their sources (Foundry API docs
   at `https://foundryvtt.com/api/v14/`, the CoC7 clone at `~/git/CoC7-FoundryVTT`,
   read-only) before relying on them. Target Foundry v13 and v14.

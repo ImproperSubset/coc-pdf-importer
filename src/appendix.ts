@@ -866,8 +866,8 @@ function splitTomePreamble(before: string): {
 // The Serpent tome layout: an ALL-CAPS heading, an "• Appearance in the
 // campaign:" chapter list, an optional "Language, author, date" line, the
 // description, and the title repeated before the stat bullets:
-//   "ANNALS OF MU • Appearance in the campaign: Chapter 1: Bolivia These
-//    fragile scrolls … glorious Mu. The Annals of Mu"
+//   "TEST SCROLLS • Appearance in the campaign: Chapter 1: Testland These
+//    scrolls … of the deep. The Test Scrolls"
 // Returns the link, the bibliographic fields and the bare description, or
 // null when the entry has no Appearance list.
 function splitAppearancePreamble(before: string): {
@@ -888,8 +888,8 @@ function splitAppearancePreamble(before: string): {
   let author = "";
   let date = "";
   let physical = "";
-  // "Naacal, Rose Meadham/Sashannal, 1928–1933 (unfinished)", "English and
-  // Naacal, Reverend Kornfield, 1933, 78-rpm records".
+  // "Latin, A. Writer, 1901–1905 (unfinished)", "English and Latin, Reverend
+  // Test, 1925, wax cylinders".
   const biblio = new RegExp(
     String.raw`^((?:${TOME_LANG})(?:\s+and\s+(?:${TOME_LANG}))?),\s*([^,.•]{2,60}?),\s*(\d{3,4}(?:\s*[–-]\s*\d{2,4})?)\b(?:\s*\(([^)]*)\)|,\s*([a-z0-9][a-z0-9 -]{1,40}?)(?=\s+[A-Z]))?\s*`,
   ).exec(rest);
@@ -1166,10 +1166,10 @@ const REGION_HEADERS = new RegExp(String.raw`^(?:${REGION_NAMES})$`, "i");
 // Chapter 2: New York City"). A chapter name is a run of capitalised words that
 // ends where the entry's body begins: at a common sentence opener ("These
 // weapons …") or at a capitalised word followed by a lowercase one
-// ("Outwardly, these …").
+// ("Outwardly, they …").
 const SENTENCE_OPENER = String.raw`(?:The|A|An|This|These|Those|It|Its|More|Made|While|Designed|Our|Once|When|Each|Although|Originally|Legend)\b`;
 const NAME_WORD = String.raw`[A-Z][A-Za-z'’\-]*(?![A-Za-z'’\-])`;
-// A tome's "English, Caduceus Researchers, 1932" line also starts the body.
+// A tome's "English, A. Writer, 1932" line also starts the body.
 const BIBLIO_START = String.raw`(?:${TOME_LANG})(?:\s+and\s+(?:${TOME_LANG}))?,`;
 const CHAPTER_REF = String.raw`Chapter\s+\d+:\s*(?!${SENTENCE_OPENER})${NAME_WORD}(?:\s+(?!${SENTENCE_OPENER}|${BIBLIO_START})${NAME_WORD}(?!,?\s+[a-z]))*`;
 const APPEARANCE_CHAPTERS = new RegExp(

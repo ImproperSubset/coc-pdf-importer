@@ -346,14 +346,12 @@ describe("artefact helpers", () => {
     );
     assert.equal(
       isArtefactWeapon(
-        "These weapons fire a beam that inflicts 1D10+5 heat damage.",
+        "These weapons spit a bolt that inflicts 1D8+2 cold damage.",
       ),
       true,
     );
     assert.equal(
-      isArtefactWeapon(
-        "The Firearms (Rifle/Shotgun) skill is required to use it.",
-      ),
+      isArtefactWeapon("Aiming it calls for the Firearms (Handgun) skill."),
       true,
     );
   });
@@ -416,15 +414,15 @@ A twelve-foot whip covered in sharp barbs that deals 1D6 damage.
 APPENDIX D
 ARTIFACTS
 TEST STAFF
- • Appearance in the campaign: Chapter 6: Test Congo These rods resemble golden tubes and fire beams.
+ • Appearance in the campaign: Chapter 6: Test Marsh These rods are hollow and hum faintly.
 TEST BOX
- • Appearance in the campaign: Chapter 3: North Testland, Chapter 9: Mu Outwardly, these devices appear to be wooden boxes.
+ • Appearance in the campaign: Chapter 3: North Testland, Chapter 9: Zed Outwardly, these gadgets look like tin cans.
 `);
     assert.equal(items.length, 2);
-    assert.equal(items[0].link, "Chapter 6: Test Congo");
-    assert.match(items[0].keeper, /These rods resemble/);
-    assert.equal(items[1].link, "Chapter 3: North Testland, Chapter 9: Mu");
-    assert.match(items[1].keeper, /Outwardly, these devices/);
+    assert.equal(items[0].link, "Chapter 6: Test Marsh");
+    assert.match(items[0].keeper, /These rods are hollow/);
+    assert.equal(items[1].link, "Chapter 3: North Testland, Chapter 9: Zed");
+    assert.match(items[1].keeper, /Outwardly, these gadgets/);
   });
 
   test("parses Innsmouth named artefact headings", () => {
@@ -482,9 +480,9 @@ APPENDIX B
 TOMES
 TEST SCROLLS
  • Appearance in the campaign: Chapter 2: New Test City English, Test Researchers, 1932 Fragile scrolls of strange lore. The Test Scrolls
- • Language: Naacal • Cthulhu Mythos (Initial Reading): +1% • Cthulhu Mythos (Full Study): +3% • Mythos Rating: 12 • Reading Time: 1 week • Sanity Cost: 1D4 • Spells: Contact Yig.
+ • Language: Latin • Cthulhu Mythos (Initial Reading): +2% • Cthulhu Mythos (Full Study): +4% • Mythos Rating: 9 • Reading Time: 2 weeks • Sanity Cost: 1D3 • Spells: Test Ward.
 TEST RECORDS
- • A ppearance in the campaign: Chapter 4: Testland English and Naacal, Reverend Test, 1933, 78-rpm records Sermons recorded on disc. Test Records
+ • A ppearance in the campaign: Chapter 4: Testland English and Latin, Reverend Test, 1925, wax cylinders Sermons recorded on wax. Test Records
  • Sanity Loss: 1D6 • Cthulhu Mythos (Initial Reading): +2% • Cthulhu Mythos (Full Study): +4% • Mythos Rating: 18 • Study: 7 days • Spells: none.
 `);
     assert.equal(tomes.length, 2);
@@ -494,9 +492,9 @@ TEST RECORDS
     assert.equal(tomes[0].date, "1932");
     assert.equal(tomes[0].description, "Fragile scrolls of strange lore.");
     assert.equal(tomes[1].link, "Chapter 4: Testland");
-    assert.equal(tomes[1].language, "English and Naacal");
-    assert.equal(tomes[1].physical, "78-rpm records");
-    assert.equal(tomes[1].description, "Sermons recorded on disc.");
+    assert.equal(tomes[1].language, "English and Latin");
+    assert.equal(tomes[1].physical, "wax cylinders");
+    assert.equal(tomes[1].description, "Sermons recorded on wax.");
   });
 });
 

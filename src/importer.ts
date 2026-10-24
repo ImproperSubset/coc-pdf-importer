@@ -1164,7 +1164,7 @@ async function attachCustomWeapons(
 
   for (const w of customWeapons) {
     const { weapon, value, ranged, thrown } = w;
-    // No printed value ("Grab and Bite (mnvr) damage 1D6+6D6"): the attack
+    // No printed value ("Seize (mnvr) damage 1D8"): the attack
     // uses its category skill when the actor has one, and is left unlinked
     // otherwise.
     if (value == null) {

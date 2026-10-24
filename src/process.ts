@@ -156,7 +156,7 @@ export interface CocCharacter {
   notes: string[];
   page?: number; // 1-based PDF page of the block's STR line, when known
   printedPage?: number; // the page number the book prints on that page, when known
-  chapter?: string; // the book section that page falls in ("Chapter 1: Bolivia"), when the book has a contents page
+  chapter?: string; // the book section that page falls in ("Chapter 1: Testland"), when the book has a contents page
 }
 
 // ---------------------------------------------------------------------------
@@ -2956,7 +2956,7 @@ function parseCombat(text: string): CombatEntry[] {
     "($1/$2)",
   );
 
-  // A misprinted comma between the half/fifth values ("Trample 75% (37,15)")
+  // A misprinted comma between the half/fifth values ("Stamp 70% (35,14)")
   // would hide the whole attack; read it as the usual slash.
   text = text.replace(
     /(\d{1,3}\s*%\s*,?\s*)\(\s*(\d{1,3})\s*,\s*(\d{1,3})\s*\)/g,
@@ -3036,8 +3036,8 @@ function parseCombat(text: string): CombatEntry[] {
   // comma and a lowercase clause. Such a row bounds the damage before it.
   const maneuverName = String.raw`(?!DB\b)(?!\d)[A-Z][a-z][A-Za-z/'’-]*(?:\s[A-Z][a-z][A-Za-z/'’-]*){0,2}`;
   const maneuverRow = String.raw`${maneuverName}(?:\s*\([^),]*\))?\s*,\s*[a-z]`;
-  // A maneuver row with no skill value but a damage ("Grab and Bite (mnvr)
-  // damage 1D6+6D6") also bounds the damage before it.
+  // A maneuver row with no skill value but a damage ("Seize (mnvr) damage
+  // 1D8+4D6") also bounds the damage before it.
   const bareManeuver = String.raw`[A-Z][A-Za-z'’ -]*?\s*\((?:mnvr|maneuver|fighting maneuver)\)\s*,?\s*damage\s+(?=\d)`;
   const damage = String.raw`(.+?)(?=\s+${nextAttack}|\s+${autoAttack}|\s+${maneuverRow}|\s+${bareManeuver}|\s+${dodgeStop}|\s+[•·●⁃]|(?<=\*)\s+\*|\.(?:\s|$)|${proseComma}|$)`;
   // A maneuver profile carries a prose effect instead of "damage X" after its
@@ -3070,8 +3070,8 @@ function parseCombat(text: string): CombatEntry[] {
   // The effect clause of a maneuver row without a skill value, up to the row
   // that follows.
   const rowEffect = String.raw`([a-z][^%]{2,120}?)(?=\s+${nextAttack}|\s+${autoAttack}|\s+${maneuverRow}|\s+${dodgeStop}|\.(?:\s|$)|$)`;
-  // A name never starts inside a dice term ("2D6+6D6 Dodge" is not an attack
-  // named "D6+6D6 Dodge").
+  // A name never starts inside a dice term ("2D8+4D6 Dodge" is not an attack
+  // named "D8+4D6 Dodge").
   const re = new RegExp(
     String.raw`(?<![0-9+])(?<![0-9][dD])(${attackName})(?:\s+(?:(\d{1,3})\s*%?\s*,?\s*(?:\(\s*(\d{1,3})\s*\/\s*(\d{1,3})\s*\)(?:\s*,?\s*damage\s+${damageOrBlank}|\s*,\s*${maneuverNote})?|damage\s+${damage})|damage\s+(?=\d)${damage}|[Aa]utomatic\b${autoCondition}(?:\s*,?\s*damage[,]?\s+${damage}|\s*,\s*${autoEffect}))|\s*,\s*(?:(?:([a-z][^,%]{1,60}?),\s*)?damage\s+(?=\d)${damage}|${rowEffect}))`,
     "g",
@@ -3081,7 +3081,7 @@ function parseCombat(text: string): CombatEntry[] {
   // Each entry's damage text before its notes were split off, so a Brawl /
   // Fighting row's weapon alternatives keep their own notes.
   const rawDamage: (string | undefined)[] = [];
-  // A prose clause after a damage ("…, following round automatic bite 2D6")
+  // A prose clause after a damage ("…, following round automatic gnaw 2D8")
   // ends the damage; it is kept as the row's note.
   const trailingClause = new RegExp(
     String.raw`^,\s+((?:if|when|this|these|then|but|following|followed|each|plus|note|see)\b[^%]*?)(?=\s+${nextAttack}|\s+${autoAttack}|\s+${bareManeuver}|\s+${dodgeStop}|\.(?:\s|$)|$)`,
@@ -3188,7 +3188,7 @@ function splitWeaponAlternatives(
   if (!entry.damage || !/\b(?:brawl|fighting)\b/i.test(entry.name))
     return [entry];
   // Split the damage text as printed, before its parenthetical notes were
-  // pulled out, so each alternative keeps its own ("or kick 1D6 (thrown 2D10
+  // pulled out, so each alternative keeps its own ("or stomp 1D8 (flung 3D6
   // yards)").
   const source = raw !== undefined ? clean(raw) : entry.damage;
   const m = new RegExp(String.raw`^(${BASE_DICE})\s*(.*)$`).exec(source);
@@ -3880,7 +3880,7 @@ function parseActors(pageItems: RawItem[][]): CocCharacter[] {
 }
 
 // The book's sections from its contents page — "INTRODUCTION 7", "CHAPTER 1:
-// BOLIVIA 18", "APPENDIX A: RECURRING NPCS AND MONSTERS 240" — each with the
+// TESTLAND 18", "APPENDIX A: TEST NPCS AND FOES 240" — each with the
 // PDF page it starts on. The contents gives printed page numbers; the running
 // headers print each page's number ("… 42 CHAPTER 1" on PDF page 43), and the
 // most common difference between the two maps one onto the other. A book
