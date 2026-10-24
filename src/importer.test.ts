@@ -559,6 +559,67 @@ describe("importCharacters — items", () => {
     assert.match(rev.flags.CoC7.cocidFlag.id, /9mm-revolver/);
   });
 
+  test("shotguns alias to the compendium entry for their gauge and variant", async () => {
+    const shotguns = [
+      "10-gauge Shotgun (2B)",
+      "12-gauge Shotgun (2B)",
+      "12-gauge Shotgun (2B sawed off)",
+      "12-gauge Shotgun (Pump)",
+      "12-gauge Shotgun (semi-auto)",
+      "16-gauge Shotgun (2B)",
+      "20-gauge Shotgun (2B)",
+    ];
+    mockCompendium({ weapons: shotguns.map(weaponDoc) });
+    const cases: [string, string][] = [
+      ["Shotgun", "12-gauge Shotgun (2B)"],
+      ["12g shotgun", "12-gauge Shotgun (2B)"],
+      ["10-gauge shotgun", "10-gauge Shotgun (2B)"],
+      ["16 ga shotgun", "16-gauge Shotgun (2B)"],
+      ["20-g shotgun", "20-gauge Shotgun (2B)"],
+      ["Sawed-off shotgun", "12-gauge Shotgun (2B sawed off)"],
+      ["Sawn-off 12-gauge", "12-gauge Shotgun (2B sawed off)"],
+      ["Pump shotgun", "12-gauge Shotgun (Pump)"],
+      ["12-gauge pump-action", "12-gauge Shotgun (Pump)"],
+      ["Semi-automatic shotgun", "12-gauge Shotgun (semi-auto)"],
+      ["20-gauge pump shotgun", "20-gauge Shotgun (2B)"], // no 20-gauge pump
+    ];
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: cases.map(([name]) =>
+            attack(name, { value: 40, damage: "4D6/2D6/1D6" }),
+          ),
+        }),
+      ],
+      { notify: false },
+    );
+    for (const [name, expected] of cases) {
+      const w = created[0].items.find((i: any) => i.name === name);
+      assert.equal(
+        w?.flags?.CoC7?.cocidFlag?.id,
+        weaponDoc(expected).flags.CoC7.cocidFlag.id,
+        name,
+      );
+    }
+  });
+
+  test("a pump-action rifle is not taken for a pump shotgun", async () => {
+    mockCompendium({ weapons: [weaponDoc("12-gauge Shotgun (Pump)")] });
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [attack("Pump-action rifle", { value: 40, damage: "2D6" })],
+        }),
+      ],
+      { notify: false },
+    );
+    const w = created[0].items.find((i: any) => i.type === "weapon");
+    assert.notEqual(
+      w.flags?.CoC7?.cocidFlag?.id,
+      weaponDoc("12-gauge Shotgun (Pump)").flags.CoC7.cocidFlag.id,
+    );
+  });
+
   test("Thompson prefers the core 50-mag weapon, then the wiki fallback", async () => {
     mockCompendium({
       weapons: [weaponDoc("Thompson (50 mag)"), weaponDoc("Thompson")],

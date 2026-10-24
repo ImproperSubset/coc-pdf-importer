@@ -665,9 +665,29 @@ const WEAPON_ALIASES: {
   // named handguns whose flavor name hides a standard caliber
   { re: /\bwebley\b/i, names: [".38 or 9mm Revolver"], handgun: true },
   { re: /\bnambu\b/i, names: [".32 or 7.65mm Automatic"], handgun: true },
-  // shotguns
+  // shotguns: 12-gauge variants (a 12-gauge or a shotgun of no stated gauge,
+  // never a rifle), then each gauge's double barrel, then a shotgun of no
+  // stated gauge as the standard 12-gauge double barrel
+  {
+    re: /^(?!.*\b(?:10|16|20)[\s-]?(?:g|ga|gauge|gage)\b)(?!.*\b(?:rifle|carbine)\b).*\b(?:sawed|sawn)[\s-]?off\b/i,
+    names: ["12-gauge Shotgun (2B sawed off)"],
+  },
+  {
+    re: /^(?!.*\b(?:10|16|20)[\s-]?(?:g|ga|gauge|gage)\b)(?=.*\b(?:shotgun|12[\s-]?(?:g|ga|gauge|gage))\b).*\bpump\b/i,
+    names: ["12-gauge Shotgun (Pump)"],
+  },
+  {
+    re: /^(?!.*\b(?:10|16|20)[\s-]?(?:g|ga|gauge|gage)\b)(?=.*\b(?:shotgun|12[\s-]?(?:g|ga|gauge|gage))\b).*\bsemi[\s-]?auto(?:matic)?\b/i,
+    names: ["12-gauge Shotgun (semi-auto)"],
+  },
+  { re: /\b10[\s-]?(?:g|ga|gauge|gage)\b/i, names: ["10-gauge Shotgun (2B)"] },
   { re: /\b12[\s-]?(?:g|ga|gauge|gage)\b/i, names: ["12-gauge Shotgun (2B)"] },
+  { re: /\b16[\s-]?(?:g|ga|gauge|gage)\b/i, names: ["16-gauge Shotgun (2B)"] },
   { re: /\b20[\s-]?(?:g|ga|gauge|gage)\b/i, names: ["20-gauge Shotgun (2B)"] },
+  {
+    re: /^(?!.*\b\d{2}[\s-]?(?:g|ga|gauge|gage)\b).*\bshotgun\b/i,
+    names: ["12-gauge Shotgun (2B)"],
+  },
 ];
 
 const RIFLE_RE =
