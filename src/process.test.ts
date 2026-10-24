@@ -157,6 +157,25 @@ describe("parseCocCharacters (unit)", () => {
     assert.equal(c.attacksPerRound, "up to 4 (1D4 lash or 1 consume)");
   });
 
+  test("a weapon alternative keeps its own note; a trailing clause is a note", () => {
+    const [c] = parseCocCharacters(
+      "The Thing, horror STR 70 CON 70 SIZ 90 DEX 80 INT 80 APP 50 POW 100 EDU 50 SAN 50 HP 16 " +
+        "DB: +6D6 Build: 7 Move: 9 MP: 20 Combat Attacks per round: 1 " +
+        "Fighting 50% (25/10), damage 2D6 + 6D6, or kick 1D6 + 6D6 (thrown 2D10 yards) " +
+        "Grab and Bite (mnvr) damage 1D6 + 6D6, following round automatic bite 2D6 + 6D6 " +
+        "Dodge 40% (20/8)",
+    );
+    assert.deepEqual(
+      c.combat.map((a) => [a.name, a.note]),
+      [
+        ["Fighting", null],
+        ["Kick", "thrown 2D10 yards"],
+        ["Grab and Bite (mnvr)", "following round automatic bite 2D6+6D6"],
+        ["Dodge", null],
+      ],
+    );
+  });
+
   test("a comma between half/fifth values still reads the attack", () => {
     const [c] = parseCocCharacters(
       "The Thing, horror STR 70 CON 70 SIZ 90 DEX 80 INT 80 APP 50 POW 100 EDU 50 SAN 50 HP 16 " +

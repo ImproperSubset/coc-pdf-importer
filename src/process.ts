@@ -3066,6 +3066,14 @@ function parseCombat(text: string): CombatEntry[] {
   );
 
   const out: CombatEntry[] = [];
+  // Each entry's damage text before its notes were split off, so a Brawl /
+  // Fighting row's weapon alternatives keep their own notes.
+  const rawDamage: (string | undefined)[] = [];
+  // A prose clause after a damage ("…, following round automatic bite 2D6")
+  // ends the damage; it is kept as the row's note.
+  const trailingClause = new RegExp(
+    String.raw`^,\s+((?:if|when|this|these|then|but|following|followed|each|plus|note|see)\b[^%]*?)(?=\s+${nextAttack}|\s+${autoAttack}|\s+${bareManeuver}|\s+${dodgeStop}|\.(?:\s|$)|$)`,
+  );
   // A maneuver row without a skill value is only such a row when its name is a
   // short capitalised run (not prose) and — with no "damage" keyword to
   // anchor it — when it follows the previous row directly.
@@ -3094,14 +3102,22 @@ function parseCombat(text: string): CombatEntry[] {
     // otherwise it is the row's note.
     const effect = match[11] !== undefined ? clean(match[11]) : undefined;
     const effectIsDamage = effect !== undefined && /^\d*[dD]\d+/.test(effect);
-    const { damage, note } = splitDamageNote(
+    const raw =
       match[5] ??
-        match[7] ??
-        match[8] ??
-        match[10] ??
-        match[13] ??
-        (effectIsDamage ? effect : undefined),
-    );
+      match[7] ??
+      match[8] ??
+      match[10] ??
+      match[13] ??
+      (effectIsDamage ? effect : undefined);
+    const split = splitDamageNote(raw);
+    const { damage } = split;
+    let { note } = split;
+    const trailing =
+      damage !== null
+        ? trailingClause.exec(text.slice(match.index! + match[0].length))
+        : null;
+    if (trailing) note = [note, clean(trailing[1])].filter(Boolean).join("; ");
+    rawDamage.push(raw);
     // A maneuver row without a skill value: its clause is the note.
     const rowClause = match[12] ?? match[14];
     const maneuver = match[6]
@@ -3135,7 +3151,9 @@ function parseCombat(text: string): CombatEntry[] {
           : (note ?? maneuver),
     });
   }
-  return out.flatMap(splitWeaponAlternatives);
+  return out.flatMap((entry, i) =>
+    splitWeaponAlternatives(entry, rawDamage[i]),
+  );
 }
 
 // A Brawl/Fighting attack often lists weapon alternatives inline in its damage:
@@ -3151,17 +3169,31 @@ function parseCombat(text: string): CombatEntry[] {
 // choose to engulf the target" — the entry is left untouched.
 const BASE_DICE = String.raw`\d+[dD]\d+(?:\s*[+\-]\s*(?:\d+[dD]\d+|DB|\d+))*`;
 
-function splitWeaponAlternatives(entry: CombatEntry): CombatEntry[] {
+function splitWeaponAlternatives(
+  entry: CombatEntry,
+  raw?: string,
+): CombatEntry[] {
   if (!entry.damage || !/\b(?:brawl|fighting)\b/i.test(entry.name))
     return [entry];
-  const m = new RegExp(String.raw`^(${BASE_DICE})\s*(.*)$`).exec(entry.damage);
+  // Split the damage text as printed, before its parenthetical notes were
+  // pulled out, so each alternative keeps its own ("or kick 1D6 (thrown 2D10
+  // yards)").
+  const source = raw !== undefined ? clean(raw) : entry.damage;
+  const m = new RegExp(String.raw`^(${BASE_DICE})\s*(.*)$`).exec(source);
   if (!m) return [entry];
   const base = m[1];
+  // The base attack's own notes sit between its dice and the separator.
+  const own: string[] = [];
+  let rest0 = m[2].trim();
+  for (let pm; (pm = /^\(([^)]*)\)\s*/.exec(rest0));) {
+    own.push(clean(pm[1]));
+    rest0 = rest0.slice(pm[0].length);
+  }
   // The alternatives must be introduced by a real separator ("," / ";" / "or" /
   // "with"), tolerating leading footnote markers ("1D3+1D6** or fighting knife").
   // Without one, the remainder is a continuation of the damage formula, not an
   // alternative ("1D3 + damage bonus(1D4)"), and the entry is left untouched.
-  const after = m[2].trim();
+  const after = rest0;
   const sep = /^[\s*]*(?:[,;]\s*(?:or\s+|with\s+)?|(?:or|with)\s+)/i.exec(
     after,
   );
@@ -3199,7 +3231,10 @@ function splitWeaponAlternatives(entry: CombatEntry): CombatEntry[] {
       note,
     });
   }
-  return [{ ...entry, damage: base }, ...weapons];
+  return [
+    { ...entry, damage: base, note: own.length ? own.join("; ") : null },
+    ...weapons,
+  ];
 }
 
 // Split prose parentheticals off the damage string into a separate note, e.g.
