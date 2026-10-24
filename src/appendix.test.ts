@@ -475,6 +475,29 @@ Gospel of Yig
     assert.equal(tomes[1].name, "Gospel of Yig");
     assert.equal(tomes[1].study.units, "CoC7.days");
   });
+
+  test("reads the link, bibliography and language of Appearance-first entries", () => {
+    const tomes = parseAppendixTomes(`
+APPENDIX B
+TOMES
+TEST SCROLLS
+ • Appearance in the campaign: Chapter 2: New Test City English, Test Researchers, 1932 Fragile scrolls of strange lore. The Test Scrolls
+ • Language: Naacal • Cthulhu Mythos (Initial Reading): +1% • Cthulhu Mythos (Full Study): +3% • Mythos Rating: 12 • Reading Time: 1 week • Sanity Cost: 1D4 • Spells: Contact Yig.
+TEST RECORDS
+ • A ppearance in the campaign: Chapter 4: Testland English and Naacal, Reverend Test, 1933, 78-rpm records Sermons recorded on disc. Test Records
+ • Sanity Loss: 1D6 • Cthulhu Mythos (Initial Reading): +2% • Cthulhu Mythos (Full Study): +4% • Mythos Rating: 18 • Study: 7 days • Spells: none.
+`);
+    assert.equal(tomes.length, 2);
+    assert.equal(tomes[0].link, "Chapter 2: New Test City");
+    assert.equal(tomes[0].language, "English");
+    assert.equal(tomes[0].author, "Test Researchers");
+    assert.equal(tomes[0].date, "1932");
+    assert.equal(tomes[0].description, "Fragile scrolls of strange lore.");
+    assert.equal(tomes[1].link, "Chapter 4: Testland");
+    assert.equal(tomes[1].language, "English and Naacal");
+    assert.equal(tomes[1].physical, "78-rpm records");
+    assert.equal(tomes[1].description, "Sermons recorded on disc.");
+  });
 });
 
 describe("parseAppendixTomes — inline entries (Innsmouth-style)", () => {

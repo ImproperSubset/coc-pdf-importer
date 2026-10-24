@@ -863,6 +863,58 @@ function splitTomePreamble(before: string): {
   };
 }
 
+// The Serpent tome layout: an ALL-CAPS heading, an "• Appearance in the
+// campaign:" chapter list, an optional "Language, author, date" line, the
+// description, and the title repeated before the stat bullets:
+//   "ANNALS OF MU • Appearance in the campaign: Chapter 1: Bolivia These
+//    fragile scrolls … glorious Mu. The Annals of Mu"
+// Returns the link, the bibliographic fields and the bare description, or
+// null when the entry has no Appearance list.
+function splitAppearancePreamble(before: string): {
+  link: string;
+  language: string;
+  author: string;
+  date: string;
+  physical: string;
+  description: string;
+} | null {
+  const text = cleanSpaces(before).replace(/\bA ppearance\b/g, "Appearance");
+  const m = new RegExp(
+    String.raw`•\s*[Aa]ppearance in the campaign:\s*(${CHAPTER_REF}(?:\s*,\s*${CHAPTER_REF})*|Chapters?\s+\d+\s*[–-]\s*\d+)`,
+  ).exec(text);
+  if (!m) return null;
+  let rest = text.slice(m.index + m[0].length).trim();
+  let language = "";
+  let author = "";
+  let date = "";
+  let physical = "";
+  // "Naacal, Rose Meadham/Sashannal, 1928–1933 (unfinished)", "English and
+  // Naacal, Reverend Kornfield, 1933, 78-rpm records".
+  const biblio = new RegExp(
+    String.raw`^((?:${TOME_LANG})(?:\s+and\s+(?:${TOME_LANG}))?),\s*([^,.•]{2,60}?),\s*(\d{3,4}(?:\s*[–-]\s*\d{2,4})?)\b(?:\s*\(([^)]*)\)|,\s*([a-z0-9][a-z0-9 -]{1,40}?)(?=\s+[A-Z]))?\s*`,
+  ).exec(rest);
+  if (biblio) {
+    [, language, author, date] = biblio;
+    physical = biblio[4] ?? biblio[5] ?? "";
+    rest = rest.slice(biblio[0].length);
+  }
+  // The title repeated before the stats: a short run after the last sentence.
+  const lastStop = rest.lastIndexOf(". ");
+  if (lastStop >= 0) {
+    const tail = rest.slice(lastStop + 2);
+    if (!/\./.test(tail) && tail.split(/\s+/).length <= 8)
+      rest = rest.slice(0, lastStop + 1);
+  }
+  return {
+    link: cleanSpaces(m[1]),
+    language: cleanSpaces(language),
+    author: cleanSpaces(author),
+    date: cleanSpaces(date),
+    physical: cleanSpaces(physical),
+    description: cleanSpaces(rest),
+  };
+}
+
 function extractLooseTomeTitle(before: string): string {
   let s = cleanSpaces(before);
   // Drop trailing Appearance lines so the title sits at the end.
@@ -1011,7 +1063,7 @@ export function parseAppendixTomes(text: string): AppendixTome[] {
       /\bART[EI]FACTS\b/,
       /•\s*Sanity (?:Loss|Cost):/,
     ),
-  );
+  ).replace(/\bA ppearance\b/g, "Appearance"); // a PDF-split word
   if (!section) return [];
 
   const tomes: AppendixTome[] = [];
@@ -1057,6 +1109,17 @@ export function parseAppendixTomes(text: string): AppendixTome[] {
       spells = /^none\./i.test(spells) ? "none." : "none";
     if (spells.length > 800) spells = spells.slice(0, 800);
     const parsed = splitTomePreamble(before);
+    // The Serpent layout leads with "• Appearance in the campaign:" and keeps
+    // the language among the stat bullets, which the bibliographic-line
+    // reading above misses.
+    if (!parsed.link && !parsed.language) {
+      const appearance = splitAppearancePreamble(before);
+      if (appearance) Object.assign(parsed, appearance);
+      const lang = /•\s*Language:\s*([^•]+?)\s*(?=•|$)/i.exec(
+        section.slice(a.index, a.spellsStart),
+      );
+      if (lang && !parsed.language) parsed.language = cleanSpaces(lang[1]);
+    }
     let name = parsed.name;
     if (!name) {
       name = extractLooseTomeTitle(before);
@@ -1106,7 +1169,9 @@ const REGION_HEADERS = new RegExp(String.raw`^(?:${REGION_NAMES})$`, "i");
 // ("Outwardly, these …").
 const SENTENCE_OPENER = String.raw`(?:The|A|An|This|These|Those|It|Its|More|Made|While|Designed|Our|Once|When|Each|Although|Originally|Legend)\b`;
 const NAME_WORD = String.raw`[A-Z][A-Za-z'’\-]*(?![A-Za-z'’\-])`;
-const CHAPTER_REF = String.raw`Chapter\s+\d+:\s*(?!${SENTENCE_OPENER})${NAME_WORD}(?:\s+(?!${SENTENCE_OPENER})${NAME_WORD}(?!,?\s+[a-z]))*`;
+// A tome's "English, Caduceus Researchers, 1932" line also starts the body.
+const BIBLIO_START = String.raw`(?:${TOME_LANG})(?:\s+and\s+(?:${TOME_LANG}))?,`;
+const CHAPTER_REF = String.raw`Chapter\s+\d+:\s*(?!${SENTENCE_OPENER})${NAME_WORD}(?:\s+(?!${SENTENCE_OPENER}|${BIBLIO_START})${NAME_WORD}(?!,?\s+[a-z]))*`;
 const APPEARANCE_CHAPTERS = new RegExp(
   String.raw`•\s*[Aa]ppearance in the campaign:\s*(${CHAPTER_REF}(?:\s*,\s*${CHAPTER_REF})*)`,
 );
