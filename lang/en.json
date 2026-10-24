@@ -6,7 +6,8 @@
       "Hint": "Import the documents from the modern Chaosium PDF layout."
     },
     "Form": {
-      "Upload": "Choose files to upload"
+      "Upload": "Choose files to upload",
+      "BookTitleHint": "Book title cited, with the page, in each imported entry's Keeper notes."
     },
     "Progress": {
       "Title": "Import progress",

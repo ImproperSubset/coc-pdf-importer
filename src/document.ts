@@ -5,6 +5,12 @@
 // importDocument ties the two together so callers (the UI, the dump tool) deal
 // with a single call.
 import { processPDF } from "./process.ts";
+import type { SourcePage } from "./process.ts";
+import {
+  bookTitleFromFileName,
+  citationHtml,
+  sourceCitation,
+} from "./citation.ts";
 import { importCharacters } from "./importer.ts";
 import type { ImportResult } from "./importer.ts";
 import { claimReplaced, createReplacing } from "./replace.ts";
@@ -486,7 +492,8 @@ const ITEM_TYPE_ICONS: Record<string, string> = {
 export interface CreatePulpItemsOptions {
   /** Name of the parent Item folder — typically the source document's name. */
   folderName?: string;
-  /** The `system.source` stamped on each item. */
+  /** The book's title: each item cites it with its page in its Keeper notes
+   * and, where the type has one, its `system.source`. */
   source?: string;
   /** Show a UI notification summarising the result (default true). */
   notify?: boolean;
@@ -504,7 +511,7 @@ export interface CreatePulpItemsResult {
 // Idempotent per leaf folder: a re-import replaces same-named items under
 // their existing ids.
 export async function createPulpItems(
-  items: (PulpItem | OldWestItem)[],
+  items: ((PulpItem | OldWestItem) & SourcePage)[],
   options: CreatePulpItemsOptions = {},
 ): Promise<CreatePulpItemsResult> {
   const result: CreatePulpItemsResult = { created: 0, failed: 0, items: [] };
@@ -518,9 +525,10 @@ export async function createPulpItems(
 
   // Group by kind, then (for artefacts and tomes) by region, so each leaf folder is filled
   // in one pass and re-import replace stays scoped to that folder.
-  type Leaf = { folderPath: string[]; group: (PulpItem | OldWestItem)[] };
+  type Entry = (PulpItem | OldWestItem) & SourcePage;
+  type Leaf = { folderPath: string[]; group: Entry[] };
   const leaves: Leaf[] = [];
-  const byKind = new Map<string, (PulpItem | OldWestItem)[]>();
+  const byKind = new Map<string, Entry[]>();
   for (const item of items) {
     const list = byKind.get(item.kind) ?? [];
     list.push(item);
@@ -530,7 +538,7 @@ export async function createPulpItems(
   for (const [kind, group] of byKind) {
     const typeFolder = ITEM_TYPE_FOLDERS[kind] ?? kind;
     if (kind === "artefact" || kind === "tome") {
-      const byRegion = new Map<string, (PulpItem | OldWestItem)[]>();
+      const byRegion = new Map<string, Entry[]>();
       for (const item of group) {
         const region = "region" in item && item.region ? item.region : "";
         const list = byRegion.get(region) ?? [];
@@ -555,7 +563,13 @@ export async function createPulpItems(
     }
     const kind = leaf.group[0]?.kind ?? "";
     const img = ITEM_TYPE_ICONS[kind];
-    const docs = leaf.group.map((item) => pulpItemDoc(item, source));
+    const docs = leaf.group.map((item) => {
+      const citation = sourceCitation(source, item);
+      const doc = pulpItemDoc(item, citation);
+      const description = (doc.system.description ??= {});
+      description.keeper = citationHtml(citation) + (description.keeper ?? "");
+      return doc;
+    });
     const replaced = await claimReplacedItems(folder, docs);
     for (const doc of docs) {
       try {
@@ -631,6 +645,8 @@ async function claimReplacedItems(
 export interface ImportDocumentOptions {
   /** Folder name for both the Actor folder and the parent Item folder. */
   folderName?: string;
+  /** The book's title for source citations (default: from the folder name). */
+  bookTitle?: string;
   /** Show a UI notification summarising the result (default true). */
   notify?: boolean;
 }
@@ -649,13 +665,16 @@ export async function importDocument(
 ): Promise<ImportDocumentResult> {
   const { actors, items } = await processPDF(data);
   const folderName = options.folderName ?? "PDF Import";
+  const source = options.bookTitle || bookTitleFromFileName(folderName);
   const actorResult = await importCharacters(actors, {
     folderName,
     notify: false,
+    source,
   });
   const itemResult = await createPulpItems(items, {
     folderName,
     notify: false,
+    source,
   });
   if (options.notify !== false) {
     const failed = actorResult.failed + itemResult.failed;

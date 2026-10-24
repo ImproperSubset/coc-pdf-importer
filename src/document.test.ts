@@ -559,6 +559,37 @@ describe("createPulpItems", () => {
     assert.equal(folders.length, 3); // Book, Tomes, Artefacts — no region folders
   });
 
+  test("each item cites its book and page in its Keeper notes and source field", async () => {
+    await createPulpItems(
+      [
+        { ...talent("Alpha"), page: 40, printedPage: 39 },
+        {
+          kind: "artefact",
+          name: "Test Charm",
+          link: "",
+          description: "A small charm.",
+          keeper: "Old notes.",
+          isWeapon: false,
+          region: "",
+          page: 50,
+          printedPage: 49,
+        },
+      ],
+      { folderName: "Book", source: "Test Book", notify: false },
+    );
+    const alpha = created.find((i) => i.name === "Alpha");
+    assert.equal(alpha.system.source, "Test Book, p. 39");
+    assert.equal(
+      alpha.system.description.keeper,
+      "<p>Source: Test Book, p. 39</p>",
+    );
+    const charm = created.find((i) => i.name === "Test Charm");
+    assert.equal(
+      charm.system.description.keeper,
+      "<p>Source: Test Book, p. 49</p><p>Old notes.</p>",
+    );
+  });
+
   test("files spells, tomes, and artefacts into typed subfolders", async () => {
     await createPulpItems(
       [

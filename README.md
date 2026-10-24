@@ -27,7 +27,11 @@ document contains them, **items** (Pulp Cthulhu talents/archetypes, Chaosium
 appendix Spells / Tomes / Artefacts, and Down Darker Trails' Old West
 occupations, skills, weapons and spells). Everything is placed in folders named
 after the source file; a re-import refreshes same-named entries in place,
-keeping their ids, instead of duplicating them.
+keeping their ids, instead of duplicating them. Each imported entry cites its
+source — the book's title and the page it is printed on — at the top of its
+Keeper notes, and in its `source` field where the CoC7 item type has one. The
+title defaults to one derived from the file name and can be edited per file
+in the import dialog.
 
 ### Actors
 

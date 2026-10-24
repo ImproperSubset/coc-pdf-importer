@@ -5,6 +5,7 @@ import type {
   PulpTalentRef,
 } from "./process.ts";
 import { claimReplaced, createReplacing } from "./replace.ts";
+import { citationHtml, sourceCitation } from "./citation.ts";
 
 // Foundry globals (game, ui, Actor, Folder) are declared in ./foundry.d.ts.
 
@@ -19,6 +20,8 @@ export interface ImportOptions {
   folderName?: string;
   /** Show a UI notification summarising the result (default true). */
   notify?: boolean;
+  /** The book's title, cited with each actor's page in its Keeper notes. */
+  source?: string;
 }
 
 export interface ImportResult {
@@ -58,6 +61,7 @@ export async function importCharacters(
         indexes,
         [],
         replaced.take(character),
+        options.source,
       );
       result.actors.push(actor);
       result.created++;
@@ -89,6 +93,7 @@ export async function importCharacters(
           indexes,
           talentItems(character.pulp!.talents, indexes.talent),
           pulpReplaced.take(character),
+          options.source,
         );
         result.actors.push(actor);
         result.created++;
@@ -124,8 +129,10 @@ async function importCharacter(
   indexes: CompendiumIndexes,
   extraItems: any[] = [],
   replacing: FoundryActor | null = null,
+  source?: string,
 ): Promise<any> {
   const type = entity === "auto" ? guessEntityType(character) : entity;
+  const citation = source ? sourceCitation(source, character) : "";
 
   const actor = await createReplacing(
     Actor,
@@ -134,7 +141,7 @@ async function importCharacter(
       name: character.name || "Unknown",
       type,
       folder: folder?.id ?? null,
-      system: buildActorSystem(character, type),
+      system: buildActorSystem(character, type, citation),
     },
     KEPT_ACTOR_FIELDS,
   );
@@ -270,12 +277,16 @@ function guessEntityType(character: CocCharacter): EntityType {
 function buildActorSystem(
   character: CocCharacter,
   type: EntityType,
+  citation = "",
 ): Record<string, unknown> {
   const system: any = {
     characteristics: {},
     attribs: {},
     infos: {},
-    description: { keeper: notesToHtml(character, type) },
+    description: {
+      keeper:
+        (citation ? citationHtml(citation) : "") + notesToHtml(character, type),
+    },
   };
   // "special" (sanLoss / attacksPerRound) exists on npc/creature only, not on the
   // Investigator "character" type.

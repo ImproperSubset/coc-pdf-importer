@@ -1,4 +1,5 @@
 import { importDocument } from "./document.ts";
+import { bookTitleFromFileName } from "./citation.ts";
 
 type ImportProgress = {
   name: string;
@@ -85,12 +86,54 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
       );
       return;
     }
-    await this.runImport(Array.from(files));
+    const titles = Array.from(files).map(
+      (file, i) =>
+        form
+          .querySelector<HTMLInputElement>(`input[name="bookTitle-${i}"]`)
+          ?.value.trim() || bookTitleFromFileName(file.name),
+    );
+    await this.runImport(Array.from(files), titles);
+  }
+
+  // Offer an editable book title for each chosen file, prefilled from its
+  // file name; the import cites it in each entry's Keeper notes.
+  _onRender(context: object, options: object) {
+    super._onRender?.(context, options);
+    const form = this.element as HTMLFormElement;
+    const input = form.querySelector<HTMLInputElement>('input[name="files"]');
+    if (!input || input.dataset.cocBookTitles) return;
+    input.dataset.cocBookTitles = "1";
+    input.addEventListener("change", () => {
+      const box = form.querySelector(".coc-book-titles");
+      if (!box) return;
+      box.replaceChildren();
+      const files = Array.from(input.files ?? []);
+      files.forEach((file, i) => {
+        const group = document.createElement("div");
+        group.className = "form-group";
+        const label = document.createElement("label");
+        label.textContent = file.name;
+        const title = document.createElement("input");
+        title.type = "text";
+        title.name = `bookTitle-${i}`;
+        title.value = bookTitleFromFileName(file.name);
+        group.append(label, title);
+        box.append(group);
+      });
+      if (files.length) {
+        const hint = document.createElement("p");
+        hint.className = "hint";
+        hint.textContent = game.i18n.localize(
+          "coc-pdf-importer.Form.BookTitleHint",
+        );
+        box.append(hint);
+      }
+    });
   }
 
   // Import each file in turn, re-rendering the progress list and the (disabled)
   // submit button between steps so the dialog reflects live status.
-  async runImport(files: File[]) {
+  async runImport(files: File[], titles: string[] = []) {
     this.#importing = true;
     this.#progress = files.map((f): ImportProgress => ({
       name: f.name,
@@ -110,7 +153,7 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
         const folderName = files[i].name.replace(/\.[^.]+$/, "");
         const result = await importDocument(
           new Uint8Array(await files[i].arrayBuffer()),
-          { folderName, notify: false },
+          { folderName, bookTitle: titles[i], notify: false },
         );
         entry.status = "done";
         entry.created = result.actors.created;

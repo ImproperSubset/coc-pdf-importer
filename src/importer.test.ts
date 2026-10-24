@@ -1948,6 +1948,37 @@ describe("importCharacters — folders and de-duplication", () => {
   });
 });
 
+describe("importCharacters — source citation", () => {
+  test("an actor's Keeper notes open with the book and printed page", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          name: "Alpha",
+          page: 12,
+          printedPage: 11,
+          sanityLoss: "1/1D4",
+        }),
+        makeCharacter({ name: "Bravo", page: 30 }),
+      ],
+      { notify: false, source: "Test Book" },
+    );
+    const keeper = (n: string) =>
+      created.find((a) => a.name === n).system.description.keeper;
+    assert.match(
+      keeper("Alpha"),
+      /^<p>Source: Test Book, p\. 11<\/p><p>Sanity loss/,
+    );
+    assert.match(keeper("Bravo"), /^<p>Source: Test Book, PDF page 30<\/p>/);
+  });
+
+  test("without a source, no citation is written", async () => {
+    await importCharacters([makeCharacter({ page: 12, printedPage: 11 })], {
+      notify: false,
+    });
+    assert.doesNotMatch(created[0].system.description.keeper, /Source:/);
+  });
+});
+
 describe("importCharacters — chapter folders", () => {
   const folderNamed = (name: string) => folders.find((f) => f.name === name);
   const parentId = (f: any) => f?.folder?.id ?? f?.folder ?? null;
