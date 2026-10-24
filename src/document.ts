@@ -5,6 +5,7 @@
 // importDocument ties the two together so callers (the UI, the dump tool) deal
 // with a single call.
 import { processPDF } from "./process.ts";
+import { ensureBookFolder } from "./folders.ts";
 import type { SourcePage } from "./process.ts";
 import {
   bookTitleFromFileName,
@@ -490,8 +491,11 @@ const ITEM_TYPE_ICONS: Record<string, string> = {
 };
 
 export interface CreatePulpItemsOptions {
-  /** Name of the parent Item folder — typically the source document's name. */
+  /** Name of the parent Item folder: the book's title. */
   folderName?: string;
+  /** The source PDF's file name (without extension): recorded on the folder
+   * so a re-import finds it, and the name older imports gave the folder. */
+  sourceFile?: string;
   /** The book's title: each item cites it with its page in its Keeper notes
    * and, where the type has one, its `system.source`. */
   source?: string;
@@ -518,9 +522,11 @@ export async function createPulpItems(
   if (items.length === 0) return result;
 
   const source = options.source ?? options.folderName ?? "PDF Import";
-  const parent = await ensureItemFolder(
-    options.folderName ?? "PDF Import",
-    null,
+  const parentName = options.folderName ?? "PDF Import";
+  const parent = await ensureBookFolder(
+    "Item",
+    parentName,
+    options.sourceFile ?? parentName,
   );
 
   // Group by kind, then (for artefacts and tomes) by region, so each leaf folder is filled
@@ -643,9 +649,11 @@ async function claimReplacedItems(
 // --- orchestration ---------------------------------------------------------
 
 export interface ImportDocumentOptions {
-  /** Folder name for both the Actor folder and the parent Item folder. */
+  /** The source PDF's file name without extension: the key that finds the
+   * book's folders again on a re-import. */
   folderName?: string;
-  /** The book's title for source citations (default: from the folder name). */
+  /** The book's title: the Actor and Item folders' name and the title in
+   * source citations (default: derived from the file name). */
   bookTitle?: string;
   /** Show a UI notification summarising the result (default true). */
   notify?: boolean;
@@ -664,17 +672,19 @@ export async function importDocument(
   options: ImportDocumentOptions = {},
 ): Promise<ImportDocumentResult> {
   const { actors, items } = await processPDF(data);
-  const folderName = options.folderName ?? "PDF Import";
-  const source = options.bookTitle || bookTitleFromFileName(folderName);
+  const sourceFile = options.folderName ?? "PDF Import";
+  const title = options.bookTitle || bookTitleFromFileName(sourceFile);
   const actorResult = await importCharacters(actors, {
-    folderName,
+    folderName: title,
+    sourceFile,
     notify: false,
-    source,
+    source: title,
   });
   const itemResult = await createPulpItems(items, {
-    folderName,
+    folderName: title,
+    sourceFile,
     notify: false,
-    source,
+    source: title,
   });
   if (options.notify !== false) {
     const failed = actorResult.failed + itemResult.failed;

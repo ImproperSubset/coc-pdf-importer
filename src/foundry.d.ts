@@ -17,6 +17,8 @@ interface FoundryFolder {
   folder?: FoundryFolder | string | null;
   /** "a" (alphabetical) or "m" (manual, by `sort`). */
   sorting?: string;
+  /** Module data stored with the folder, by module id. */
+  flags?: Record<string, any>;
   update?(data: object): Promise<unknown>;
   delete?(): Promise<unknown>;
 }
@@ -108,6 +110,7 @@ declare const Folder: {
     folder?: string | null;
     sort?: number;
     sorting?: string;
+    flags?: Record<string, any>;
   }): Promise<FoundryFolder>;
 };
 declare const foundry: {

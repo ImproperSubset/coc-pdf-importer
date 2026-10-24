@@ -2055,6 +2055,31 @@ describe("importCharacters — chapter folders", () => {
   });
 });
 
+describe("importCharacters — book-titled folders", () => {
+  test("a re-import renames the file-named folder to the title, keeping its actors' ids", async () => {
+    folders.push({ id: "fi", name: "test_book_v1", type: "Actor" });
+    folders[0].update = async (u: any) => Object.assign(folders[0], u);
+    const old: any = { id: "old", name: "Alpha", folder: { id: "fi" } };
+    old.toObject = () => ({
+      _id: "old",
+      name: "Alpha",
+      type: "npc",
+      folder: "fi",
+    });
+    old.delete = async () => world.splice(world.indexOf(old), 1);
+    world.push(old);
+    await importCharacters([makeCharacter({ name: "Alpha" })], {
+      folderName: "Test Book",
+      sourceFile: "test_book_v1",
+      notify: false,
+    });
+    assert.equal(folders.length, 1);
+    assert.equal(folders[0].name, "Test Book");
+    assert.equal(created[0].id, "old");
+    assert.equal(created[0].folder, "fi");
+  });
+});
+
 describe("importCharacters — result and notifications", () => {
   test("returns created / failed counts and surfaces a summary notification", async () => {
     const res = await importCharacters([makeCharacter(), makeCharacter()]);

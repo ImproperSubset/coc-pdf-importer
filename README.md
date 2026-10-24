@@ -26,12 +26,14 @@ A single import reads a document once and creates both **actors** and, when the
 document contains them, **items** (Pulp Cthulhu talents/archetypes, Chaosium
 appendix Spells / Tomes / Artefacts, and Down Darker Trails' Old West
 occupations, skills, weapons and spells). Everything is placed in folders named
-after the source file; a re-import refreshes same-named entries in place,
+after the book's title; a re-import refreshes same-named entries in place,
 keeping their ids, instead of duplicating them. Each imported entry cites its
 source — the book's title and the page it is printed on — at the top of its
 Keeper notes, and in its `source` field where the CoC7 item type has one. The
 title defaults to one derived from the file name and can be edited per file
-in the import dialog.
+in the import dialog. The book's folders record the PDF's file name, so a
+re-import of the same file finds them (and renames them) whatever title is
+given.
 
 ### Actors
 
@@ -78,7 +80,7 @@ parsed and imported as CoC7 `talent` and `archetype` items. Archetypes carry
 their core characteristic(s), bonus points, suggested occupations/traits, talent
 count, and a resolved skill list (each skill mapped to its CoCID itemKey).
 
-Items are filed in a `<file name>` **Item** folder with one subfolder per type
+Items are filed in a `<book title>` **Item** folder with one subfolder per type
 (`Talents`, `Archetypes`, `Spells`, `Tomes`, `Artefacts`, …); actors live in a
 same-named **Actor** folder. (Foundry keeps Actor and Item folders in separate
 trees, so these are two sibling folders of the same name.) When the book has a
@@ -120,7 +122,7 @@ Appendices B–D), or that print appendix-style entries inline in their chapters
 2. Go to Settings → Game Settings → Call of Cthulhu PDF Importer → Import button
 3. Upload the document(s) and wait until the import is complete
 4. Navigate to the Actors or Items sidebar. Entries are created in folders named
-   after the source file (items under typed subfolders such as `Talents` /
+   after the book's title (items under typed subfolders such as `Talents` /
    `Spells` / `Tomes` / `Artefacts`).
 
 ## Development
@@ -160,13 +162,13 @@ testable.
    documents:
    - actors via `importCharacters()` (`importer.ts`), which maps each
      `CocCharacter` onto CoC7 actor system data and embedded items (skills,
-     weapons + backing skills, spells), in a `<file name>` Actor folder —
+     weapons + backing skills, spells), in a `<book title>` Actor folder —
      in a chapter subfolder when `processPDF()` found the book's chapters
      (`parseBookSections()`: the contents page's entries, mapped to PDF pages
      through the page numbers in the running headers).
    - items via `createPulpItems()` (`document.ts`), which builds the Foundry
      documents (resolving pulp skill names to CoCID itemKeys here) and files
-     them under typed subfolders of a `<file name>` Item folder.
+     them under typed subfolders of a `<book title>` Item folder.
 
    A re-import replaces same-named entries in each folder instead of
    duplicating them (`replace.ts`): the old document is deleted and the new one

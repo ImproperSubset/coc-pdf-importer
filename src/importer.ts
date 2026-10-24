@@ -6,6 +6,7 @@ import type {
 } from "./process.ts";
 import { claimReplaced, createReplacing } from "./replace.ts";
 import { citationHtml, sourceCitation } from "./citation.ts";
+import { ensureBookFolder } from "./folders.ts";
 
 // Foundry globals (game, ui, Actor, Folder) are declared in ./foundry.d.ts.
 
@@ -16,8 +17,12 @@ type EntityType = "npc" | "creature" | "character";
 export interface ImportOptions {
   /** Force the actor type, or 'auto' to guess from the stat block. */
   entity?: EntityType | "auto";
-  /** Name of the Actor folder to place imported characters in. */
+  /** Name of the Actor folder to place imported characters in: the book's
+   * title. */
   folderName?: string;
+  /** The source PDF's file name (without extension): recorded on the folder
+   * so a re-import finds it, and the name older imports gave the folder. */
+  sourceFile?: string;
   /** Show a UI notification summarising the result (default true). */
   notify?: boolean;
   /** The book's title, cited with each actor's page in its Keeper notes. */
@@ -39,7 +44,9 @@ export async function importCharacters(
   characters: CocCharacter[],
   options: ImportOptions = {},
 ): Promise<ImportResult> {
-  const folder = await ensureActorFolder(options.folderName ?? "PDF Import");
+  const folderName = options.folderName ?? "PDF Import";
+  const sourceFile = options.sourceFile ?? folderName;
+  const folder = await ensureBookFolder("Actor", folderName, sourceFile);
   // The folder is named after the imported file, so a re-import refreshes its
   // contents: an actor already in it that shares a name with an incoming one is
   // replaced under the same id rather than duplicated.
@@ -88,9 +95,7 @@ export async function importCharacters(
       name: variantName(c),
     }));
     const pulpReplaced = await claimReplacedActors(folder, variants);
-    const legacyFolder = findTopActorFolder(
-      `${options.folderName ?? "PDF Import"} (Pulp)`,
-    );
+    const legacyFolder = findTopActorFolder(`${sourceFile} (Pulp)`);
     const legacyReplaced = await claimReplacedActors(
       legacyFolder,
       pulpCharacters,
@@ -1430,22 +1435,6 @@ function languageItem(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-// Find or create a top-level Actor folder; a same-named nested folder is not it.
-async function ensureActorFolder(name: string): Promise<any> {
-  const existing = game.folders?.find(
-    (f: any) =>
-      f.name === name &&
-      f.type === "Actor" &&
-      (f.folder?.id ?? f.folder ?? null) === null,
-  );
-  if (existing) return existing;
-  try {
-    return await Folder.create({ name, type: "Actor" });
-  } catch {
-    return null;
-  }
-}
 
 // A top-level Actor folder by name, without creating it.
 function findTopActorFolder(name: string): FoundryFolder | null {

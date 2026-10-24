@@ -108,6 +108,10 @@ contents page's sections and gives each actor its `page` and `chapter`.
   fails. Carried over: actor `img`, `prototypeToken`, `ownership`, `sort`; item
   `ownership`, `sort`. Same-named entries pair up in order; surplus old ones are
   deleted. Old actors are found anywhere under the book's Actor folder.
+- A book's top-level Actor and Item folders are named for its title and flagged
+  with the PDF's file name (`flags["coc-pdf-importer"].sourceFile`,
+  `src/folders.ts`); a re-import finds them by that flag, else by title, else by
+  the file name older imports used, and renames them to the current title.
 - Actors go into chapter subfolders (`Chapter 1: Bolivia`, `Appendix A: …`) in
   printed order when the book's contents page lists chapters; otherwise flat.
   Items stay grouped by type (`Talents`, `Spells`, `Tomes`, `Artefacts`, …).
