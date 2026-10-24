@@ -53,6 +53,8 @@ export interface AppendixArtefact {
   keeper: string;
   /** True when body looks like a combat weapon. */
   isWeapon: boolean;
+  /** A weapon's stats as its text states them (only when isWeapon). */
+  weapon?: ArtefactWeaponStats;
   /** Campaign chapter banner (Peru, England, …) for Item subfolders. */
   region: string;
 }
@@ -1192,8 +1194,112 @@ const APPEARANCE_CHAPTERS = new RegExp(
   String.raw`•\s*[Aa]ppearance in the campaign:\s*(${CHAPTER_REF}(?:\s*,\s*${CHAPTER_REF})*)`,
 );
 
+// A weapon a character wields: its text names the combat skill that uses it,
+// calls it a throwing weapon, or has it deal damage or make attacks. Damage
+// alone is not enough (a crown that drills into its wearer, a poison), nor is
+// the word "weapon" (a city-destroying device).
 const WEAPON_CUES =
-  /\b(?:weapons?|(?:Fighting|Firearms)\s*\(|deals?\s+\d|\d+D\d+(?:\s*\+\s*\d+)?\s+(?:[a-z]+\s+)?damage|attack(?:s|ing)?\s+(?:with|as)|damage\s+to\s+(?:supernatural|mundane)|impale)\b/i;
+  /\b(?:Fighting|Firearms)\s*\(|\b(?:Handgun|Rifle|Shotgun|Throw|Brawl)\s+skill\b|\bthrowing\s+(?:weapons?|daggers?|knife|knives)\b|\bdeals?\s+\d*D\d+|\battack(?:s|ing)?\s+(?:with|as)\b|\bimpale\b/i;
+
+export interface ArtefactWeaponStats {
+  /** The skill as the text names it ("Firearms (Handgun)", "Throw"), or "". */
+  skill: string;
+  /** The damage dice ("1D10+5"), or "" when the text states none. */
+  damage: string;
+  /** Range in yards as the system writes it ("10", "12/3" for 12 feet), or "". */
+  range: string;
+  /** The most uses per round ("3"), or "". */
+  usesMax: string;
+  /** Shots before reloading or recharging, or null. */
+  shots: number | null;
+  impale: boolean;
+  burn: boolean;
+  /** "half": adds half the damage bonus; "full": the whole; "": not stated. */
+  damageBonus: "half" | "full" | "";
+  /** True or false when the text says (a firearm, thrown, "cannot be used as
+   * a ranged weapon"); null when it doesn't. */
+  ranged: boolean | null;
+}
+
+const COUNT_WORDS: Record<string, string> = {
+  two: "2",
+  three: "3",
+  four: "4",
+  five: "5",
+  six: "6",
+};
+
+// A weapon artefact's stats, read from its text.
+export function artefactWeaponStats(text: string): ArtefactWeaponStats {
+  const t = text.replace(/\s+/g, " ");
+  let skill = "";
+  const named = /\b(Fighting|Firearms)\s*\(([^)]+)\)/.exec(t);
+  const firearm =
+    /\b(Handgun|Rifle\/Shotgun|Rifle|Shotgun|Submachine Gun|Machine Gun|Bow)\s+skill\b/i.exec(
+      t,
+    );
+  if (named) skill = `${named[1]} (${named[2].trim()})`;
+  else if (firearm)
+    skill = `Firearms (${/^(?:rifle|shotgun)$/i.test(firearm[1]) ? "Rifle/Shotgun" : firearm[1]})`;
+  else if (
+    /\bThrow\s+skill\b|\bthrowing\s+(?:weapons?|daggers?|knife|knives)\b|\bwhen\s+thrown\b/i.test(
+      t,
+    )
+  )
+    skill = "Throw";
+  else if (/\bBrawl\s+skill\b/i.test(t)) skill = "Fighting (Brawl)";
+
+  const dice = String.raw`\d*D\d+(?:\s*[+-]\s*\d+(?:D\d+)?)?`;
+  const damageMatch =
+    new RegExp(
+      String.raw`\b(?:inflicts?|inflicting|causes?|deals?|does)\s+(${dice})(?:\s+(?:points?\s+)?(?:of\s+)?)?(?:[a-z]+\s+)?damage\b(?!\s+per\s+round)`,
+      "i",
+    ).exec(t) ??
+    new RegExp(String.raw`\bdamage\s*\((${dice})(?:\s+points?)?\)`, "i").exec(
+      t,
+    );
+  const damage = damageMatch ? damageMatch[1].replace(/\s+/g, "") : "";
+
+  const rangeMatch = /\brange\s+of\s+(\d+)\s*(yards?|feet|foot|ft)\b/i.exec(t);
+  const range = rangeMatch
+    ? /^y/i.test(rangeMatch[2])
+      ? rangeMatch[1]
+      : `${rangeMatch[1]}/3`
+    : "";
+
+  const uses = /\bup\s+to\s+(\w+)\s+times\s+per\s+round\b/i.exec(t);
+  const usesMax = uses
+    ? (COUNT_WORDS[uses[1].toLowerCase()] ??
+      (/^\d+$/.test(uses[1]) ? uses[1] : ""))
+    : "";
+  const shotsMatch = /\b(\d+)\s+shots\b/i.exec(t);
+
+  const damageBonus =
+    /\bhalf\s+(?:the\s+)?damage\s+bonus\b|\+\s*half\s+DB\b/i.test(t)
+      ? "half"
+      : /\+\s*(?:the\s+)?(?:damage\s+bonus|DB)\b/i.test(t)
+        ? "full"
+        : "";
+  const ranged = /\bcannot\s+be\s+used\s+as\s+a\s+ranged\s+weapon\b/i.test(t)
+    ? false
+    : /^(?:Firearms|Throw)/.test(skill) || /^\d/.test(range)
+      ? true
+      : null;
+
+  return {
+    skill,
+    damage,
+    range,
+    usesMax,
+    shots: shotsMatch ? Number(shotsMatch[1]) : null,
+    impale: /\bimpal/i.test(t),
+    burn: /\bset\s+on\s+fire\b|\bsets?\s+\w+\s+on\s+fire\b|\bburn(?:s|ing)?\b/i.test(
+      t,
+    ),
+    damageBonus,
+    ranged,
+  };
+}
 
 export function isArtefactWeapon(body: string): boolean {
   return WEAPON_CUES.test(body);
@@ -1347,6 +1453,9 @@ export function parseAppendixArtefacts(text: string): AppendixArtefact[] {
       description,
       keeper: link ? cleanSpaces(`Link: ${link} ${keeper}`) : keeper,
       isWeapon: isArtefactWeapon(keeper),
+      ...(isArtefactWeapon(keeper)
+        ? { weapon: artefactWeaponStats(keeper) }
+        : {}),
       region: s.region,
     });
   }

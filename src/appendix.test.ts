@@ -12,6 +12,7 @@ import {
   parseAppendixArtefacts,
   parseAppendixItems,
   isArtefactWeapon,
+  artefactWeaponStats,
   SECTION_MARK,
   splitArtefactBlurb,
 } from "./appendix.ts";
@@ -339,22 +340,81 @@ describe("artefact helpers", () => {
       isArtefactWeapon("This blade deals 1D8+1 damage in Fighting (Sword)."),
       true,
     );
+    // Naming a weapon, or dealing damage to whoever wears it, is not enough.
     assert.equal(
       isArtefactWeapon(
         "Both a scrying device and a powerful weapon of attack.",
       ),
-      true,
+      false,
     );
     assert.equal(
       isArtefactWeapon(
         "These weapons spit a bolt that inflicts 1D8+2 cold damage.",
       ),
+      false,
+    );
+    assert.equal(
+      isArtefactWeapon("Its spikes pierce the wearer for 2D6 damage."),
+      false,
+    );
+    assert.equal(
+      isArtefactWeapon("A small blade used as throwing daggers."),
       true,
     );
     assert.equal(
       isArtefactWeapon("Aiming it calls for the Firearms (Handgun) skill."),
       true,
     );
+  });
+
+  test("weapon stats are read from the text", () => {
+    assert.deepEqual(
+      artefactWeaponStats(
+        "A coiled test pistol. The Handgun skill is used to fire it. It can be fired up to three times per round. Each bolt inflicts 1D8 of damage and the target may be set on fire. Extreme successes impale.",
+      ),
+      {
+        skill: "Firearms (Handgun)",
+        damage: "1D8",
+        range: "",
+        usesMax: "3",
+        shots: null,
+        impale: true,
+        burn: true,
+        damageBonus: "",
+        ranged: true,
+      },
+    );
+    assert.deepEqual(
+      artefactWeaponStats(
+        "A barbed test lash inflicts 1D4 damage + half damage bonus. The lash has a range of 9 feet. Use the Fighting (Whip) skill.",
+      ),
+      {
+        skill: "Fighting (Whip)",
+        damage: "1D4",
+        range: "9/3",
+        usesMax: "",
+        shots: null,
+        impale: false,
+        burn: false,
+        damageBonus: "half",
+        ranged: true,
+      },
+    );
+    const rod = artefactWeaponStats(
+      "A test rod holds 6 shots and inflicts 2D6+2 cold damage. The Firearms (Rifle/Shotgun) skill is required.",
+    );
+    assert.equal(rod.skill, "Firearms (Rifle/Shotgun)");
+    assert.equal(rod.damage, "2D6+2");
+    assert.equal(rod.shots, 6);
+    const spike = artefactWeaponStats(
+      "A test spike burrows in, inflicting 1D6 damage per round, and is used as throwing daggers (with the Throw skill).",
+    );
+    assert.equal(spike.skill, "Throw");
+    assert.equal(spike.damage, ""); // a per-round effect is not the weapon's damage
+    const prod = artefactWeaponStats(
+      "A test prod drains DEX. It is wielded with the Fighting (Brawl) skill. It cannot be used as a ranged weapon.",
+    );
+    assert.equal(prod.ranged, false);
   });
 
   test("split blurb keeps short physical first sentence", () => {

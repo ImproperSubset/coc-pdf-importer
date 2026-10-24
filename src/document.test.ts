@@ -326,6 +326,121 @@ describe("pulpItemDoc", () => {
   });
 });
 
+describe("artefact weapons", () => {
+  const artefact = (weapon: any, keeper = "Test text."): any => ({
+    kind: "artefact",
+    name: "Test Weapon",
+    link: "",
+    description: "A test weapon.",
+    keeper,
+    isWeapon: true,
+    weapon: {
+      skill: "",
+      damage: "",
+      range: "",
+      usesMax: "",
+      shots: null,
+      impale: false,
+      burn: false,
+      damageBonus: "",
+      ranged: null,
+      ...weapon,
+    },
+    region: "",
+  });
+  const compendium = new Map<string, any>([
+    [
+      ".38 automatic",
+      {
+        name: ".38 Automatic",
+        system: {
+          range: {
+            normal: { value: "15", damage: "1D10" },
+            long: { value: "0" },
+            extreme: { value: "0" },
+          },
+          usesPerRound: { normal: "1", max: "3" },
+          properties: { rngd: true, impl: true },
+        },
+      },
+    ],
+    [
+      "knife, small (switchblade, etc.)",
+      {
+        name: "Knife, Small (switchblade, etc.)",
+        system: {
+          range: { normal: { value: "0", damage: "1D4" } },
+          usesPerRound: { normal: "1", max: "" },
+          properties: { rngd: false, addb: true },
+        },
+      },
+    ],
+  ]);
+
+  test("the text's stats win; the equivalent supplies range and uses", () => {
+    const doc = pulpItemDoc(
+      artefact({
+        skill: "Firearms (Handgun)",
+        damage: "1D8",
+        burn: true,
+        ranged: true,
+      }),
+      "Test Book",
+      compendium,
+    );
+    assert.equal(doc.type, "weapon");
+    assert.equal(doc.system.skill.main.name, "i.skill.firearms-handgun");
+    assert.deepEqual(doc.system.range.normal, { value: "15", damage: "1D8" });
+    assert.equal(doc.system.usesPerRound.max, "3");
+    assert.equal(doc.system.properties.rngd, true);
+    assert.equal(doc.system.properties.burn, true);
+    assert.equal(doc.system.properties.impl, false); // not from the equivalent
+  });
+
+  test("a thrown dagger takes a knife's damage and the thrown profile", () => {
+    const doc = pulpItemDoc(
+      artefact({ skill: "Throw", ranged: true }, "Used as throwing daggers."),
+      "Test Book",
+      compendium,
+    );
+    assert.equal(doc.system.skill.main.name, "i.skill.throw");
+    assert.deepEqual(doc.system.range.normal, {
+      value: "@STR/5",
+      damage: "1D4",
+    });
+    assert.equal(doc.system.properties.ahdb, true);
+    assert.equal(doc.system.properties.addb, false);
+  });
+
+  test("a weapon with no damage takes no damage bonus from its equivalent", () => {
+    const doc = pulpItemDoc(
+      artefact({ skill: "Fighting (Brawl)", ranged: false }),
+      "Test Book",
+      compendium,
+    );
+    assert.equal(doc.system.range.normal.damage, "");
+    assert.equal(doc.system.properties.addb, false);
+    assert.equal(doc.system.properties.rngd, false);
+  });
+
+  test("without an equivalent, only the text's stats are used", () => {
+    const doc = pulpItemDoc(
+      artefact({
+        skill: "Fighting (Whip)",
+        damage: "1D3",
+        range: "12/3",
+        damageBonus: "half",
+        ranged: true,
+      }),
+      "Test Book",
+      new Map(),
+    );
+    assert.deepEqual(doc.system.range.normal, { value: "12/3", damage: "1D3" });
+    assert.equal(doc.system.properties.ahdb, true);
+    assert.equal(doc.system.properties.spcl, true);
+  });
+});
+
 describe("createPulpItems", () => {
   let created: any[];
   let folders: any[];

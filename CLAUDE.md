@@ -134,6 +134,13 @@ contents page's sections and gives each actor its `page` and `chapter`.
   `Fighting (X)` is a weapon named X. An attack with no value uses the category
   skill when present. Thrown weapons (`(thrown)`, `(Throw)`, names starting
   `Throw`) use Throw.
+- An artefact counts as a weapon only when its text names the combat skill
+  that uses it, calls it a throwing weapon, or has it deal damage or make
+  attacks. Its stats (skill, damage, range, uses per round, shots, impale,
+  burn, damage bonus) are read from its text; a compendium weapon for the same
+  skill (`EQUIVALENT_WEAPONS` in `src/document.ts`) supplies only what the text
+  leaves out. Skills are stored as CoC IDs (`i.skill.firearms-handgun`), as
+  the system's weapons store them.
 - Compendium weapon matching: a shotgun of no gauge is the 12-gauge (2B);
   10/16/20-gauge and 12-gauge sawed-off/pump/semi-auto map to their entries;
   a scalpel is a knife; names with laser/ray/beam/blaster are firearms (a

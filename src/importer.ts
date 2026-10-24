@@ -497,6 +497,11 @@ async function loadSkillIndex(): Promise<ItemIndex> {
 // item flagged only for other eras — Core Content's weapons in a Pulp world —
 // would be dropped. Those fill in from an unfiltered query, without displacing
 // an era match.
+// The system's weapons (world + packs, any era), by lowercase name and CoCID.
+export function loadWeaponIndex(): Promise<Map<string, any>> {
+  return loadCocidIndex(/^i\.weapon\./);
+}
+
 async function loadCocidIndex(cocidRegExp: RegExp): Promise<ItemIndex> {
   const index: ItemIndex = new Map();
   try {

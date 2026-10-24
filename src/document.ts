@@ -6,6 +6,7 @@
 // with a single call.
 import { processPDF } from "./process.ts";
 import { ensureBookFolder } from "./folders.ts";
+import { loadWeaponIndex } from "./importer.ts";
 import type { SourcePage } from "./process.ts";
 import {
   bookTitleFromFileName,
@@ -212,8 +213,75 @@ function bookDoc(t: AppendixTome, source: string): any {
   };
 }
 
-function artefactDoc(a: AppendixArtefact, _source: string): any {
+// The compendium weapon an artefact weapon is compared with, by its skill: it
+// supplies what the text leaves out (range, uses per round, damage-bonus
+// handling). A thrown blade ("throwing daggers") is compared with a knife,
+// which also supplies its damage; otherwise the text's damage stands alone.
+const EQUIVALENT_WEAPONS: {
+  skill: RegExp;
+  text?: RegExp;
+  names: string[];
+  damage?: boolean;
+}[] = [
+  {
+    skill: /^Firearms \(Handgun\)$/,
+    names: [".38 Automatic", ".38 or 9mm Revolver"],
+  },
+  {
+    skill: /^Firearms \(Rifle\/Shotgun\)$/,
+    names: [".30-06 Bolt-Action Rifle", ".303 Lee-Enfield"],
+  },
+  {
+    skill: /^Throw$/,
+    text: /\b(?:daggers?|knife|knives)\b/i,
+    names: ["Knife, Small (switchblade, etc.)", "Knife, Small"],
+    damage: true,
+  },
+  { skill: /^Throw$/, names: ["Shuriken"] },
+  { skill: /^Fighting \(Whip\)$/, names: ["Bullwhip"] },
+  {
+    skill: /^Fighting \(Brawl\)$/,
+    names: ["Knife, Small (switchblade, etc.)", "Knife, Small"],
+  },
+];
+
+function equivalentWeapon(
+  a: AppendixArtefact,
+  index: Map<string, any> | undefined,
+): { weapon: any; damage: boolean } | null {
+  const stats = a.weapon;
+  if (!stats || !index) return null;
+  for (const rule of EQUIVALENT_WEAPONS) {
+    if (!rule.skill.test(stats.skill)) continue;
+    if (rule.text && !rule.text.test(a.keeper)) continue;
+    for (const name of rule.names) {
+      const weapon = index.get(name.toLowerCase());
+      if (weapon) return { weapon, damage: !!rule.damage };
+    }
+  }
+  return null;
+}
+
+function artefactDoc(
+  a: AppendixArtefact,
+  _source: string,
+  weaponIndex?: Map<string, any>,
+): any {
   if (a.isWeapon) {
+    const stats = a.weapon;
+    const match = equivalentWeapon(a, weaponIndex);
+    const eq = match?.weapon?.system;
+    const thrown = stats?.skill === "Throw";
+    const range = (key: "normal" | "long" | "extreme") =>
+      String(eq?.range?.[key]?.value ?? "0");
+    const normalRange =
+      stats?.range || (thrown ? "@STR/5" : eq ? range("normal") : "0");
+    const damage =
+      stats?.damage || (match?.damage ? (eq?.range?.normal?.damage ?? "") : "");
+    const bonus = stats?.damageBonus || (thrown ? "half" : "");
+    // A weapon with no damage (a draining prod) takes no damage bonus.
+    const fromEquivalent = (flag: "addb" | "ahdb") =>
+      !!damage && !!eq?.properties?.[flag];
     return {
       name: a.name,
       type: "weapon",
@@ -224,37 +292,43 @@ function artefactDoc(a: AppendixArtefact, _source: string): any {
           keeper: paragraphs([a.keeper]),
         },
         skill: {
-          main: { name: "", id: "" },
+          main: { name: stats?.skill ? skillCocid(stats.skill) : "", id: "" },
           alternativ: { name: "", id: "" },
         },
         range: {
-          normal: { value: "0", damage: "" },
-          long: { value: "0", damage: "" },
-          extreme: { value: "0", damage: "" },
+          normal: { value: normalRange, damage },
+          long: { value: stats?.range ? "0" : range("long"), damage: "" },
+          extreme: { value: stats?.range ? "0" : range("extreme"), damage: "" },
         },
-        usesPerRound: { normal: "1", max: "", burst: null },
-        bullets: null,
+        usesPerRound: stats?.usesMax
+          ? { normal: "1", max: stats.usesMax, burst: null }
+          : {
+              normal: String(eq?.usesPerRound?.normal ?? "1"),
+              max: String(eq?.usesPerRound?.max ?? ""),
+              burst: null,
+            },
+        bullets: stats?.shots ?? null,
         ammo: 0,
         malfunction: null,
         blastRadius: null,
         properties: {
-          rngd: false,
+          rngd: stats?.ranged ?? !!eq?.properties?.rngd,
           mnvr: false,
           thrown: false,
           shotgun: false,
           dbrl: false,
-          impl: false,
+          impl: !!stats?.impale,
           brst: false,
           auto: false,
-          ahdb: false,
-          addb: false,
+          ahdb: bonus ? bonus === "half" : fromEquivalent("ahdb"),
+          addb: bonus ? bonus === "full" : fromEquivalent("addb"),
           slnt: false,
           spcl: true,
           mont: false,
           blst: false,
           stun: false,
           rare: false,
-          burn: false,
+          burn: !!stats?.burn,
         },
         price: {},
       },
@@ -458,7 +532,11 @@ function weaponDoc(w: OldWestWeapon, source: string): any {
 }
 
 // Build the Foundry item document for a parsed world item.
-export function pulpItemDoc(item: PulpItem | OldWestItem, source: string): any {
+export function pulpItemDoc(
+  item: PulpItem | OldWestItem,
+  source: string,
+  weaponIndex?: Map<string, any>,
+): any {
   switch (item.kind) {
     case "talent":
       return talentDoc(item, source);
@@ -469,7 +547,7 @@ export function pulpItemDoc(item: PulpItem | OldWestItem, source: string): any {
     case "tome":
       return bookDoc(item, source);
     case "artefact":
-      return artefactDoc(item, source);
+      return artefactDoc(item, source, weaponIndex);
     case "occupation":
       return occupationDoc(item, source);
     case "oldWestSkill":
@@ -535,6 +613,10 @@ export async function createPulpItems(
   if (items.length === 0) return result;
 
   const source = options.source ?? options.folderName ?? "PDF Import";
+  // Artefact weapons are compared with the system's weapons.
+  const weaponIndex = items.some((i) => i.kind === "artefact" && i.isWeapon)
+    ? await loadWeaponIndex()
+    : undefined;
   const parentName = options.folderName ?? "PDF Import";
   const parent = await ensureBookFolder(
     "Item",
@@ -584,7 +666,7 @@ export async function createPulpItems(
     const img = ITEM_TYPE_ICONS[kind];
     const docs = leaf.group.map((item) => {
       const citation = sourceCitation(source, item);
-      const doc = pulpItemDoc(item, citation);
+      const doc = pulpItemDoc(item, citation, weaponIndex);
       const description = (doc.system.description ??= {});
       description.keeper = citationHtml(citation) + (description.keeper ?? "");
       return doc;
