@@ -152,6 +152,5 @@ contents page's sections and gives each actor its `page` and `chapter`.
   such as a Charge's knockdown) into Keeper notes; needs a boundary design.
 - Give imported actors CoC IDs (`a.creature.<kebab-name>`); first check how
   CoC7 resolves an id shared with a Core Content creature.
-- Harden `release.yml`: pin actions to commit SHAs, `persist-credentials: false`.
 - Spell lists can run on into the following sentence (the Gospel of Yig's).
 - Remove the deprecated `includeCoAuthoredBy` from the operator's settings.
