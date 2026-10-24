@@ -316,7 +316,12 @@ function buildActorSystem(
     system.attribs.db = { value: normalizeDb(character.derived.DB) };
 
   if (character.age != null) system.infos.age = String(character.age);
-  if (character.description) system.infos.occupation = character.description;
+  // A creature sheet shows its descriptor as "Type"; an NPC's or
+  // investigator's as "Occupation".
+  if (character.description) {
+    if (type === "creature") system.infos.type = character.description;
+    else system.infos.occupation = character.description;
+  }
 
   if (system.special) {
     const sanLoss = parseSanLoss(character.sanityLoss);

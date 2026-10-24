@@ -264,6 +264,26 @@ describe("importCharacters — system data", () => {
 });
 
 describe("importCharacters — entity type", () => {
+  test("a creature's descriptor is its Type; an NPC's its Occupation", async () => {
+    await importCharacters(
+      [
+        makeCharacter({ name: "Thug", description: "night watchman" }),
+        makeCharacter({
+          name: "Monster",
+          description: "king of the dinosaurs",
+          sanityLoss: "0/1D6",
+        }),
+      ],
+      { notify: false },
+    );
+    const thug = created.find((a) => a.name === "Thug").system.infos;
+    const monster = created.find((a) => a.name === "Monster").system.infos;
+    assert.equal(thug.occupation, "night watchman");
+    assert.equal(thug.type, undefined);
+    assert.equal(monster.type, "king of the dinosaurs");
+    assert.equal(monster.occupation, undefined);
+  });
+
   test("NPCs and creatures are created locked", async () => {
     await importCharacters(
       [
