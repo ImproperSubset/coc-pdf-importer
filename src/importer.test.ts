@@ -961,6 +961,49 @@ describe("importCharacters — items", () => {
     );
   });
 
+  test("a laser staff is a Rifle/Shotgun firearm, not a club", async () => {
+    mockCompendium({
+      weapons: [weaponDoc("Club, large (baseball, cricket bat, poker)")],
+    });
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [
+            attack("Laser staff", { value: 45, damage: "1D10+5" }),
+            attack("Laser", { value: 50, damage: "1D8" }),
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    const staff = created[0].items.find(
+      (i: any) => i.type === "weapon" && i.name === "Laser staff",
+    );
+    assert.equal(staff.flags?.CoC7?.cocidFlag, undefined); // no club match
+    assert.equal(staff.system.properties.rngd, true);
+    assert.equal(staff.system.skill.main.name, "Firearms (Rifle/Shotgun)");
+    const laser = created[0].items.find(
+      (i: any) => i.type === "weapon" && i.name === "Laser",
+    );
+    assert.equal(laser.system.skill.main.name, "Firearms (Laser)");
+  });
+
+  test("a weapon marked '(Throw)' uses the Throw skill", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          skills: { Throw: 65 },
+          combat: [
+            attack("Winged Viper (Throw)", { value: 65, damage: "1D6" }),
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    const w = created[0].items.find((i: any) => i.type === "weapon");
+    assert.equal(w.system.skill.main.name, "Throw");
+  });
+
   test("knife/club size is deduced from damage, ignoring the damage bonus", async () => {
     mockCompendium({
       weapons: [

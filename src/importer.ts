@@ -582,6 +582,8 @@ const CLUB_BY_SIZE: Record<string, string[]> = {
 function meleeCandidates(attack: CombatEntry): string[] {
   const name = attack.name.toLowerCase();
   const dmg = (attack.damage ?? "").toLowerCase().replace(/\s+/g, "");
+  // An energy weapon is never a melee weapon ("Laser staff" is not a club).
+  if (ENERGY_WEAPON_RE.test(name)) return [];
   if (/cosh|blackjack/.test(name))
     return ["Blackjack (Cosh, life-preserver)", "Blackjack"];
   // Any name containing "sword" (generic, so unique names like "Sword of
@@ -740,7 +742,9 @@ interface CustomWeapon {
 // "thrown" flag, or the stat block naming it ("(thrown)", "throwing", boomerang).
 function isThrownAttack(attack: CombatEntry, matched: any | null): boolean {
   if (matched?.system?.properties?.thrown) return true;
-  return /\(thrown\)|throwing|boomerang|shuriken|javelin/i.test(attack.name);
+  return /\(thrown\)|\(throw\)|throwing|boomerang|shuriken|javelin/i.test(
+    attack.name,
+  );
 }
 
 // A thrown weapon is a ranged weapon that ranges to STR/5 yards, matching the
@@ -861,8 +865,11 @@ function buildItems(
   return { base, customWeapons };
 }
 
+// Energy weapons ("Laser staff", "Death ray"), which are always firearms.
+const ENERGY_WEAPON_RE = /\b(?:laser|ray|beam|blaster)\b/i;
+
 const FIREARM_RE =
-  /\b(revolver|pistol|rifle|shotgun|gun|firearm|automatic|carbine|derringer|colt|luger|mauser|musket|needle|bow|sling|thompson|tommy|smg|submachine)\b|\.\d{2}\b/i;
+  /\b(revolver|pistol|rifle|shotgun|gun|firearm|automatic|carbine|derringer|colt|luger|mauser|musket|needle|bow|sling|thompson|tommy|smg|submachine|laser|ray|beam|blaster)\b|\.\d{2}\b/i;
 
 // The Firearms specialization a custom firearm's name implies, or "" when the
 // name doesn't say.
@@ -871,7 +878,7 @@ const FIREARM_CATEGORIES: [RegExp, string][] = [
   [/\b(?:lewis|vickers|bren|machine[\s-]?gun)\b/i, "Machine Gun"],
   [/\b(?:bow|crossbow)\b/i, "Bow"],
   [
-    /\b(?:rifle|carbine|shotgun|musket|elephant\s+gun|enfield|springfield|garand|winchester)\b|\b\d{2}[\s-]?(?:g|ga|gauge|gage)\b/i,
+    /\b(?:rifle|carbine|shotgun|musket|elephant\s+gun|enfield|springfield|garand|winchester|staff)\b|\b\d{2}[\s-]?(?:g|ga|gauge|gage)\b/i,
     "Rifle/Shotgun",
   ],
   [
