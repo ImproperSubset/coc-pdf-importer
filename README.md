@@ -75,9 +75,13 @@ their core characteristic(s), bonus points, suggested occupations/traits, talent
 count, and a resolved skill list (each skill mapped to its CoCID itemKey).
 
 Items are filed in a `<file name>` **Item** folder with one subfolder per type
-(`Talents`, `Archetypes`, `Spells`, `Tomes`, `Artefacts`, …); actors live at
-the top level of a same-named **Actor** folder. (Foundry keeps Actor and Item
-folders in separate trees, so these are two sibling folders of the same name.)
+(`Talents`, `Archetypes`, `Spells`, `Tomes`, `Artefacts`, …); actors live in a
+same-named **Actor** folder. (Foundry keeps Actor and Item folders in separate
+trees, so these are two sibling folders of the same name.) When the book has a
+contents page listing its chapters ("CHAPTER 1: BOLIVIA 18"), each actor is
+filed in a subfolder for the chapter its stat block is printed in
+(`Chapter 1: Bolivia`, …, `Appendix A: …`), in the book's order; otherwise
+actors sit directly in the Actor folder.
 
 ### Down Darker Trails
 
@@ -152,8 +156,10 @@ testable.
    documents:
    - actors via `importCharacters()` (`importer.ts`), which maps each
      `CocCharacter` onto CoC7 actor system data and embedded items (skills,
-     weapons + backing skills, spells), at the top level of a `<file name>`
-     Actor folder.
+     weapons + backing skills, spells), in a `<file name>` Actor folder —
+     in a chapter subfolder when `processPDF()` found the book's chapters
+     (`parseBookSections()`: the contents page's entries, mapped to PDF pages
+     through the page numbers in the running headers).
    - items via `createPulpItems()` (`document.ts`), which builds the Foundry
      documents (resolving pulp skill names to CoCID itemKeys here) and files
      them under typed subfolders of a `<file name>` Item folder.

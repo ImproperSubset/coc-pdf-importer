@@ -48,11 +48,12 @@ export async function importCharacters(
   // properties, damage) where one exists.
   const indexes = await loadIndexes();
 
+  const chapters = chapterFolders(folder, characters);
   for (const character of characters) {
     try {
       const actor = await importCharacter(
         character,
-        folder,
+        await chapters.folderFor(character),
         options.entity ?? "auto",
         indexes,
         [],
@@ -78,11 +79,12 @@ export async function importCharacters(
       `${options.folderName ?? "PDF Import"} (Pulp)`,
     );
     const pulpReplaced = await claimReplacedActors(pulpFolder, pulpCharacters);
+    const pulpChapters = chapterFolders(pulpFolder, pulpCharacters);
     for (const character of pulpCharacters) {
       try {
         const actor = await importCharacter(
           pulpVariant(character),
-          pulpFolder,
+          await pulpChapters.folderFor(character),
           options.entity ?? "auto",
           indexes,
           talentItems(character.pulp!.talents, indexes.talent),
@@ -1422,17 +1424,98 @@ async function ensureActorFolder(name: string): Promise<any> {
   }
 }
 
+// The folder each character is filed in: a subfolder of `root` named for its
+// chapter ("Chapter 1: Bolivia"), or `root` itself when it has none. Chapter
+// folders are ordered as the book prints them (root switches to manual sorting
+// for that), and found again by name on a re-import.
+function chapterFolders(
+  root: FoundryFolder | null,
+  characters: CocCharacter[],
+): { folderFor(character: CocCharacter): Promise<FoundryFolder | null> } {
+  const order = [
+    ...new Set(characters.map((c) => c.chapter).filter(Boolean)),
+  ] as string[];
+  const made = new Map<string, Promise<FoundryFolder | null>>();
+  let sorted = false;
+  return {
+    async folderFor(character) {
+      const chapter = character.chapter;
+      if (!chapter || !root?.id) return root;
+      if (!sorted && root.sorting !== "m") {
+        sorted = true;
+        try {
+          await root.update?.({ sorting: "m" });
+        } catch (err) {
+          console.error(
+            "coc-pdf-importer: failed to sort chapter folders",
+            err,
+          );
+        }
+      }
+      if (!made.has(chapter))
+        made.set(
+          chapter,
+          ensureActorSubfolder(
+            chapter,
+            root.id,
+            (order.indexOf(chapter) + 1) * CHAPTER_SORT_STEP,
+          ),
+        );
+      return made.get(chapter)!;
+    },
+  };
+}
+
+const CHAPTER_SORT_STEP = 100000;
+
+// Find (by name and parent) or create an Actor folder inside another.
+async function ensureActorSubfolder(
+  name: string,
+  parentId: string,
+  sort: number,
+): Promise<FoundryFolder | null> {
+  const existing = game.folders?.find(
+    (f: any) =>
+      f.name === name &&
+      f.type === "Actor" &&
+      (f.folder?.id ?? f.folder ?? null) === parentId,
+  );
+  if (existing) return existing;
+  try {
+    return await Folder.create({ name, type: "Actor", folder: parentId, sort });
+  } catch {
+    return null;
+  }
+}
+
+// Whether a folder id is `rootId` or one of its descendants.
+function isWithinFolder(
+  folderId: string | null | undefined,
+  rootId: string,
+): boolean {
+  let id = folderId ?? null;
+  for (let depth = 0; id && depth < 8; depth++) {
+    if (id === rootId) return true;
+    const folder = game.folders?.find((f) => f.id === id);
+    id = (folder?.folder as any)?.id ?? folder?.folder ?? null;
+  }
+  return false;
+}
+
 // Fields of a replaced actor that the Keeper owns rather than the book: they
 // carry over to its replacement along with the id.
 const KEPT_ACTOR_FIELDS = ["img", "prototypeToken", "ownership", "sort"];
 
-// The actors already in `folder` that incoming characters will replace.
+// The actors already under `folder` that incoming characters will replace.
 async function claimReplacedActors(
   folder: FoundryFolder | null,
   characters: CocCharacter[],
 ): Promise<{ take(character: CocCharacter): FoundryActor | null }> {
+  // Anywhere under the folder: an actor may sit in a chapter subfolder, or at
+  // the top from an import made before chapters were read.
   const existing = folder?.id
-    ? (game.actors?.filter((a) => a.folder?.id === folder.id) ?? [])
+    ? (game.actors?.filter((a) => isWithinFolder(a.folder?.id, folder.id!)) ??
+      [])
     : [];
   const claims = await claimReplaced(
     existing,

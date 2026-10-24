@@ -97,7 +97,8 @@ beforeEach(() => {
   };
   (globalThis as any).Folder = {
     create: async (d: any) => {
-      const f = { id: "f" + ++n, ...d };
+      const f: any = { id: "f" + ++n, ...d };
+      f.update = async (u: any) => Object.assign(f, u);
       folders.push(f);
       return f;
     },
@@ -1944,6 +1945,81 @@ describe("importCharacters — folders and de-duplication", () => {
     );
     assert.equal(c3.deleted, true); // more old than incoming: the extra is removed
     assert.equal(bystander.deleted, false); // not in this import: untouched
+  });
+});
+
+describe("importCharacters — chapter folders", () => {
+  const folderNamed = (name: string) => folders.find((f) => f.name === name);
+  const parentId = (f: any) => f?.folder?.id ?? f?.folder ?? null;
+
+  test("characters are filed in chapter subfolders, in book order", async () => {
+    await importCharacters(
+      [
+        makeCharacter({ name: "Alpha", chapter: "Chapter 1: Testland" }),
+        makeCharacter({ name: "Bravo", chapter: "Chapter 2: Second" }),
+        makeCharacter({ name: "Charlie", chapter: "Chapter 1: Testland" }),
+        makeCharacter({ name: "Delta" }), // no chapter: stays at the top
+      ],
+      { folderName: "Book", notify: false },
+    );
+    const book = folderNamed("Book");
+    const ch1 = folderNamed("Chapter 1: Testland");
+    const ch2 = folderNamed("Chapter 2: Second");
+    assert.equal(parentId(ch1), book.id);
+    assert.equal(parentId(ch2), book.id);
+    assert.ok(ch1.sort < ch2.sort); // printed order, not alphabetical
+    assert.equal(book.sorting, "m");
+    const folderOf = (n: string) => created.find((a) => a.name === n).folder;
+    assert.equal(folderOf("Alpha"), ch1.id);
+    assert.equal(folderOf("Charlie"), ch1.id);
+    assert.equal(folderOf("Bravo"), ch2.id);
+    assert.equal(folderOf("Delta"), book.id);
+  });
+
+  test("a re-import finds the old actor at the top level and moves it, keeping its id", async () => {
+    folders.push({ id: "fi", name: "Book", type: "Actor" });
+    const old: any = { id: "old", name: "Alpha", folder: { id: "fi" } };
+    old.toObject = () => ({
+      _id: "old",
+      name: "Alpha",
+      type: "npc",
+      folder: "fi",
+    });
+    old.delete = async () => world.splice(world.indexOf(old), 1);
+    world.push(old);
+    await importCharacters(
+      [makeCharacter({ name: "Alpha", chapter: "Chapter 1: Testland" })],
+      { folderName: "Book", notify: false },
+    );
+    assert.equal(created.length, 1);
+    assert.equal(created[0].id, "old");
+    assert.equal(created[0].folder, folderNamed("Chapter 1: Testland").id);
+  });
+
+  test("a re-import finds the old actor inside its chapter folder", async () => {
+    folders.push({ id: "fi", name: "Book", type: "Actor", sorting: "m" });
+    folders.push({
+      id: "ch",
+      name: "Chapter 1: Testland",
+      type: "Actor",
+      folder: { id: "fi" },
+    });
+    const old: any = { id: "old", name: "Alpha", folder: { id: "ch" } };
+    old.toObject = () => ({
+      _id: "old",
+      name: "Alpha",
+      type: "npc",
+      folder: "ch",
+    });
+    old.delete = async () => world.splice(world.indexOf(old), 1);
+    world.push(old);
+    await importCharacters(
+      [makeCharacter({ name: "Alpha", chapter: "Chapter 1: Testland" })],
+      { folderName: "Book", notify: false },
+    );
+    assert.equal(folders.length, 2); // chapter folder reused
+    assert.equal(created[0].id, "old");
+    assert.equal(created[0].folder, "ch");
   });
 });
 

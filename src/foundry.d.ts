@@ -15,6 +15,9 @@ interface FoundryFolder {
   type?: string;
   /** Parent folder (a Folder document, or an id in raw create data). */
   folder?: FoundryFolder | string | null;
+  /** "a" (alphabetical) or "m" (manual, by `sort`). */
+  sorting?: string;
+  update?(data: object): Promise<unknown>;
 }
 
 interface FoundryActor {
@@ -101,6 +104,8 @@ declare const Folder: {
     name: string;
     type: string;
     folder?: string | null;
+    sort?: number;
+    sorting?: string;
   }): Promise<FoundryFolder>;
 };
 declare const foundry: {
