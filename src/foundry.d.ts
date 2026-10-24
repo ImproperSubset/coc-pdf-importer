@@ -4,6 +4,7 @@
 // (`any`) — full Foundry typings are out of scope here.
 
 interface FoundryI18n {
+  lang?: string;
   localize(key: string): string;
   format(key: string, data?: Record<string, unknown>): string;
 }
@@ -57,7 +58,8 @@ interface FoundryGame {
   };
   // The CoC7 system API. `skillNames.getList()` resolves to a map of
   // CoCID -> skill item; `cocid.fromCoCIDRegexBest` returns the best item per
-  // CoCID matching a regex (world + compendium, best per era/language).
+  // CoCID matching a regex (world + compendium, best per era/language), and
+  // `cocid.fromCoCIDRegexAll` every matching item (`era: false`: any era).
   CoC7?: {
     skillNames?: {
       getList(): Promise<Record<string, any>>;
@@ -66,6 +68,11 @@ interface FoundryGame {
       fromCoCIDRegexBest(options: {
         cocidRegExp: RegExp;
         type: string;
+      }): Promise<any[]>;
+      fromCoCIDRegexAll?(options: {
+        cocidRegExp: RegExp;
+        type: string;
+        era?: boolean;
       }): Promise<any[]>;
     };
   };
@@ -97,6 +104,10 @@ declare const Folder: {
   }): Promise<FoundryFolder>;
 };
 declare const foundry: {
+  utils: {
+    /** An absolute URL path for `path`, including the route prefix if set. */
+    getRoute(path: string, prefix?: string | null): string;
+  };
   applications: {
     api: {
       ApplicationV2: abstract new (...args: any[]) => unknown;

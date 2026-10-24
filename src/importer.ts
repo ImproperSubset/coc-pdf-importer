@@ -452,7 +452,11 @@ async function loadSkillIndex(): Promise<ItemIndex> {
   return index;
 }
 
-// Weapons/spells come from a CoCID-regex query over world + packs.
+// Weapons/spells come from a CoCID-regex query over world + packs. The best
+// query keeps only items flagged for the world's era (or for no era), so an
+// item flagged only for other eras — Core Content's weapons in a Pulp world —
+// would be dropped. Those fill in from an unfiltered query, without displacing
+// an era match.
 async function loadCocidIndex(cocidRegExp: RegExp): Promise<ItemIndex> {
   const index: ItemIndex = new Map();
   try {
@@ -464,16 +468,53 @@ async function loadCocidIndex(cocidRegExp: RegExp): Promise<ItemIndex> {
   } catch (err) {
     console.warn("coc-pdf-importer: compendium lookup unavailable", err);
   }
+  try {
+    const docs = await game.CoC7?.cocid?.fromCoCIDRegexAll?.({
+      cocidRegExp,
+      type: "i",
+      era: false,
+    });
+    if (docs) indexDocuments(index, otherEraItems(index, docs), false);
+  } catch (err) {
+    console.warn(
+      "coc-pdf-importer: other-era compendium lookup unavailable",
+      err,
+    );
+  }
   return index;
 }
 
-function indexDocuments(index: ItemIndex, docs: any[]): void {
+// One item per CoCID the index lacks, preferring the world's language.
+function otherEraItems(index: ItemIndex, docs: any[]): any[] {
+  const lang = game.i18n.lang;
+  const byCocid = new Map<string, any>();
+  for (const doc of docs) {
+    const data = doc?.toObject ? doc.toObject() : doc;
+    const cocid = String(data?.flags?.CoC7?.cocidFlag?.id ?? "").toLowerCase();
+    if (!cocid || index.has(cocid)) continue;
+    const held = byCocid.get(cocid);
+    if (
+      !held ||
+      (held.flags.CoC7.cocidFlag.lang !== lang &&
+        data.flags.CoC7.cocidFlag.lang === lang)
+    )
+      byCocid.set(cocid, data);
+  }
+  return [...byCocid.values()];
+}
+
+// Index documents by lowercase name and CoCID. With `replace` false, a key
+// already in the index keeps its document.
+function indexDocuments(index: ItemIndex, docs: any[], replace = true): void {
+  const put = (key: string, data: any) => {
+    if (replace || !index.has(key)) index.set(key, data);
+  };
   for (const doc of docs) {
     const data = doc?.toObject ? doc.toObject() : doc;
     if (!data) continue;
-    if (data.name) index.set(String(data.name).toLowerCase(), data);
+    if (data.name) put(String(data.name).toLowerCase(), data);
     const cocid = data.flags?.CoC7?.cocidFlag?.id;
-    if (cocid) index.set(String(cocid).toLowerCase(), data);
+    if (cocid) put(String(cocid).toLowerCase(), data);
   }
 }
 

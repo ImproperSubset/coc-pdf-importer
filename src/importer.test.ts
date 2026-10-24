@@ -592,6 +592,63 @@ describe("importCharacters — items", () => {
     assert.equal(w2.flags.CoC7.cocidFlag.id, "i.weapon.thompson"); // wiki fallback
   });
 
+  test("a weapon flagged only for other eras still matches", async () => {
+    mockCompendium({ otherEraWeapons: [weaponDoc(".38 Automatic")] });
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [attack(".38 auto", { value: 45, damage: "1D10" })],
+        }),
+      ],
+      { notify: false },
+    );
+    const w = created[0].items.find((i: any) => i.type === "weapon");
+    assert.equal(w.name, ".38 auto");
+    assert.equal(
+      w.flags.CoC7.cocidFlag.id,
+      weaponDoc(".38 Automatic").flags.CoC7.cocidFlag.id,
+    );
+  });
+
+  test("an era match wins over a same-named other-era weapon", async () => {
+    const other = { ...weaponDoc(".38 Automatic"), img: "other-era.svg" };
+    other.flags = { CoC7: { cocidFlag: { id: "i.weapon.38-automatic-core" } } };
+    mockCompendium({
+      weapons: [{ ...weaponDoc(".38 Automatic"), img: "era.svg" }],
+      otherEraWeapons: [other],
+    });
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [attack(".38 auto", { value: 45, damage: "1D10" })],
+        }),
+      ],
+      { notify: false },
+    );
+    const w = created[0].items.find((i: any) => i.type === "weapon");
+    assert.equal(w.img, "era.svg");
+  });
+
+  test("an other-era weapon in the world's language is preferred", async () => {
+    const inLang = (lang: string) => {
+      const d = { ...weaponDoc(".38 Automatic"), img: `${lang}.svg` };
+      d.flags = { CoC7: { cocidFlag: { id: "i.weapon.38-automatic", lang } } };
+      return d;
+    };
+    (globalThis as any).game.i18n.lang = "en";
+    mockCompendium({ otherEraWeapons: [inLang("fr"), inLang("en")] });
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [attack(".38 auto", { value: 45, damage: "1D10" })],
+        }),
+      ],
+      { notify: false },
+    );
+    const w = created[0].items.find((i: any) => i.type === "weapon");
+    assert.equal(w.img, "en.svg");
+  });
+
   test("knife/club size is deduced from damage, ignoring the damage bonus", async () => {
     mockCompendium({
       weapons: [
@@ -889,22 +946,38 @@ describe("importCharacters — items", () => {
 // --- compendium lookup -----------------------------------------------------
 
 // Install a CoC7 skill/weapon/spell compendium on the mocked game global.
+// `otherEraWeapons` are flagged only for eras other than the world's: the best
+// (era-filtered) query leaves them out and the all-eras query includes them.
 function mockCompendium(opts: {
   skills?: any[];
   weapons?: any[];
   spells?: any[];
+  otherEraWeapons?: any[];
 }) {
   const byCoCID = (docs: any[]) =>
     Object.fromEntries(docs.map((d) => [d.flags.CoC7.cocidFlag.id, d]));
+  const pick = (cocidRegExp: RegExp, weapons: any[]) =>
+    cocidRegExp.source.includes("weapon")
+      ? weapons
+      : cocidRegExp.source.includes("spell")
+        ? (opts.spells ?? [])
+        : [];
   (globalThis as any).game.CoC7 = {
     skillNames: { getList: async () => byCoCID(opts.skills ?? []) },
     cocid: {
       fromCoCIDRegexBest: async ({ cocidRegExp }: { cocidRegExp: RegExp }) =>
-        cocidRegExp.source.includes("weapon")
-          ? (opts.weapons ?? [])
-          : cocidRegExp.source.includes("spell")
-            ? (opts.spells ?? [])
-            : [],
+        pick(cocidRegExp, opts.weapons ?? []),
+      fromCoCIDRegexAll: async ({
+        cocidRegExp,
+        era,
+      }: {
+        cocidRegExp: RegExp;
+        era?: boolean;
+      }) =>
+        pick(cocidRegExp, [
+          ...(opts.weapons ?? []),
+          ...(era === false ? (opts.otherEraWeapons ?? []) : []),
+        ]),
     },
   };
 }
