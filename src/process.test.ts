@@ -4,7 +4,11 @@
 // test:integration`).
 import { describe, test } from "node:test";
 import assert from "node:assert";
-import { parseCocCharacters } from "./process.ts";
+import {
+  parseCocCharacters,
+  parseBookSections,
+  sectionOfPage,
+} from "./process.ts";
 
 describe("parseCocCharacters (unit)", () => {
   test("em-dash characteristics parse as null", () => {
@@ -2528,5 +2532,42 @@ describe("parseCocCharacters (unit)", () => {
     assert.equal(c.characteristics.EDU!.value, null);
     assert.equal(c.characteristics.EDU!.raw, "?");
     assert.equal(c.characteristics.STR!.value, 75);
+  });
+});
+
+describe("parseBookSections", () => {
+  // Thirty pages: a contents page, then pages whose running header prints a
+  // page number one lower than the PDF page.
+  const pages = [
+    "CONTENTS INTRODUCTION . . . . 2 CHAPTER 1: TEST LAND . . . 5 " +
+      "CHAPTER 2: NEW TEST CITY . . . 12 APPENDIX A: RECURRING NPCS AND MONSTERS 20",
+    ...Array.from({ length: 29 }, (_, i) => `${i + 1} BODY TEXT`),
+  ];
+
+  test("reads contents entries and maps printed pages to PDF pages", () => {
+    assert.deepEqual(parseBookSections(pages), [
+      { title: "Introduction", page: 3 },
+      { title: "Chapter 1: Test Land", page: 6 },
+      { title: "Chapter 2: New Test City", page: 13 },
+      { title: "Appendix A: Recurring NPCs and Monsters", page: 21 },
+    ]);
+  });
+
+  test("a page falls in the last section starting at or before it", () => {
+    const sections = parseBookSections(pages);
+    assert.equal(sectionOfPage(sections, 12), "Chapter 1: Test Land");
+    assert.equal(sectionOfPage(sections, 13), "Chapter 2: New Test City");
+    assert.equal(sectionOfPage(sections, 2), "");
+    assert.equal(sectionOfPage(sections, undefined), "");
+  });
+
+  test("a book without chapter entries has no sections", () => {
+    assert.deepEqual(
+      parseBookSections([
+        "A SCENARIO",
+        ...Array.from({ length: 29 }, (_, i) => `${i + 1} X`),
+      ]),
+      [],
+    );
   });
 });

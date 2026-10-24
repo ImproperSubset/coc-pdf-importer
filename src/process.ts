@@ -147,6 +147,8 @@ export interface CocCharacter {
   items: string[]; // carried gear, from a "Possessions"/"Equipment" list; empty when absent
   pulp?: PulpVariant; // the block's "Pulp Combat" / "Pulp Talents" sections, when it has them
   notes: string[];
+  page?: number; // 1-based PDF page of the block's STR line, when known
+  chapter?: string; // the book section that page falls in ("Chapter 1: Bolivia"), when the book has a contents page
 }
 
 // ---------------------------------------------------------------------------
@@ -485,6 +487,8 @@ export function parseCocCharacters(
     } else {
       profileRun = null;
     }
+    const page = pageOf(block.strIndex);
+    if (page) for (const c of parsed) c.page = page;
     parsedBlocks.push(parsed);
   });
   assignPulpBoxes(text, blocks, parsedBlocks);
@@ -3867,6 +3871,68 @@ function parseActors(pageItems: RawItem[][]): CocCharacter[] {
   return parseCocCharacters(parts.join(""), chunks);
 }
 
+// The book's sections from its contents page — "INTRODUCTION 7", "CHAPTER 1:
+// BOLIVIA 18", "APPENDIX A: RECURRING NPCS AND MONSTERS 240" — each with the
+// PDF page it starts on. The contents gives printed page numbers; the running
+// headers print each page's number ("… 42 CHAPTER 1" on PDF page 43), and the
+// most common difference between the two maps one onto the other. A book
+// without at least two such chapter entries, or without consistent page
+// numbers, has no sections.
+export function parseBookSections(
+  pageTexts: string[],
+): { title: string; page: number }[] {
+  const pages = pageTexts.map((p) => p.replace(/[\s\uFFFD.]+/g, " ").trim());
+  const front = pages.slice(0, 20).join(" ");
+  const title = String.raw`[A-Z][A-Z0-9’'&,\- ]*?[A-Z]`;
+  const entry = new RegExp(
+    String.raw`\b(INTRODUCTION|CHAPTER\s+\d+\s*:\s*${title}|APPENDIX\s+[A-Z]\s*:\s*${title})\s+(\d{1,3})\b`,
+    "g",
+  );
+  const entries: { label: string; printed: number }[] = [];
+  const seen = new Set<string>();
+  for (const m of front.matchAll(entry)) {
+    const key = m[1].split(":")[0].replace(/\s+/g, " ");
+    if (seen.has(key)) continue;
+    seen.add(key);
+    entries.push({ label: m[1], printed: Number(m[2]) });
+  }
+  if (entries.filter((e) => /^CHAPTER/.test(e.label)).length < 2) return [];
+
+  const tally = new Map<number, number>();
+  pages.forEach((text, i) => {
+    const m = /\b(\d{1,3})\b/.exec(text.slice(0, 60));
+    if (!m) return;
+    const diff = i + 1 - Number(m[1]);
+    tally.set(diff, (tally.get(diff) ?? 0) + 1);
+  });
+  let offset: number | null = null;
+  let best = 0;
+  for (const [diff, count] of tally)
+    if (count > best) [offset, best] = [diff, count];
+  if (offset === null || best < Math.max(10, pages.length / 4)) return [];
+
+  return entries
+    .map((e) => {
+      const [head, rest] = e.label.split(/\s*:\s*/);
+      const name = rest
+        ? `${titleCaseTitle(head)}: ${titleCaseTitle(rest).replace(/\bNpcs\b/g, "NPCs")}`
+        : titleCaseTitle(head);
+      return { title: name, page: e.printed + offset! };
+    })
+    .sort((a, b) => a.page - b.page);
+}
+
+// The title of the section a PDF page falls in, or "" when none does.
+export function sectionOfPage(
+  sections: { title: string; page: number }[],
+  page: number | undefined,
+): string {
+  if (!page) return "";
+  let title = "";
+  for (const s of sections) if (s.page <= page) title = s.title;
+  return title;
+}
+
 // Process a document PDF into its actors and its pulp reference items. Reads every
 // page once into the shared page-item representation, then runs the actor parser
 // and the (Foundry-free) item parser over it independently. Neither this nor the
@@ -3874,8 +3940,16 @@ function parseActors(pageItems: RawItem[][]): CocCharacter[] {
 export async function processPDF(data: Uint8Array): Promise<ProcessedDocument> {
   const pageItems = await extractPages(data);
   const text = pagesToText(pageItems);
+  const actors = parseActors(pageItems);
+  const sections = parseBookSections(
+    pageItems.map((items) => items.map((it) => it.str).join(" ")),
+  );
+  for (const actor of actors) {
+    const chapter = sectionOfPage(sections, actor.page);
+    if (chapter) actor.chapter = chapter;
+  }
   return {
-    actors: parseActors(pageItems),
+    actors,
     items: [
       ...parsePulpItems(text),
       ...parseAppendixItems(text),
