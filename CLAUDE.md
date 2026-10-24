@@ -198,9 +198,8 @@ content order.
   system's (`src/spellmatch.ts`). Names match loosely: case, punctuation, a
   stray split letter ("Memor y"), doubled letters and plurals aside, without a
   trailing parenthetical ("Contact Yig" is "Contact Yig (Variant)"), without
-  "Deity:" ("Contact Deity: Yig"), or by a Core alternative name; failing
-  those, without an "-ing" on the last word ("Flesh Warding" is "Flesh Ward";
-  "Warding" is its own spell). A name two spells answer to matches neither.
+  "Deity:" ("Contact Deity: Yig"), or by a Core alternative name. A name two
+  spells answer to matches neither.
 - A tome's Spells tab holds the spells its printed list names: the book's own
   spell as an embedded copy (of the created item, under its id), else a system
   spell by CoC ID. The Keeper notes' "Spells:" line stays as printed.

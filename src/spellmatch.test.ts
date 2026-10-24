@@ -65,15 +65,6 @@ describe("SpellMatcher", () => {
     assert.equal(matcher.match("Fog Ward"), "ward");
   });
 
-  test("matches a name without an -ing ending when nothing else does", () => {
-    const m = new SpellMatcher([
-      { name: "Mist Ward", value: "mist ward" },
-      { name: "Warding", value: "warding" },
-    ]);
-    assert.equal(m.match("Mist Warding"), "mist ward");
-    assert.equal(m.match("Warding"), "warding");
-  });
-
   test("matches an alternative name", () => {
     assert.equal(matcher.match("The Grey Hand"), "shade");
   });

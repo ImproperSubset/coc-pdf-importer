@@ -98,14 +98,8 @@ export class SpellMatcher<T> {
     }
   }
 
-  // A name that matches nothing as printed is tried without an "-ing" on its
-  // last word ("Flesh Warding" is "Flesh Ward"); the printed form comes first
-  // because "Warding" is a spell of its own.
   match(name: string): T | undefined {
-    for (const form of [name, name.replace(/(\w{3})ing\s*$/i, "$1")]) {
-      const found = this.byForm.get(looseName(form));
-      if (found) return found.size === 1 ? [...found][0] : undefined;
-    }
-    return undefined;
+    const found = this.byForm.get(looseName(name));
+    return found?.size === 1 ? [...found][0] : undefined;
   }
 }
