@@ -8,6 +8,8 @@ import {
   parseCocCharacters,
   parseBookSections,
   sectionOfPage,
+  printedPageOffset,
+  locateItemPages,
 } from "./process.ts";
 
 describe("parseCocCharacters (unit)", () => {
@@ -2569,5 +2571,36 @@ describe("parseBookSections", () => {
       ]),
       [],
     );
+  });
+});
+
+describe("printed pages", () => {
+  test("the offset is the common gap between PDF and printed page numbers", () => {
+    const pages = Array.from({ length: 30 }, (_, i) => `${i - 1} TEXT`);
+    assert.equal(printedPageOffset(pages), 2);
+    assert.equal(
+      printedPageOffset(Array.from({ length: 30 }, () => "TEXT")),
+      null,
+    );
+  });
+
+  test("an item's page is the last page holding its description, else its name", () => {
+    const pages = [
+      "Intro: the Test Amulet is mentioned here, beside some scrolls.",
+      "Chapter prose: Ancient test scrolls hold strange lore of the deep testing grounds.",
+      "Appendix: TEST SCROLLS Ancient test scrolls hold strange lore of the deep testing grounds.",
+      "Index: Test Amulet . . . . . . 1 Test Scrolls . . . . . . 3",
+    ];
+    const items: any[] = [
+      {
+        name: "Test Scrolls",
+        description:
+          "Ancient test scrolls hold strange lore of the deep testing grounds.",
+      },
+      { name: "Test Amulet", description: "" },
+    ];
+    locateItemPages(items, pages);
+    assert.equal(items[0].page, 3); // the appendix, after the chapter's printing
+    assert.equal(items[1].page, 1); // by name, skipping the index page
   });
 });

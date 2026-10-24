@@ -11,7 +11,14 @@ import type { OldWestItem } from "./oldwest.ts";
 // none of these yields items: [].
 export interface ProcessedDocument {
   actors: CocCharacter[];
-  items: (PulpItem | OldWestItem)[];
+  items: ((PulpItem | OldWestItem) & SourcePage)[];
+}
+
+// Where a parsed entry is printed: its 1-based PDF page, and the page number
+// the book prints on that page, when known.
+export interface SourcePage {
+  page?: number;
+  printedPage?: number;
 }
 
 export type CharacteristicName =
@@ -148,6 +155,7 @@ export interface CocCharacter {
   pulp?: PulpVariant; // the block's "Pulp Combat" / "Pulp Talents" sections, when it has them
   notes: string[];
   page?: number; // 1-based PDF page of the block's STR line, when known
+  printedPage?: number; // the page number the book prints on that page, when known
   chapter?: string; // the book section that page falls in ("Chapter 1: Bolivia"), when the book has a contents page
 }
 
@@ -3897,19 +3905,8 @@ export function parseBookSections(
     entries.push({ label: m[1], printed: Number(m[2]) });
   }
   if (entries.filter((e) => /^CHAPTER/.test(e.label)).length < 2) return [];
-
-  const tally = new Map<number, number>();
-  pages.forEach((text, i) => {
-    const m = /\b(\d{1,3})\b/.exec(text.slice(0, 60));
-    if (!m) return;
-    const diff = i + 1 - Number(m[1]);
-    tally.set(diff, (tally.get(diff) ?? 0) + 1);
-  });
-  let offset: number | null = null;
-  let best = 0;
-  for (const [diff, count] of tally)
-    if (count > best) [offset, best] = [diff, count];
-  if (offset === null || best < Math.max(10, pages.length / 4)) return [];
+  const offset = printedPageOffset(pageTexts);
+  if (offset === null) return [];
 
   return entries
     .map((e) => {
@@ -3920,6 +3917,61 @@ export function parseBookSections(
       return { title: name, page: e.printed + offset! };
     })
     .sort((a, b) => a.page - b.page);
+}
+
+// The difference between a PDF page and the page number printed on it, read
+// from the running headers ("… 42 CHAPTER 1" on PDF page 43): the most common
+// difference, when at least a quarter of the pages (and ten) agree; otherwise
+// null.
+export function printedPageOffset(pageTexts: string[]): number | null {
+  const tally = new Map<number, number>();
+  pageTexts.forEach((raw, i) => {
+    const text = raw.replace(/[\s\uFFFD.]+/g, " ").trim();
+    const m = /\b(\d{1,3})\b/.exec(text.slice(0, 60));
+    if (!m) return;
+    const diff = i + 1 - Number(m[1]);
+    tally.set(diff, (tally.get(diff) ?? 0) + 1);
+  });
+  let offset: number | null = null;
+  let best = 0;
+  for (const [diff, count] of tally)
+    if (count > best) [offset, best] = [diff, count];
+  return offset !== null && best >= Math.max(10, pageTexts.length / 4)
+    ? offset
+    : null;
+}
+
+// The PDF page each item is printed on, found by its own text: the last page
+// holding the start of its description (an appendix entry follows any earlier
+// in-chapter printing of the same prose), else the last page naming it that
+// is not an index page (dot leaders).
+export function locateItemPages(
+  items: { name: string; description?: string; page?: number }[],
+  pageTexts: string[],
+): void {
+  const pages = pageTexts.map((p) => p.replace(/\s+/g, " "));
+  const lower = pages.map((p) => p.toLowerCase());
+  const lastPageWith = (test: (i: number) => boolean): number => {
+    for (let i = pages.length - 1; i >= 0; i--) if (test(i)) return i + 1;
+    return 0;
+  };
+  for (const item of items) {
+    const snippet = (item.description ?? "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 50);
+    let page =
+      snippet.length >= 20
+        ? lastPageWith((i) => pages[i].includes(snippet))
+        : 0;
+    if (!page && item.name) {
+      const name = item.name.toLowerCase();
+      page = lastPageWith(
+        (i) => lower[i].includes(name) && !/(?:\.\s){4,}/.test(pages[i]),
+      );
+    }
+    if (page) item.page = page;
+  }
 }
 
 // The title of the section a PDF page falls in, or "" when none does.
@@ -3941,19 +3993,28 @@ export async function processPDF(data: Uint8Array): Promise<ProcessedDocument> {
   const pageItems = await extractPages(data);
   const text = pagesToText(pageItems);
   const actors = parseActors(pageItems);
-  const sections = parseBookSections(
-    pageItems.map((items) => items.map((it) => it.str).join(" ")),
+  const pageTexts = pageItems.map((items) =>
+    items.map((it) => it.str).join(" "),
   );
+  const sections = parseBookSections(pageTexts);
+  const offset = printedPageOffset(pageTexts);
+  const printed = (page: number | undefined) =>
+    page && offset !== null && page - offset >= 1 ? page - offset : undefined;
   for (const actor of actors) {
     const chapter = sectionOfPage(sections, actor.page);
     if (chapter) actor.chapter = chapter;
+    const printedPage = printed(actor.page);
+    if (printedPage) actor.printedPage = printedPage;
   }
-  return {
-    actors,
-    items: [
-      ...parsePulpItems(text),
-      ...parseAppendixItems(text),
-      ...parseOldWestItems(text),
-    ],
-  };
+  const items: ((PulpItem | OldWestItem) & SourcePage)[] = [
+    ...parsePulpItems(text),
+    ...parseAppendixItems(text),
+    ...parseOldWestItems(text),
+  ];
+  locateItemPages(items, pageTexts);
+  for (const item of items) {
+    const printedPage = printed(item.page);
+    if (printedPage) item.printedPage = printedPage;
+  }
+  return { actors, items };
 }
