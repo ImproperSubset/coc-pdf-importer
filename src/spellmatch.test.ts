@@ -53,6 +53,7 @@ describe("SpellMatcher", () => {
     assert.equal(matcher.match("contact fog hound"), "hound");
     assert.equal(matcher.match("Contact Fog Hounds"), "hound");
     assert.equal(matcher.match("Shrivelling Mist"), "mist");
+    assert.equal(matcher.match("Shriveling Mis t"), "mist");
   });
 
   test("matches a deity spell without Deity:", () => {

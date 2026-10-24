@@ -1,3 +1,4 @@
+import { SpellMatcher, indexedSpells } from "./spellmatch.ts";
 import type {
   BackgroundSection,
   CocCharacter,
@@ -27,6 +28,9 @@ export interface ImportOptions {
   notify?: boolean;
   /** The book's title, cited with each actor's page in its Keeper notes. */
   source?: string;
+  /** The book's own spell item documents, which its actors' spells match
+   * before the system's. */
+  bookSpells?: any[];
 }
 
 export interface ImportResult {
@@ -57,6 +61,9 @@ export async function importCharacters(
   // batch, so imported items adopt the real compendium item (CoCID, icon,
   // properties, damage) where one exists.
   const indexes = await loadIndexes();
+  indexes.bookSpells = new SpellMatcher(
+    (options.bookSpells ?? []).map((doc) => ({ name: doc.name, value: doc })),
+  );
 
   const chapters = chapterFolders(folder, characters);
   for (const character of characters) {
@@ -461,6 +468,10 @@ interface CompendiumIndexes {
   weapon: ItemIndex;
   spell: ItemIndex;
   talent: ItemIndex;
+  /** The system's spells, matched loosely (spellmatch.ts). */
+  systemSpells: SpellMatcher<any>;
+  /** The book's own spells, matched before the system's. */
+  bookSpells: SpellMatcher<any>;
 }
 
 // Fetch the system's skill/weapon/spell/talent compendia once (world + packs,
@@ -474,7 +485,14 @@ async function loadIndexes(): Promise<CompendiumIndexes> {
     loadCocidIndex(/^i\.spell\./),
     loadTalentIndex(),
   ]);
-  return { skill, weapon, spell, talent };
+  return {
+    skill,
+    weapon,
+    spell,
+    talent,
+    systemSpells: new SpellMatcher(indexedSpells(spell)),
+    bookSpells: new SpellMatcher<any>([]),
+  };
 }
 
 // Talents: the world's own talent items (e.g. those a Pulp Cthulhu import
@@ -916,7 +934,7 @@ function buildItems(
 
   // Spells.
   for (const name of character.spells) {
-    base.push(spellItem(name, indexes.spell));
+    base.push(spellItem(name, indexes));
   }
 
   // Carried gear (a pre-gen's "Possessions"/"Equipment" list) -> generic item
@@ -1321,15 +1339,20 @@ function skillFromRef(
   return data;
 }
 
-// A spell item: the compendium spell (with its description/era config) when one
-// matches, otherwise a bare spell. Always stamped with its CoCID.
-function spellItem(name: string, spellIndex: ItemIndex): any {
-  const found = findCompendiumItem(name, spellIndex);
+// A spell item: the book's own spell, else the system's, under that spell's
+// name when the printed name matches it (spellmatch.ts: "Contact Yig" is the
+// book's "Contact Yig (Variant)", "Contact Tsathoggua" the system's "Contact
+// Deity: Tsathoggua"); otherwise a bare spell. Always stamped with its CoCID,
+// which follows the name.
+function spellItem(name: string, indexes: CompendiumIndexes): any {
+  const matched =
+    indexes.bookSpells.match(name) ?? indexes.systemSpells.match(name);
+  const found = matched ?? findCompendiumItem(name, indexes.spell);
   let data: any;
   if (found) {
     data = structuredClone(found);
     delete data._id;
-    data.name = name;
+    if (!matched) data.name = name;
   } else {
     data = { type: "spell", name, system: {} };
   }

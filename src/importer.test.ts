@@ -1654,6 +1654,54 @@ describe("importCharacters — compendium lookup", () => {
     assert.equal(sp.flags.CoC7.cocidFlag.id, "i.spell.wither-limb");
   });
 
+  test("a spell printed loosely takes the system spell's name and CoCID", async () => {
+    mockCompendium({
+      spells: [
+        {
+          name: "Contact Deity: Mistgod",
+          type: "spell",
+          system: {},
+          flags: {
+            CoC7: { cocidFlag: { id: "i.spell.contact-deity-mistgod" } },
+          },
+        },
+      ],
+    });
+    await importCharacters([makeCharacter({ spells: ["Contact Mistgod"] })], {
+      notify: false,
+    });
+    const sp = item(created[0], "Contact Deity: Mistgod");
+    assert.equal(sp.flags.CoC7.cocidFlag.id, "i.spell.contact-deity-mistgod");
+  });
+
+  test("the book's own spell comes before the system's", async () => {
+    mockCompendium({
+      spells: [
+        {
+          name: "Contact Deity: Mistgod",
+          type: "spell",
+          system: {},
+          flags: {
+            CoC7: { cocidFlag: { id: "i.spell.contact-deity-mistgod" } },
+          },
+        },
+      ],
+    });
+    await importCharacters([makeCharacter({ spells: ["Contact Mistgod"] })], {
+      notify: false,
+      bookSpells: [
+        {
+          name: "Contact Mistgod (Variant)",
+          type: "spell",
+          system: { castingTime: "1 round" },
+        },
+      ],
+    });
+    const sp = item(created[0], "Contact Mistgod (Variant)");
+    assert.equal(sp.system.castingTime, "1 round");
+    assert.equal(sp.flags.CoC7.cocidFlag.id, "i.spell.contact-mistgod-variant");
+  });
+
   test("skills and spells are CoCID-stamped even without a compendium", async () => {
     await importCharacters(
       [

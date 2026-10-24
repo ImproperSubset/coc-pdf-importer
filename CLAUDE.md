@@ -194,13 +194,18 @@ content order.
   legacy cost fields stay empty then; the sheet's Details tab shows only the
   cost list and the spell types, which come from the name (Contact, Summon,
   Bind, Call, Dismiss, Gate).
+- A printed spell name is matched to the book's own spells first, then the
+  system's (`src/spellmatch.ts`). Names match loosely: case, punctuation, a
+  stray split letter ("Memor y"), doubled letters and plurals aside, without a
+  trailing parenthetical ("Contact Yig" is "Contact Yig (Variant)"), without
+  "Deity:" ("Contact Deity: Yig"), or by a Core alternative name. A name two
+  spells answer to matches neither.
 - A tome's Spells tab holds the spells its printed list names: the book's own
   spell as an embedded copy (of the created item, under its id), else a system
-  spell by CoC ID (`src/spellmatch.ts`). Names match loosely: case,
-  punctuation, doubled letters and plurals aside, without a trailing
-  parenthetical ("Contact Yig" is "Contact Yig (Variant)"), without "Deity:"
-  ("Contact Deity: Yig"), or by a Core alternative name. A name two spells
-  answer to links neither. The Keeper notes' "Spells:" line stays as printed.
+  spell by CoC ID. The Keeper notes' "Spells:" line stays as printed.
+- An actor's spell is a copy of the matched spell under that spell's name, so
+  its CoC ID (which follows the name) is the system's; an unmatched one is a
+  bare spell under the printed name.
 - Compendium weapon matching: a shotgun of no gauge is the 12-gauge (2B);
   10/16/20-gauge and 12-gauge sawed-off/pump/semi-auto map to their entries;
   a scalpel is a knife; names with laser/ray/beam/blaster are firearms (a

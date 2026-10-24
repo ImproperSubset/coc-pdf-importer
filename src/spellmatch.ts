@@ -12,7 +12,8 @@ export function tomeSpellNames(list: string): string[] {
     .filter((s) => s && !/^none$/i.test(s));
 }
 
-// A loose form of a name: lowercase, apostrophes and punctuation dropped,
+// A loose form of a name: lowercase, apostrophes and punctuation dropped, a
+// stray letter rejoined to its word ("Memor y", split in the PDF's text),
 // doubled letters single and a final "s" dropped from each word, so spelling
 // and plural variants share it.
 function looseName(name: string): string {
@@ -20,6 +21,7 @@ function looseName(name: string): string {
     .toLowerCase()
     .replace(/[’'`]/g, "")
     .replace(/[^a-z0-9]+/g, " ")
+    .replace(/([a-z]) ([b-hj-z])(?= |$)/g, "$1$2")
     .trim()
     .split(" ")
     .map((w) => w.replace(/([a-z])\1+/g, "$1").replace(/(?<=..)s$/, ""))
@@ -55,6 +57,23 @@ function spellForms(name: string, alternatives: string[]): string[] {
       if (looseName(f)) forms.add(looseName(f));
   }
   return [...forms];
+}
+
+// The spells in a compendium index (keyed by name and CoC ID), once each, by
+// name and alternative names.
+export function indexedSpells(index: Map<string, any>): SpellCandidate<any>[] {
+  const byCocid = new Map<string, any>();
+  for (const doc of index.values()) {
+    const cocid = doc?.flags?.CoC7?.cocidFlag?.id;
+    if (cocid) byCocid.set(cocid, doc);
+  }
+  return [...byCocid.values()].map((doc) => ({
+    name: doc.name,
+    alternatives: alternativeNames(
+      doc.system?.description?.alternativeNames ?? "",
+    ),
+    value: doc,
+  }));
 }
 
 export interface SpellCandidate<T> {

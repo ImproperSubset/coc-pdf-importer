@@ -7,11 +7,7 @@
 import { processPDF } from "./process.ts";
 import { ensureBookFolder } from "./folders.ts";
 import { loadSpellIndex, loadWeaponIndex } from "./importer.ts";
-import {
-  SpellMatcher,
-  alternativeNames,
-  tomeSpellNames,
-} from "./spellmatch.ts";
+import { SpellMatcher, indexedSpells, tomeSpellNames } from "./spellmatch.ts";
 import type { SpellCandidate } from "./spellmatch.ts";
 import type { SourcePage } from "./process.ts";
 import {
@@ -761,10 +757,7 @@ export async function createPulpItems(
     const kind = leaf.group[0]?.kind ?? "";
     const img = ITEM_TYPE_ICONS[kind];
     const docs = leaf.group.map((item) => {
-      const citation = sourceCitation(source, item);
-      const doc = pulpItemDoc(item, citation, weaponIndex);
-      const description = (doc.system.description ??= {});
-      description.keeper = citationHtml(citation) + (description.keeper ?? "");
+      const doc = citedItemDoc(item, source, weaponIndex);
       if (item.kind === "tome")
         linkTomeSpells(doc, item.spells, bookSpells, systemSpells);
       return doc;
@@ -800,21 +793,27 @@ export async function createPulpItems(
   return result;
 }
 
+// An item's document citing its source: in `system.source` where the type
+// has one, and as the first paragraph of its Keeper notes.
+function citedItemDoc(
+  item: (PulpItem | OldWestItem) & SourcePage,
+  source: string,
+  weaponIndex?: Map<string, any>,
+): any {
+  const citation = sourceCitation(source, item);
+  const doc = pulpItemDoc(item, citation, weaponIndex);
+  const description = (doc.system.description ??= {});
+  description.keeper = citationHtml(citation) + (description.keeper ?? "");
+  return doc;
+}
+
 // The system's spells by name and alternative names, each standing for its
 // CoC ID.
 function systemSpellMatcher(index: Map<string, any>): SpellMatcher<string> {
-  const byCocid = new Map<string, any>();
-  for (const doc of index.values()) {
-    const cocid = doc?.flags?.CoC7?.cocidFlag?.id;
-    if (cocid) byCocid.set(cocid, doc);
-  }
   return new SpellMatcher(
-    [...byCocid].map(([cocid, doc]) => ({
-      name: doc.name,
-      alternatives: alternativeNames(
-        doc.system?.description?.alternativeNames ?? "",
-      ),
-      value: cocid,
+    indexedSpells(index).map((c) => ({
+      ...c,
+      value: c.value.flags.CoC7.cocidFlag.id,
     })),
   );
 }
@@ -926,6 +925,9 @@ export async function importDocument(
     sourceFile,
     notify: false,
     source: title,
+    bookSpells: items
+      .filter((i) => i.kind === "spell")
+      .map((i) => citedItemDoc(i, title)),
   });
   const itemResult = await createPulpItems(items, {
     folderName: title,
