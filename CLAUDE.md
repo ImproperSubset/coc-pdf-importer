@@ -64,26 +64,47 @@ its architecture; this file holds what a session needs beyond it.
   function, copy `src/*.ts` to a scratch directory, append an `export`, and
   symlink `node_modules` there.
 - `npm run dump:text` writes the raw pdf.js text for reading a layout.
-- Live checks need the operator's Foundry: give them console snippets. To pull
-  actors for inspection: `foundry.utils.saveDataToFile(JSON.stringify(actors.map(a
-=> a.toObject())), "application/json", "<file>.json")`.
+- Live checks need the operator's Foundry: give them console snippets (written
+  out in full, in one place). To pull a book's actors for inspection, walk the
+  book's folder and its chapter subfolders and save with
+  `foundry.utils.saveDataToFile(JSON.stringify(actors.map((a) => a.toObject())),
+"application/json", "<file>.json")`; the operator puts exports in
+  `~/Downloads`. Single items come from Foundry's own Export Data.
+- To compare against Core Content, ask for exports of the equivalent
+  compendium items (`fvtt-Item-<name>.json`) and match field by field.
 
 ## How it reads PDFs
 
 pdf.js `getTextContent()` per page; each text item keeps its string, font name,
-height (font size), end-of-line flag, and x/y/width. Reading order is the
-PDF's content order. The books are not tagged PDFs (no structure tree), so
-paragraph starts are read from the layout (`paragraphStarts`: an indented body
-line, a line after a short sentence-ending line, or a wider gap) and marked as
-blank lines in parsed descriptions, notes and backgrounds (`markParagraphs`);
-the importer renders them as `<p>` paragraphs. Ligature-split words ("Kornf
-ield") are joined when the document prints the word whole elsewhere. The actor parser merges items into font/height
-runs, strips running headers and footers (non-body runs repeated on 8+ pages),
-finds stat blocks by their `STR … CON` run and recovers names from heading
-sizes. The item parsers read the whole document as one flattened string.
-Book quirks are handled by general rules (commented with the book that
-motivated them), never by per-book switches. `processPDF()` also reads the
-contents page's sections and gives each actor its `page` and `chapter`.
+height (font size), end-of-line flag, and x/y/width. Reading order is the PDF's
+content order.
+
+- The actor parser merges items into font/height runs, strips running headers
+  and footers (non-body runs repeated on 8+ pages), finds stat blocks by their
+  `STR … CON` run and recovers names from heading sizes. The item parsers read
+  the whole document as one flattened string.
+- Book quirks are handled by general rules (commented with the book that
+  motivated them), never by per-book switches.
+- The books are untagged PDFs: pdf.js's `getMarkInfo()` and `getStructTree()`
+  give nothing, and pdf.js has no paragraph detection. Paragraph starts are
+  read from the layout (`paragraphStarts`: an indented body line, a line after
+  a short sentence-ending line, a wider gap, or an in-column subheading a
+  little larger than body text) and marked as blank lines in parsed
+  descriptions, notes and backgrounds (`markParagraphs`); the importer renders
+  them as `<p>` paragraphs. A column's left edge is the leftmost full line near
+  it (bullet lines can be nearly full width too).
+- Ligature-split words ("Kornf ield") are joined when the document prints the
+  word whole elsewhere (`joinLigatureSplits`).
+- `processPDF()` reads the contents page's sections ("CHAPTER 1: BOLIVIA 18";
+  `parseBookSections`) and the printed-to-PDF page offset from the running
+  headers' page numbers (`printedPageOffset`). Each actor gets its `page`,
+  `printedPage` and `chapter`; each item gets its page by finding its own
+  description text (the last page holding it, else its name off index pages;
+  `locateItemPages`). The section starts are marked (`SECTION_MARK`) in the
+  appendix parsers' text, so an appendix section ends at the next book section.
+- A tome's spell list ends at its first full stop, or where a sentence starts
+  without one (a capitalised word followed by an ordinary lowercase word,
+  right after a spell name); the cut sentence goes to the description.
 
 ## CoC7 and Foundry facts this code relies on
 
@@ -103,8 +124,18 @@ contents page's sections and gives each actor its `page` and `chapter`.
 - The system's creatures use a generic `Fighting (Fighting)` skill; an attack
   printed at a different value gets its own skill (the Chthonian's
   `Fighting (Crush)`).
-- Actor CoC IDs have the form `a.creature.<name>` / `a.npc.<name>`; the
-  importer sets CoC IDs on embedded items only, not on actors.
+- A CoC ID is `<type>.<subtype>.<name>` (`a.creature.…`, `i.weapon.…`): the
+  system reads the document type from the first segment, so a namespace goes
+  inside the name part, as Core Content's do (`a.creature.cocqsr-rat-pack`).
+- Core Content weapons store the skill as a CoC ID (`i.skill.firearms-handgun`),
+  the range in yards ("15"; feet as "10/3"; thrown "@STR/5"), uses per round as
+  normal/max ("1"/"3"), the magazine in `bullets`, and ranged/impale/burn/
+  half-damage-bonus as `rngd`/`impl`/`burn`/`ahdb` flags (a whip is ranged).
+- Core Content's "Death ray (prototype)" (`i.weapon.example-death-ray-prototype`)
+  is an example item, not the Pulp Cthulhu Death Ray. That one (Pulp Cthulhu
+  p. 88) is two-handed, Firearms (Rifle), 1D10+5 heat damage ignoring mundane
+  armour, 1D8 shots, and gives no range; Two-Headed Serpent's Laser Staff
+  repeats it, so it takes its range from the rifle equivalent.
 
 ## Design decisions
 
@@ -113,6 +144,16 @@ contents page's sections and gives each actor its `page` and `chapter`.
   fails. Carried over: actor `img`, `prototypeToken`, `ownership`, `sort`; item
   `ownership`, `sort`. Same-named entries pair up in order; surplus old ones are
   deleted. Old actors are found anywhere under the book's Actor folder.
+- Every imported actor and item cites its source, "Source: <book title>, p.
+  <printed page>" ("PDF page N" when the book prints no page numbers), as the
+  first paragraph of its Keeper notes; talents, archetypes, occupations and
+  spells also carry it in their `source` field (`src/citation.ts`). The book
+  title comes from the import dialog's per-file title box, prefilled from the
+  file name (product code, version and " - Call of Cthulhu" dropped).
+- Imported actors get namespaced CoC IDs: `a.<type>.hh-<book>-<name>`
+  (`a.creature.hh-the-two-headed-serpent-tyrannosaurus-rex`). Embedded skills,
+  weapons and spells keep the system's own CoC IDs, which compendium matching
+  relies on.
 - A book's top-level Actor and Item folders are named for its title and flagged
   with the PDF's file name (`flags["coc-pdf-importer"].sourceFile`,
   `src/folders.ts`); a re-import finds them by that flag, else by title, else by
@@ -139,8 +180,13 @@ contents page's sections and gives each actor its `page` and `chapter`.
   attacks. Its stats (skill, damage, range, uses per round, shots, impale,
   burn, damage bonus) are read from its text; a compendium weapon for the same
   skill (`EQUIVALENT_WEAPONS` in `src/document.ts`) supplies only what the text
-  leaves out. Skills are stored as CoC IDs (`i.skill.firearms-handgun`), as
-  the system's weapons store them.
+  leaves out (range, uses per round, damage-bonus handling; a knife's damage
+  for "throwing daggers"); a weapon with no damage takes no damage bonus.
+  Skills are stored as CoC IDs, as the system's weapons store them. Every
+  artefact weapon keeps "special" set: its effects are in its notes.
+- A re-import that changes an entry's document type (an artefact that stops
+  counting as a weapon) recreates it with a new id; same-type replacements
+  keep theirs.
 - Compendium weapon matching: a shotgun of no gauge is the 12-gauge (2B);
   10/16/20-gauge and 12-gauge sawed-off/pump/semi-auto map to their entries;
   a scalpel is a knife; names with laser/ray/beam/blaster are firearms (a
@@ -150,7 +196,9 @@ contents page's sections and gives each actor its `page` and `chapter`.
 
 - Capture the prose around stat blocks (creature descriptions, attack rules
   such as a Charge's knockdown) into Keeper notes; needs a boundary design.
-- Give imported actors CoC IDs (`a.creature.<kebab-name>`); first check how
-  CoC7 resolves an id shared with a Core Content creature.
-- Spell lists can run on into the following sentence (the Gospel of Yig's).
-- Remove the deprecated `includeCoAuthoredBy` from the operator's settings.
+  Deferred by the operator to a later session.
+- Chaosium's Fan Material Policy requires a fixed disclaimer on fan works and
+  lists "downloadable apps and virtual tabletops" as excluded; neither upstream
+  nor the fork addresses this. The operator's call.
+- Remove the deprecated `includeCoAuthoredBy` from the operator's Claude Code
+  settings (superseded by `attribution`).
