@@ -374,8 +374,15 @@ chapters in play, updated in place when a re-import fixes the book.
 - A world copy with no base (imported straight from the PDF) counts as
   untouched when `_stats.modifiedTime` is within a few seconds of
   `_stats.createdTime` (the import's own follow-up updates move it by up to
-  about 120 ms), its own data serving as the base; else every field that
-  differs from the pack is listed as of unknown origin. Either way its
+  about 120 ms), its own data serving as the base. Else, with no base, a
+  difference is settled by rule where it can be: a field the pack leaves
+  empty keeps the world's value (CoC7 stores HP and MP max it works out; the
+  import leaves them empty), and so do the fields play usually changes
+  (current HP, MP, Sanity and Luck, the portrait, the prototype token); an
+  NPC, creature or item takes the pack's other values; an investigator's
+  other differences (players edit their own sheets) and embedded items'
+  (a skill's value may be an improvement) are listed as of unknown origin.
+  Either way its
   embedded items pair with the pack's by type and name and are updated in
   place under the world's ids (pack ids mapped to the world's, in the new
   base too), so macros, token item changes and chat cards that point at

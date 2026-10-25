@@ -2,8 +2,10 @@
 // it was loaded from and the base (what was last loaded or applied to it).
 // Field by field, a change only the pack made is applied, a change only play
 // made is kept, and a change both made is a conflict for the Keeper, who keeps
-// the world value unless picking the pack's. Without a base, every difference
-// is a conflict of unknown origin. Embedded items are compared by id; for a
+// the world value unless picking the pack's. Without a base (see
+// `unknownOrigin`), the world keeps what play usually changes and fields the
+// pack leaves empty, an NPC, creature or item takes the pack's other values,
+// and an investigator's and embedded items' are conflicts of unknown origin. Embedded items are compared by id; for a
 // copy with no saved base, a world item pairs with the pack item of the same
 // type and name, keeping the world's id.
 // Pure: no Foundry calls, so the rules are unit-tested here.
@@ -110,11 +112,34 @@ interface FieldResult {
   conflicts: Conflict[];
 }
 
+// Without a base, the fields play usually changes on a document: current
+// HP, MP, Sanity and Luck, the portrait and the prototype token.
+const PLAY_FIELDS =
+  /^(system\.attribs\.(hp|mp|san|lck)\.value|img|prototypeToken(\..*)?)$/;
+
+const isEmpty = (v: unknown) => v === undefined || v === null || v === "";
+
+// Without a base, a difference is settled when it can be: a field the pack
+// leaves empty keeps the world's value (the system worked it out, or the
+// Keeper set it), and so does a play field; with `takeImport`, any other
+// field takes the pack's. What is left is a conflict.
+function unknownOrigin(
+  path: string,
+  pv: unknown,
+  item: unknown,
+  takeImport: boolean,
+): "play" | "pack" | "both" {
+  if (isEmpty(pv)) return "play";
+  if (!item && PLAY_FIELDS.test(path)) return "play";
+  return takeImport && !item ? "pack" : "both";
+}
+
 function mergeFields(
   base: Record<string, unknown> | null,
   world: Record<string, unknown>,
   pack: Record<string, unknown>,
   item: { id: string; name: string } | null,
+  takeImport = false,
 ): FieldResult {
   const b = base ? flatten(base) : new Map<string, unknown>();
   const w = flatten(world);
@@ -128,7 +153,10 @@ function mergeFields(
   };
   for (const path of new Set([...b.keys(), ...w.keys(), ...p.keys()])) {
     const [bv, wv, pv] = [b.get(path), w.get(path), p.get(path)];
-    switch (changedBy(bv, base !== null, wv, pv)) {
+    let side = changedBy(bv, base !== null, wv, pv);
+    if (side === "both" && base === null)
+      side = unknownOrigin(path, pv, item, takeImport);
+    switch (side) {
       case "pack":
         if (p.has(path)) out.set[path] = pv;
         else out.unset.push(path);
@@ -193,7 +221,15 @@ export function mergeDocument(
     ? pairItems(worldItems, packEntry.items ?? [])
     : new Map<string, string>();
   const pack = ids.size ? (remapIds(packEntry, ids) as any) : packEntry;
-  const fields = mergeFields(base, world, pack, null);
+  // Without a base, an investigator's differences stay questions: players
+  // edit their own sheets.
+  const fields = mergeFields(
+    base,
+    world,
+    pack,
+    null,
+    world.type !== "character",
+  );
   const merge: Merge = {
     set: fields.set,
     unset: fields.unset,

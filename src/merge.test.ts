@@ -230,6 +230,56 @@ describe("mergeDocument", () => {
   });
 });
 
+describe("mergeDocument without a base", () => {
+  // A world copy edited after an import made before packs, as the T-Rex was:
+  // a wound, values the system worked out, the Keeper's art and token.
+  const edited = (type: string) => {
+    const world = npc();
+    world.type = type;
+    world.system.attribs.hp.value = 30;
+    world.system.attribs.mp = { max: 13 };
+    world.img = "worlds/test/beast.webp";
+    world.prototypeToken = {
+      width: 4,
+      texture: { src: "worlds/test/beast-token.webp" },
+    };
+    const pack = npc();
+    pack.type = type;
+    pack.system.attribs.mp = { max: null };
+    pack.img = "icons/default.svg";
+    pack.prototypeToken = { width: 1, texture: { src: "icons/default.svg" } };
+    pack.system.description.keeper = "<p>Fixed notes.</p>";
+    return { world, pack };
+  };
+
+  test("an NPC keeps its play fields and system-worked values, and takes the import's other fields", () => {
+    const { world, pack } = edited("npc");
+    const m = mergeDocument(null, world, pack);
+    assert.deepEqual(m.conflicts, []);
+    assert.deepEqual(m.set, {
+      "system.description.keeper": "<p>Fixed notes.</p>",
+    });
+    assert.equal(m.kept, 5); // HP, MP max, portrait, token width and art
+  });
+
+  test("an investigator's other differences are still asked about", () => {
+    const { world, pack } = edited("character");
+    const m = mergeDocument(null, world, pack);
+    assert.deepEqual(m.set, {});
+    assert.deepEqual(
+      m.conflicts.map((c) => c.path),
+      ["system.description.keeper"],
+    );
+  });
+
+  test("with a base, a field both changed is still asked about", () => {
+    const base = npc();
+    const world = set(npc(), "system.description.keeper", "<p>Mine.</p>");
+    const pack = set(npc(), "system.description.keeper", "<p>Fixed.</p>");
+    assert.equal(mergeDocument(base, world, pack).conflicts.length, 1);
+  });
+});
+
 describe("resolve", () => {
   test("a conflict keeps the world value unless the pack's is chosen", () => {
     const world = set(npc(), "system.attribs.hp.max", 12);
