@@ -1513,12 +1513,20 @@ function parseBlock(
     items = parseItems(body);
     if (!items.length) items = parseItems(sharedTail);
   }
+  // An NPC's bulleted character notes after its block (the recurring NPCs'
+  // "• Description: … • Traits: … • Roleplaying hooks: …").
+  if (!background.length) background = parseNpcBullets(printedBody);
+  if (!background.length) background = parseNpcBullets(sharedTail);
   const note = parseNoteBeforeCombat(body);
   const notes = note ? [note] : [];
+  const intro = parseIntro(preTable, name, description);
+  if (intro) notes.unshift(intro);
   // The attack rules go to their attacks and, all of them, to the notes.
   const rules = parseAttackRules(combatText);
   attachAttackRules(combat, rules);
   for (const r of rules) notes.push(`${r.label}: ${r.text}`);
+  const keeperNote = parseKeeperNote(printedBody);
+  if (keeperNote) notes.push(keeperNote);
   // The optional Pulp Cthulhu variant printed inside the block. A block with
   // combat of its own does not take the pulp sections of the block it shares a
   // tail with: a base form's "... Form" continuation prints its own Pulp Combat.
@@ -2784,6 +2792,34 @@ const BACKGROUND_SECTIONS: { title: string; re: RegExp }[] = [
   { title: "Fellow Investigators", re: /\bFellow\s+Investigators?\b/gi },
 ];
 
+// The bulleted character notes printed with an NPC, by their labels: each
+// runs to the next bullet or a "Keeper note:", and ends at its last full stop
+// (what trails it is the next heading or a sidebar's title). Only bulleted labels count, so a creature's body
+// running into prose that mentions a "description" gives none.
+const NPC_BULLETS: { title: string; re: RegExp }[] = [
+  { title: "Description", re: /^Descr\s*iption$/i },
+  { title: "Traits", re: /^Traits$/i },
+  { title: "Roleplaying Hooks", re: /^Roleplaying\s+Hooks?$/i },
+  { title: "Likely to Be Found At", re: /^Likely\s+to\s+be\s+found\s+at$/i },
+];
+function parseNpcBullets(body: string): BackgroundSection[] {
+  const bullets = [...body.matchAll(/•\s*([A-Z][A-Za-z ]{2,30}?)\s*:\s*/g)];
+  const out: BackgroundSection[] = [];
+  bullets.forEach((m, i) => {
+    const kind = NPC_BULLETS.find((b) => b.re.test(m[1].trim()));
+    if (!kind) return;
+    const start = m.index! + m[0].length;
+    const end = i + 1 < bullets.length ? bullets[i + 1].index! : body.length;
+    let text = body.slice(start, end).replace(/\s+/g, " ");
+    const note = text.search(/\bKeeper\s+note\s*:/i);
+    if (note >= 0) text = text.slice(0, note);
+    const stop = text.search(/[.!?][)”"]?[^.!?]*$/);
+    text = (stop >= 0 ? text.slice(0, stop + 1) : text).trim();
+    if (text) out.push({ title: kind.title, text });
+  });
+  return out;
+}
+
 // Extract the investigator background sections from a block body. Each section
 // runs from its heading to the next background heading, or — for the last one —
 // to the next stat/section label (nextSectionLabel) or the end of the body.
@@ -3637,7 +3673,55 @@ function parseNoteBeforeCombat(body: string): string {
   const noteMatch = /\*\s*\(([^)]*)\)/.exec(preCombat);
   if (noteMatch) return clean(noteMatch[1]);
 
+  // A starred value's footnote sentence ("Move: 12* … *Swimming.").
+  const starred = /\b([A-Za-z]+):\s*([\dD+-]+)\*/.exec(preCombat);
+  if (starred) {
+    const after = preCombat.slice(starred.index + starred[0].length);
+    const foot = /(?:^|\s)\*\s*([A-Z][^*]*?[.!?])(?=\s|$)/.exec(after);
+    if (foot)
+      return `${starred[1]} ${starred[2]}*: ${foot[1].replace(/\s+/g, " ")}`;
+  }
   return "";
+}
+
+// The prose between a block's heading and its stats: a creature's description,
+// a recurring NPC's history, a group's "Use this profile for all …". It
+// follows the heading's name and descriptor, stops at a section printed ahead
+// of the stats, and ends at its last full stop (a table header or section
+// title left there has none).
+export function parseIntro(
+  preTable: string,
+  name: string,
+  description: string,
+): string {
+  let text = preTable.replace(/\s+/g, " ");
+  const header = [description, name].find(
+    (h) => h && text.toLowerCase().includes(h.toLowerCase()),
+  );
+  if (header)
+    text = text.slice(
+      text.toLowerCase().indexOf(header.toLowerCase()) + header.length,
+    );
+  text = text.replace(/^[\s,]+/, "");
+  text = text.slice(0, nextSectionLabel(maskParens(text)));
+  const stop = text.search(/[.!?][)”"]?[^.!?]*$/);
+  text = stop >= 0 ? text.slice(0, stop + 1).trim() : "";
+  // An abbreviation in a table header ("char. average roll") is no sentence.
+  return /\S\s+\S/.test(text) ? text : "";
+}
+
+// A "Keeper note:" printed with the block, to the next bullet or the end, and
+// ending at its last full stop (what trails it is the next heading).
+function parseKeeperNote(body: string): string {
+  const label = /\bKeeper\s+note\s*:\s*/i.exec(body);
+  if (!label) return "";
+  let text = body.slice(label.index + label[0].length);
+  const bullet = text.indexOf("•");
+  if (bullet >= 0) text = text.slice(0, bullet);
+  text = text.replace(/\s+/g, " ");
+  const stop = text.search(/[.!?][)”"]?[^.!?]*$/);
+  text = stop >= 0 ? text.slice(0, stop + 1).trim() : "";
+  return text ? `Keeper note: ${text}` : "";
 }
 
 // ---------------------------------------------------------------------------

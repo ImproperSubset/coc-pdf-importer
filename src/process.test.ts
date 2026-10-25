@@ -14,6 +14,7 @@ import {
   paragraphStarts,
   markParagraphs,
   parseAttackRules,
+  parseIntro,
 } from "./process.ts";
 
 describe("attack rules", () => {
@@ -62,6 +63,54 @@ describe("attack rules", () => {
       "Venom bite: a CON roll or 1D6 more damage.",
       "Snatch (mnvr): the target is held.",
     ]);
+  });
+});
+
+describe("prose around a stat block", () => {
+  const block = (pre: string, post: string) =>
+    parseCocCharacters(
+      pre +
+        " STR 70 CON 70 SIZ 90 DEX 80 INT 80 APP — POW 100 EDU — SAN — HP 16 " +
+        "DB: +1D6 Build: 2 Move: 8* MP: 20 Luck: 50 *Able to walk on ceilings. " +
+        "Combat Attacks per round: 1 (claw) Fighting 50% (25/10), damage 1D6 " +
+        "Dodge 30% (15/6) Sanity Loss: 0/1D6 Sanity points to see the thing. " +
+        post,
+    )[0];
+
+  test("keeps the intro between the heading and the stats", () => {
+    assert.equal(
+      parseIntro(
+        "THE THING, LURKING HORROR It hides in old cellars. It hates light. ",
+        "The Thing",
+        "lurking horror",
+      ),
+      "It hides in old cellars. It hates light.",
+    );
+  });
+
+  test("drops a heading fragment with no sentence in it", () => {
+    assert.equal(parseIntro("Things TABLE OF THINGS ", "Things", ""), "");
+    assert.equal(parseIntro("Things char. average roll", "Things", ""), "");
+  });
+
+  test("keeps a starred value's footnote", () => {
+    const c = block("The Thing, lurking horror", "");
+    assert.ok(c.notes.includes("Move 8*: Able to walk on ceilings."));
+  });
+
+  test("keeps bulleted character notes and the Keeper note, to their last full stop", () => {
+    const c = block(
+      "The Thing, lurking horror",
+      "• Description: grey and damp. • Traits: patient; never hurries. " +
+        "• Roleplaying hooks: offers a bargain to the lost. Keeper note: it can be " +
+        "bargained with. NEXT HEADING",
+    );
+    assert.deepEqual(c.background, [
+      { title: "Description", text: "grey and damp." },
+      { title: "Traits", text: "patient; never hurries." },
+      { title: "Roleplaying Hooks", text: "offers a bargain to the lost." },
+    ]);
+    assert.ok(c.notes.includes("Keeper note: it can be bargained with."));
   });
 });
 

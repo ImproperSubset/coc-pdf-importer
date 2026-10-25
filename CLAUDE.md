@@ -169,6 +169,14 @@ content order.
 - A Pulp variant is named `<name> (Pulp)` and filed beside its standard actor.
   A variant an older import put in a separate `<folder> (Pulp)` folder is
   replaced under its id, and that folder is deleted once empty.
+- The prose printed with a stat block goes to the Keeper notes: the intro
+  between the heading and the stats (a creature's description, a recurring
+  NPC's history, a group's "Use this profile for all …"), a starred value's
+  footnote ("Move 12*: Swimming."), a "Keeper note:" in the block, and the
+  bulleted "Description / Traits / Roleplaying hooks / Likely to be found at"
+  (as Backstory sections, for every actor, not only investigators). Each piece
+  ends at its last full stop, which drops a trailing heading, caption or table
+  header.
 - An attack rule printed between "Attacks per round" and the attack rows
   ("Bite: …", "Pin down: …", "Fighting attacks: …") goes, every one, to the
   Keeper notes, and closes the description of the attack it names (by name
