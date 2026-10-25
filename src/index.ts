@@ -4,6 +4,8 @@ import "es-arraybuffer-base64/auto"; // shim Uint8Array.prototype.toHex etc. (pd
 // uses them; the worker gets the same shim prepended at build time).
 import * as pdfjs from "pdfjs-dist";
 import { PdfImporterConfig } from "./importer-ui.ts";
+import { registerMenus } from "./chapters.ts";
+import { showBasePacks } from "./packs.ts";
 
 // Foundry globals (game, ui, Hooks, foundry) are declared in ./foundry.d.ts.
 
@@ -15,6 +17,16 @@ function registerSettings() {
     icon: "fa-solid fa-upload",
     type: PdfImporterConfig,
     restricted: true,
+  });
+  // The book base packs are hidden; this shows them, for cleanup.
+  game.settings.register?.("coc-pdf-importer", "showImportRecords", {
+    name: "coc-pdf-importer.Settings.ShowRecords.Name",
+    hint: "coc-pdf-importer.Settings.ShowRecords.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: false,
+    onChange: (show: boolean) => showBasePacks(show),
   });
 }
 
@@ -29,4 +41,5 @@ function registerWorker() {
 Hooks.once("init", function () {
   registerWorker();
   registerSettings();
+  registerMenus();
 });

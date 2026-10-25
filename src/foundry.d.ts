@@ -148,6 +148,7 @@ declare const foundry: {
       // We don't type the ApplicationV2 framework: the mixin hands back a
       // subclassable base as `any`, so the config subclass stays dynamic.
       HandlebarsApplicationMixin(base: unknown): any;
+      DialogV2: any;
     };
   };
 };

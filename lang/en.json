@@ -3,7 +3,11 @@
     "Settings": {
       "Name": "Import PDF",
       "Label": "Import",
-      "Hint": "Import the documents from the modern Chaosium PDF layout."
+      "Hint": "Import the documents from the modern Chaosium PDF layout.",
+      "ShowRecords": {
+        "Name": "Show import records",
+        "Hint": "Show the hidden compendiums that record what each loaded chapter was loaded from, for cleanup. They are deleted when a book's last chapter is unloaded."
+      }
     },
     "Form": {
       "Upload": "Choose files to upload",
