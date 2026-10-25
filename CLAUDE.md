@@ -184,7 +184,9 @@ content order.
   ("THE SETTING", stripped as furniture; running headers sit outside the body
   and don't count); portrait captions inside it are skipped. One broken off
   mid-sentence by a sidebar resumes at the first body line, on that page or
-  the next, that starts in lowercase after a finished sentence. Prose that runs
+  the next, that starts in lowercase after a finished sentence; one whose
+  bullets a sidebar cuts off resumes at the next bullet it lacks, on that
+  page or the next, before another name heading. Prose that runs
   into STR is the block's own intro, and a write-up the notes already hold is
   dropped. Write-ups for people without a stat block are not imported.
 - An attack rule printed between "Attacks per round" and the attack rows

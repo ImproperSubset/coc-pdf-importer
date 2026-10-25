@@ -1059,6 +1059,34 @@ describe("parseCocCharacters (unit)", () => {
     );
   });
 
+  test("a write-up's bullets cut off by a sidebar resume at the next bullet", () => {
+    const { text, chunks } = chunked([
+      { t: "Testa Vane,", h: 11 },
+      { t: "60, keeper of keys", h: 11 },
+      { t: "Testa guards the old house." },
+      { t: "• Description: grey and stooped." },
+      { t: "THE KEYS", h: 17 },
+      { t: "Each key opens one door." },
+      { t: "• Traits: counts doors.", p: 2 },
+      { t: "• Roleplaying hook: asks for help.", p: 2 },
+      { t: "Bram Holt,", h: 11, p: 2 },
+      { t: "40, porter", h: 11, p: 2 },
+      { t: "Bram carries the bags.", p: 2 },
+      { t: "Testa Vane,", h: 11, p: 3 },
+      { t: "60, keeper of keys", h: 11, p: 3 },
+      {
+        t: STATS + " Combat Brawl 40% (20/8), damage 1D3 Skills Charm 40%.",
+        p: 3,
+      },
+    ]);
+    assert.equal(
+      parseCocCharacters(text, chunks)[0].notes[0],
+      "Testa Vane, 60, keeper of keys\n\nTesta guards the old house. " +
+        "• Description: grey and stooped. • Traits: counts doors. " +
+        "• Roleplaying hook: asks for help.",
+    );
+  });
+
   test("a write-up that ends its sentence does not resume", () => {
     assert.equal(
       brokenWriteup("Testa guards the old house."),

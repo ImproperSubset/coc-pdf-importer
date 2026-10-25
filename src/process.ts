@@ -671,6 +671,25 @@ function attachWriteups(
         }
       }
     }
+    // One whose bullets a sidebar cuts off ("• Description: …", a sidebar,
+    // then "• Traits: …") resumes at the next bullet it lacks, on this page
+    // or the next, before the next name heading.
+    const bulletLabel =
+      /^•\s*(Description|Traits|Roleplaying\s+hooks?|Likely\s+to\s+be\s+found\s+at)\s*:/i;
+    const joined = parts.join(" ");
+    if (/•\s*Description\s*:/i.test(joined)) {
+      const page = chunks[first.next - 1]?.page ?? 0;
+      for (let k = first.next; k < chunks.length; k++) {
+        const c = chunks[k];
+        if ((c.page ?? 0) > page + 1 || isHeading(c)) break;
+        const label = isBody(c) && c.newline ? bulletLabel.exec(c.text) : null;
+        if (!label) continue;
+        if (new RegExp(`•\\s*${label[1]}\\s*:`, "i").test(joined)) break;
+        const rest = collect(k);
+        if (!rest.own) parts.push(...rest.parts);
+        break;
+      }
+    }
     let text = parts.join(" ").replace(/\s+/g, " ");
     const stop = text.search(/[.!?][)”"]?[^.!?]*$/);
     text = stop >= 0 ? text.slice(0, stop + 1).trim() : "";
