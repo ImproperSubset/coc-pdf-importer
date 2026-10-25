@@ -119,7 +119,9 @@ content order.
   from `fromCoCIDRegexAll({ era: false })`, preferring the world's language.
 - NPC/creature sheets default to unlocked (`system.flags.locked: false`), and an
   unlocked sheet shows every inventory section; imported NPCs and creatures are
-  created locked. The padlock is at the right of the Sanity Loss row.
+  created locked. Their Notes panel (`system.flags.panelNotes`, open by
+  default) shows only the personal description, which the import leaves
+  empty, so it is created closed. The padlock is at the right of the Sanity Loss row.
 - A creature sheet shows its descriptor from `system.infos.type` ("Type"); NPCs
   and investigators from `system.infos.occupation`.
 - `foundry.utils.getRoute(path)` adds the server's route prefix; the pdf.js

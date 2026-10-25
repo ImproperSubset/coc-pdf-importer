@@ -333,8 +333,11 @@ function buildActorSystem(
   // Investigator "character" type.
   if (type !== "character") system.special = {};
   // An unlocked NPC/creature sheet shows every inventory section, empty or not;
-  // the system defaults these types unlocked (Investigators are locked).
-  if (type !== "character") system.flags = { locked: true };
+  // the system defaults these types unlocked (Investigators are locked). Its
+  // Notes panel, open by default, holds the personal description, which the
+  // import leaves empty (the book's prose is in the Keeper notes), so it starts
+  // closed.
+  if (type !== "character") system.flags = { locked: true, panelNotes: false };
 
   // STR/CON/SIZ/DEX/INT/APP/POW/EDU are characteristics; SAN/HP are attribs.
   const charMap: Record<string, string> = {

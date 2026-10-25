@@ -288,6 +288,17 @@ describe("importCharacters — entity type", () => {
     assert.equal(monster.occupation, undefined);
   });
 
+  test("NPCs' and creatures' empty Notes panels start closed", async () => {
+    await importCharacters(
+      [
+        makeCharacter({ name: "Thug" }),
+        makeCharacter({ name: "Monster", sanityLoss: "1/1D6" }),
+      ],
+      { notify: false },
+    );
+    for (const a of created) assert.equal(a.system.flags.panelNotes, false);
+  });
+
   test("NPCs and creatures are created locked", async () => {
     await importCharacters(
       [
