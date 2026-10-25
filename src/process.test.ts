@@ -8,6 +8,7 @@ import {
   parseCocCharacters,
   parseBookSections,
   sectionOfPage,
+  placeInBook,
   printedPageOffset,
   locateItemPages,
   joinLigatureSplits,
@@ -2949,6 +2950,20 @@ describe("parseBookSections", () => {
     assert.equal(sectionOfPage(sections, 13), "Chapter 2: New Test City");
     assert.equal(sectionOfPage(sections, 2), "");
     assert.equal(sectionOfPage(sections, undefined), "");
+  });
+
+  test("actors and items are placed in the section their page falls in", () => {
+    const sections = parseBookSections(pages);
+    const actor: any = { name: "Testa", page: 8 };
+    const item: any = { kind: "tome", name: "Test Tome", page: 22 };
+    const unplaced: any = { kind: "spell", name: "Test Ward" };
+    placeInBook([actor, item, unplaced], sections, 1);
+    assert.equal(actor.chapter, "Chapter 1: Test Land");
+    assert.equal(actor.printedPage, 7);
+    assert.equal(item.chapter, "Appendix A: Test NPCs and Foes");
+    assert.equal(item.printedPage, 21);
+    assert.equal(unplaced.chapter, undefined);
+    assert.equal(unplaced.printedPage, undefined);
   });
 
   test("a book without chapter entries has no sections", () => {

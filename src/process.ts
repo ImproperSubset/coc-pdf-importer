@@ -15,11 +15,13 @@ export interface ProcessedDocument {
   items: ((PulpItem | OldWestItem) & SourcePage)[];
 }
 
-// Where a parsed entry is printed: its 1-based PDF page, and the page number
-// the book prints on that page, when known.
+// Where a parsed entry is printed: its 1-based PDF page, the page number the
+// book prints on that page, and the book section that page falls in, when
+// known.
 export interface SourcePage {
   page?: number;
   printedPage?: number;
+  chapter?: string;
 }
 
 export type CharacteristicName =
@@ -4542,6 +4544,21 @@ export function sectionOfPage(
   return title;
 }
 
+// Give each entry with a page the book section it falls in and the page
+// number the book prints there (the PDF page less `offset`).
+export function placeInBook(
+  entries: SourcePage[],
+  sections: { title: string; page: number }[],
+  offset: number | null,
+): void {
+  for (const entry of entries) {
+    const chapter = sectionOfPage(sections, entry.page);
+    if (chapter) entry.chapter = chapter;
+    if (entry.page && offset !== null && entry.page - offset >= 1)
+      entry.printedPage = entry.page - offset;
+  }
+}
+
 // Process a document PDF into its actors and its pulp reference items. Reads every
 // page once into the shared page-item representation, then runs the actor parser
 // and the (Foundry-free) item parser over it independently. Neither this nor the
@@ -4565,24 +4582,14 @@ export async function processPDF(
     new Set(sections.map((s) => s.page)),
   );
   const offset = printedPageOffset(pageTexts);
-  const printed = (page: number | undefined) =>
-    page && offset !== null && page - offset >= 1 ? page - offset : undefined;
-  for (const actor of actors) {
-    const chapter = sectionOfPage(sections, actor.page);
-    if (chapter) actor.chapter = chapter;
-    const printedPage = printed(actor.page);
-    if (printedPage) actor.printedPage = printedPage;
-  }
+  placeInBook(actors, sections, offset);
   const items: ((PulpItem | OldWestItem) & SourcePage)[] = [
     ...parsePulpItems(text),
     ...parseAppendixItems(appendixText),
     ...parseOldWestItems(text),
   ];
   locateItemPages(items, pageTexts);
-  for (const item of items) {
-    const printedPage = printed(item.page);
-    if (printedPage) item.printedPage = printedPage;
-  }
+  placeInBook(items, sections, offset);
   const starts = paragraphStarts(pageItems);
   for (const item of items) {
     const entry = item as unknown as Record<string, unknown>;
