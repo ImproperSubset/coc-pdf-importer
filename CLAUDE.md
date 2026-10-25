@@ -386,7 +386,12 @@ chapters in play, updated in place when a re-import fixes the book.
   embedded items pair with the pack's by type and name and are updated in
   place under the world's ids (pack ids mapped to the world's, in the new
   base too), so macros, token item changes and chat cards that point at
-  them keep working.
+  them keep working. They keep the world's ids only while loaded: Load
+  creates a copy from the pack entry, so an adopted actor's first reload
+  gives its embedded items the pack's stable ids, once (anything pointing at
+  the old ids is already broken by the unload). Keeping the world's ids
+  through a reload would need an id map stored in the pack entry and applied
+  by Load, every update and every re-import, which isn't done.
 - Foundry's own drag of a pack folder into the sidebar creates its folders
   and documents with `keepId`, and builds them again on a second drag (its
   already-present check compares the pack folder object with the world's),
