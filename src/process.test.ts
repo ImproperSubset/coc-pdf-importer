@@ -15,7 +15,9 @@ import {
   markParagraphs,
   parseAttackRules,
   parseIntro,
+  parseActors,
 } from "./process.ts";
+import type { RawItem } from "./process.ts";
 
 describe("attack rules", () => {
   test("reads each labelled rule before the attack rows", () => {
@@ -122,6 +124,56 @@ describe("prose around a stat block", () => {
       { title: "Roleplaying Hooks", text: "offers a bargain to the lost." },
     ]);
     assert.ok(c.notes.includes("Keeper note: it can be bargained with."));
+  });
+});
+
+describe("write-up bounds from the page layout", () => {
+  // A line of text at a height and baseline, on its own line.
+  const line = (str: string, height: number, y: number): RawItem => ({
+    str,
+    font: height === 9 ? "body" : "head",
+    height,
+    eol: true,
+    x: 72,
+    y,
+    w: 200,
+  });
+  // Filler pages repeating a running header above the body and a section
+  // title inside it, so both are stripped as furniture.
+  const filler = (): RawItem[] => [
+    line("THE TOWN", 12, 760),
+    line("Ordinary prose fills the page from top to bottom.", 9, 700),
+    line("SETTING", 14, 400),
+    line("More ordinary prose closes the page.", 9, 100),
+  ];
+  const stats =
+    "STR 50 CON 50 SIZ 50 DEX 50 INT 50 APP 50 POW 50 EDU 50 SAN 50 HP 10 " +
+    "DB: 0 Build: 0 Move: 8 MP: 10 Combat Brawl 40% (20/8), damage 1D3";
+
+  test("a repeated title inside the body ends a write-up; a running header does not", () => {
+    const pages: RawItem[][] = [
+      [
+        line("THE TOWN", 12, 760),
+        line("Testa Vane, 60, keeper of keys", 11, 700),
+        line("Testa guards the old house.", 9, 680),
+        line("She trusts no one at all.", 9, 120),
+      ],
+      [
+        line("THE TOWN", 12, 760),
+        line("She sleeps by the door.", 9, 700),
+        line("SETTING", 14, 400),
+        line("The town lies in a valley.", 9, 380),
+        line("Testa Vane, 60, keeper of keys", 11, 300),
+        line(stats, 9, 280),
+      ],
+      ...Array.from({ length: 8 }, filler),
+    ];
+    const testa = parseActors(pages).find((c) => c.name === "Testa Vane")!;
+    assert.equal(
+      testa.notes[0],
+      "Testa Vane, 60, keeper of keys\n\nTesta guards the old house. " +
+        "She trusts no one at all. She sleeps by the door.",
+    );
   });
 });
 
@@ -957,6 +1009,45 @@ describe("parseCocCharacters (unit)", () => {
       JSON.stringify(testa.notes),
     );
     assert.ok(!jane.notes.some((n) => n.includes("hoards keys")));
+  });
+
+  test("an NPC's write-up in the chapter text opens its notes", () => {
+    const { text, chunks } = chunked([
+      { t: "Testa Vane,", h: 11 },
+      { t: "60, keeper of keys", h: 11 },
+      { t: "Testa guards the old house and trusts no one." },
+      { t: "Sergio Lorenzi", h: 8 },
+      { t: "• Description: grey and stooped. • Traits: counts doors." },
+      { t: "THE OLD HOUSE", h: 14 },
+      { t: "The house stands on a hill." },
+      { t: "Testa Vane,", h: 11 },
+      { t: "60, keeper of keys", h: 11 },
+      { t: STATS + " Combat Brawl 40% (20/8), damage 1D3 Skills Charm 40%." },
+    ]);
+    const [testa] = parseCocCharacters(text, chunks);
+    assert.equal(
+      testa.notes[0],
+      "Testa Vane, 60, keeper of keys\n\nTesta guards the old house and trusts no one. " +
+        "• Description: grey and stooped. • Traits: counts doors.",
+    );
+    assert.equal(testa.notes.length, 1);
+  });
+
+  test("a repeated section title stripped as furniture still ends a write-up", () => {
+    const { text, chunks } = chunked([
+      { t: "Testa Vane,", h: 11 },
+      { t: "60, keeper of keys", h: 11 },
+      { t: "Testa guards the old house." },
+      { t: "The town lies in a valley." },
+      { t: "Testa Vane,", h: 11 },
+      { t: "60, keeper of keys", h: 11 },
+      { t: STATS + " Combat Brawl 40% (20/8), damage 1D3 Skills Charm 40%." },
+    ]);
+    const [testa] = parseCocCharacters(text, chunks, [chunks[3].start]);
+    assert.equal(
+      testa.notes[0],
+      "Testa Vane, 60, keeper of keys\n\nTesta guards the old house.",
+    );
   });
 
   test("a pre-gen's name ahead of its 'Age NN' title run ends the previous sheet's body", () => {

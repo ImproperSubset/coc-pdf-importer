@@ -176,6 +176,7 @@ export interface CocCharacter {
 export function parseCocCharacters(
   rawText: string,
   chunks?: TextChunk[],
+  breaks: number[] = [],
 ): CocCharacter[] {
   // When chunks are supplied the text is already normalised (built from them).
   const text = chunks ? rawText : normalizeText(rawText);
@@ -579,11 +580,91 @@ export function parseCocCharacters(
   }
   const characters = parsedBlocks.flat();
 
-  return disambiguateNames(
+  const named = disambiguateNames(
     characters
       .map((c) => ({ ...c, name: cleanActorName(c.name) }))
       .filter((c) => !isSpuriousActor(c)),
   );
+  if (chunks) attachWriteups(named, chunks, bodyHeight, nameHeight, breaks);
+  return named;
+}
+
+// An NPC's write-up in the chapter text: a heading at name height naming them
+// ("Abidin," "29, local guide") followed by prose instead of a stat block,
+// running to the next heading of any height or section title (`breaks`: the
+// repeated titles stripped as furniture). Smaller runs inside it (portrait
+// captions) are skipped, and it ends at its last full stop. Each write-up, its
+// heading first, opens the notes of the actor of exactly that name (or that
+// name without its parenthetical), in book order.
+function attachWriteups(
+  characters: CocCharacter[],
+  chunks: TextChunk[],
+  bodyHeight: number,
+  nameHeight: number,
+  breaks: number[],
+): void {
+  if (!nameHeight || nameHeight <= bodyHeight) return;
+  const key = (name: string) => name.toLowerCase().replace(/\s+/g, " ").trim();
+  const bare = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, "");
+  const byName = new Map<string, CocCharacter[]>();
+  const add = (k: string, c: CocCharacter) => {
+    const list = byName.get(k) ?? [];
+    if (!list.includes(c)) list.push(c);
+    byName.set(k, list);
+  };
+  for (const c of characters) add(key(c.name), c);
+  for (const c of characters)
+    if (!byName.has(key(bare(c.name)))) add(key(bare(c.name)), c);
+  const isHeading = (c: TextChunk) => Math.abs(c.height - nameHeight) < 0.5;
+  const isBody = (c: TextChunk) => Math.abs(c.height - bodyHeight) < 0.5;
+  const found = new Map<CocCharacter, string[]>();
+  for (let i = 0; i < chunks.length; i++) {
+    if (!isHeading(chunks[i]) || !chunks[i].newline) continue;
+    let j = i;
+    const words: string[] = [];
+    while (j < chunks.length && isHeading(chunks[j]))
+      words.push(chunks[j++].text);
+    i = j - 1;
+    const heading = words.join(" ").replace(/\s+/g, " ").trim();
+    const comma = heading.indexOf(",");
+    if (comma <= 0 || j >= chunks.length || /^STR\b/.test(chunks[j].text))
+      continue;
+    const targets = byName.get(key(heading.slice(0, comma)));
+    if (!targets) continue;
+    // Ends at the next heading or section title; a stat block's STR before
+    // either makes this the block's own heading, whose intro the block keeps.
+    const parts: string[] = [];
+    const end = breaks.find((b) => b > chunks[j].start) ?? Infinity;
+    let own = false;
+    for (let k = j; k < chunks.length; k++) {
+      const c = chunks[k];
+      if ((c.height > bodyHeight + 0.5 && c.newline) || c.start >= end) break;
+      if (/^STR\b/.test(c.text)) {
+        own = true;
+        break;
+      }
+      if (isBody(c)) parts.push(c.text);
+    }
+    if (own) continue;
+    let text = parts.join(" ").replace(/\s+/g, " ");
+    const stop = text.search(/[.!?][)”"]?[^.!?]*$/);
+    text = stop >= 0 ? text.slice(0, stop + 1).trim() : "";
+    if (!text) continue;
+    for (const t of targets)
+      found.set(t, [...(found.get(t) ?? []), `${heading}\n\n${text}`]);
+  }
+  // A block's own heading and intro, cut off from its STR by a section title
+  // ("RECURRING NPCS AND MONSTERS"), is already the block's intro note.
+  const squash = (t: string) => t.replace(/\s+/g, " ").trim();
+  for (const [c, writeups] of found) {
+    const notes = c.notes.map(squash);
+    c.notes.unshift(
+      ...writeups.filter((w) => {
+        const body = squash(w.slice(w.indexOf("\n\n") + 2));
+        return !notes.some((n) => n.includes(body) || body.includes(n));
+      }),
+    );
+  }
 }
 
 // Two profiles of one creature share its name ("Ssathasaa, serpent person" and
@@ -3867,7 +3948,7 @@ function escapeRe(value: string): string {
 // PDF extraction
 // ---------------------------------------------------------------------------
 
-interface RawItem {
+export interface RawItem {
   str: string;
   font: string;
   height: number;
@@ -3955,7 +4036,7 @@ function pagesToText(
 // (height) of each run: body text, NPC name headings, and section headings sit at
 // distinct heights in these books, which lets us recover the character name even
 // when it is far from the stats.
-function parseActors(pageItems: RawItem[][]): CocCharacter[] {
+export function parseActors(pageItems: RawItem[][]): CocCharacter[] {
   // Merge consecutive same-(font, height) items into runs, but start a new run
   // at each line break (hasEOL) or page boundary, recording whether the run
   // begins a new line. This keeps a same-font heading on its own line (e.g. a
@@ -3966,6 +4047,7 @@ function parseActors(pageItems: RawItem[][]): CocCharacter[] {
     text: string;
     newline: boolean;
     page: number;
+    y: number;
   }[] = [];
   let newline = true;
   let page = 0;
@@ -3995,7 +4077,14 @@ function parseActors(pageItems: RawItem[][]): CocCharacter[] {
         ) {
           last.text += " " + text;
         } else {
-          runs.push({ font: it.font, height: it.height, text, newline, page });
+          runs.push({
+            font: it.font,
+            height: it.height,
+            text,
+            newline,
+            page,
+            y: it.y,
+          });
         }
         newline = false;
       }
@@ -4065,16 +4154,41 @@ function parseActors(pageItems: RawItem[][]): CocCharacter[] {
     if (isStatBlockToken(run.text)) return false;
     return (repeats.get(run.text) ?? 0) >= 8; // repeated running header/footer
   };
+  // Each page's body text spans these baselines; a title inside that span is
+  // a section title, a run above or below it a running header or footer.
+  const bodySpan = new Map<number, { top: number; bottom: number }>();
+  for (const run of runs) {
+    if (run.height !== bodyHeight) continue;
+    const span = bodySpan.get(run.page);
+    bodySpan.set(run.page, {
+      top: Math.max(span?.top ?? -Infinity, run.y),
+      bottom: Math.min(span?.bottom ?? Infinity, run.y),
+    });
+  }
   // Build the concatenated text and the parallel chunk list with offsets.
   const chunks: TextChunk[] = [];
   const parts: string[] = [];
+  const breaks: number[] = [];
   let offset = 0;
   for (const run of runs) {
     const furniture = isFurniture(run);
     prevWasValue = !furniture && /^[\d ]+$/.test(run.text);
     prev2 = prev;
     prev = run;
-    if (furniture) continue;
+    if (furniture) {
+      // A repeated section title ("THE SETTING", "PLAYTEST NOTE") is
+      // furniture to the stat-block parser but still ends a write-up.
+      const span = bodySpan.get(run.page);
+      if (
+        run.height > bodyHeight &&
+        !/^[\d ]+$/.test(run.text) &&
+        span &&
+        run.y < span.top &&
+        run.y > span.bottom
+      )
+        breaks.push(offset);
+      continue;
+    }
     if (parts.length) {
       parts.push(" ");
       offset += 1;
@@ -4092,7 +4206,7 @@ function parseActors(pageItems: RawItem[][]): CocCharacter[] {
     });
   }
 
-  return parseCocCharacters(parts.join(""), chunks);
+  return parseCocCharacters(parts.join(""), chunks, breaks);
 }
 
 // The book's sections from its contents page — "INTRODUCTION 7", "CHAPTER 1:

@@ -177,6 +177,14 @@ content order.
   (as Backstory sections, for every actor, not only investigators). Each piece
   ends at its last full stop, which drops a trailing heading, caption or table
   header.
+- An NPC's write-up in the chapter text (a heading at name height, "Abidin,"
+  "29, local guide", then prose and bullets instead of STR) opens the Keeper
+  notes of the actor of exactly that name, heading first. It ends at the next
+  heading or at a repeated section title inside the page's body text
+  ("THE SETTING", stripped as furniture; running headers sit outside the body
+  and don't count); portrait captions inside it are skipped. Prose that runs
+  into STR is the block's own intro, and a write-up the notes already hold is
+  dropped. Write-ups for people without a stat block are not imported.
 - An attack rule printed between "Attacks per round" and the attack rows
   ("Bite: …", "Pin down: …", "Fighting attacks: …") goes, every one, to the
   Keeper notes, and closes the description of the attack it names (by name
