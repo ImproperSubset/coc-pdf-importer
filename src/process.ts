@@ -633,19 +633,44 @@ function attachWriteups(
     if (!targets) continue;
     // Ends at the next heading or section title; a stat block's STR before
     // either makes this the block's own heading, whose intro the block keeps.
-    const parts: string[] = [];
-    const end = breaks.find((b) => b > chunks[j].start) ?? Infinity;
-    let own = false;
-    for (let k = j; k < chunks.length; k++) {
-      const c = chunks[k];
-      if ((c.height > bodyHeight + 0.5 && c.newline) || c.start >= end) break;
-      if (/^STR\b/.test(c.text)) {
-        own = true;
-        break;
+    const collect = (from: number) => {
+      const parts: string[] = [];
+      const end = breaks.find((b) => b > chunks[from].start) ?? Infinity;
+      let k = from;
+      for (; k < chunks.length; k++) {
+        const c = chunks[k];
+        if ((c.height > bodyHeight + 0.5 && c.newline) || c.start >= end) break;
+        if (/^STR\b/.test(c.text)) return { parts, next: k, own: true };
+        if (isBody(c)) parts.push(c.text);
       }
-      if (isBody(c)) parts.push(c.text);
+      return { parts, next: k, own: false };
+    };
+    const first = collect(j);
+    if (first.own) continue;
+    const parts = first.parts;
+    // A write-up broken off mid-sentence by a sidebar ("… not far from" then
+    // a timeline box) resumes at the first body line on this page or the next
+    // that starts in lowercase after a finished sentence ("his side. …").
+    const last = parts[parts.length - 1] ?? "";
+    if (parts.length && !/[.!?:;)”"]\s*$/.test(last)) {
+      const page = chunks[first.next - 1]?.page ?? 0;
+      for (let k = first.next + 1; k < chunks.length; k++) {
+        const c = chunks[k];
+        if ((c.page ?? 0) > page + 1) break;
+        const prev = chunks[k - 1];
+        if (
+          isBody(c) &&
+          c.newline &&
+          /^[a-z]/.test(c.text) &&
+          isBody(prev) &&
+          /[.!?][)”"]?\s*$/.test(prev.text)
+        ) {
+          const rest = collect(k);
+          if (!rest.own) parts.push(...rest.parts);
+          break;
+        }
+      }
     }
-    if (own) continue;
     let text = parts.join(" ").replace(/\s+/g, " ");
     const stop = text.search(/[.!?][)”"]?[^.!?]*$/);
     text = stop >= 0 ? text.slice(0, stop + 1).trim() : "";

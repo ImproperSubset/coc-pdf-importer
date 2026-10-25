@@ -1033,6 +1033,39 @@ describe("parseCocCharacters (unit)", () => {
     assert.equal(testa.notes.length, 1);
   });
 
+  // A write-up broken by a sidebar, then the NPC's stat block.
+  const brokenWriteup = (first: string) => {
+    const { text, chunks } = chunked([
+      { t: "Testa Vane,", h: 11 },
+      { t: "60, keeper of keys", h: 11 },
+      { t: first },
+      { t: "TOWN NAMES", h: 17 },
+      { t: "Names here are short." },
+      { t: "her keys. She counts doors at night." },
+      { t: "THE OLD HOUSE", h: 14 },
+      { t: "The house stands on a hill." },
+      { t: "Testa Vane,", h: 11 },
+      { t: "60, keeper of keys", h: 11 },
+      { t: STATS + " Combat Brawl 40% (20/8), damage 1D3 Skills Charm 40%." },
+    ]);
+    return parseCocCharacters(text, chunks)[0].notes[0];
+  };
+
+  test("a write-up broken off mid-sentence by a sidebar resumes after it", () => {
+    assert.equal(
+      brokenWriteup("Testa guards the old house and is never far from"),
+      "Testa Vane, 60, keeper of keys\n\nTesta guards the old house and is " +
+        "never far from her keys. She counts doors at night.",
+    );
+  });
+
+  test("a write-up that ends its sentence does not resume", () => {
+    assert.equal(
+      brokenWriteup("Testa guards the old house."),
+      "Testa Vane, 60, keeper of keys\n\nTesta guards the old house.",
+    );
+  });
+
   test("a repeated section title stripped as furniture still ends a write-up", () => {
     const { text, chunks } = chunked([
       { t: "Testa Vane,", h: 11 },

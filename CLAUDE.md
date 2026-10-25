@@ -182,7 +182,9 @@ content order.
   notes of the actor of exactly that name, heading first. It ends at the next
   heading or at a repeated section title inside the page's body text
   ("THE SETTING", stripped as furniture; running headers sit outside the body
-  and don't count); portrait captions inside it are skipped. Prose that runs
+  and don't count); portrait captions inside it are skipped. One broken off
+  mid-sentence by a sidebar resumes at the first body line, on that page or
+  the next, that starts in lowercase after a finished sentence. Prose that runs
   into STR is the block's own intro, and a write-up the notes already hold is
   dropped. Write-ups for people without a stat block are not imported.
 - An attack rule printed between "Attacks per round" and the attack rows
