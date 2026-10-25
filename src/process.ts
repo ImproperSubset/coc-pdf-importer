@@ -361,13 +361,27 @@ export function parseCocCharacters(
         };
       }
     }
+    // The heading run bounds the block only when it can be its title: not
+    // furniture ("APPENDIX A" left as a lone "A"), and, after a name heading
+    // read with confidence, only when it carries that name — a section title
+    // printed between a recurring NPC's heading and STR ("RECURRING NPCS AND
+    // MONSTERS") leaves the block, and its intro, starting at the name.
+    const bounding =
+      runUsable &&
+      runText.length > 1 &&
+      (!header.name ||
+        header.weak ||
+        sectionHeading.start <= header.headerStart ||
+        runText
+          .toLowerCase()
+          .includes(header.name.toLowerCase().split(/\s+/)[0]));
     return {
       strIndex,
       header,
       window,
       headerStart: header.headerStart,
       sectionHeading: sectionHeading.text,
-      headingStart: sectionHeading.start,
+      headingStart: bounding ? sectionHeading.start : -1,
     };
   });
 
@@ -3703,6 +3717,12 @@ export function parseIntro(
       text.toLowerCase().indexOf(header.toLowerCase()) + header.length,
     );
   text = text.replace(/^[\s,]+/, "");
+  // The rest of a heading the header did not read ("…, head of" then
+  // "Caduceus • Appears in: …") is a fragment with no full stop before the
+  // first bullet.
+  const bullet = text.indexOf("•");
+  if (bullet > 0 && !/[.!?]/.test(text.slice(0, bullet)))
+    text = text.slice(bullet);
   text = text.slice(0, nextSectionLabel(maskParens(text)));
   const stop = text.search(/[.!?][)”"]?[^.!?]*$/);
   text = stop >= 0 ? text.slice(0, stop + 1).trim() : "";

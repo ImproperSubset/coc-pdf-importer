@@ -88,6 +88,17 @@ describe("prose around a stat block", () => {
     );
   });
 
+  test("drops the rest of a heading before the first bullet", () => {
+    assert.equal(
+      parseIntro(
+        "Testa Vane, appears 60, keeper of the Old House • Appears in: Chapter 2 She hoards keys. ",
+        "Testa Vane",
+        "keeper of the",
+      ),
+      "• Appears in: Chapter 2 She hoards keys.",
+    );
+  });
+
   test("drops a heading fragment with no sentence in it", () => {
     assert.equal(parseIntro("Things TABLE OF THINGS ", "Things", ""), "");
     assert.equal(parseIntro("Things char. average roll", "Things", ""), "");
@@ -923,6 +934,29 @@ describe("parseCocCharacters (unit)", () => {
       cs.map((c) => c.name),
       ["Jane Doe", "Egyptian Cobra (Naja Haje)"],
     );
+  });
+
+  test("a section title between a name heading and STR leaves the intro with its block", () => {
+    const { text, chunks } = chunked([
+      { t: "Jane Doe, 30, clerk", h: 11 },
+      { t: STATS + " Combat Brawl 40% (20/8), damage 1D3 Skills Charm 40%." },
+      { t: "Testa Vane, appears 60, keeper of the", h: 11 },
+      { t: "Old House", h: 11 },
+      {
+        t:
+          "• Appears in: Chapter 2 Testa hoards keys and trusts no one. " +
+          "She walks the halls at night, counting doors. ".repeat(6),
+      },
+      { t: "RECURRING THINGS", h: 17 },
+      { t: STATS + " Combat Brawl 50% (25/10), damage 1D3 Skills Charm 50%." },
+    ]);
+    const [jane, testa] = parseCocCharacters(text, chunks);
+    assert.equal(testa.name, "Testa Vane");
+    assert.ok(
+      testa.notes.some((n) => n.includes("hoards keys")),
+      JSON.stringify(testa.notes),
+    );
+    assert.ok(!jane.notes.some((n) => n.includes("hoards keys")));
   });
 
   test("a pre-gen's name ahead of its 'Age NN' title run ends the previous sheet's body", () => {
