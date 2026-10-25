@@ -482,9 +482,11 @@ describe("Unload", () => {
     assert.equal(world.Actor.size + world.Item.size, 0);
     assert.equal(basePack("actor-bases"), undefined);
     assert.equal(basePack("item-bases"), undefined);
+    // Only the book's compendium folder is left: no Import records folder,
+    // no world folders.
     assert.deepEqual(
-      folders.map((f) => f.type),
-      ["Compendium"],
+      folders.map((f) => [f.type, f.name]),
+      [["Compendium", "Test Book"]],
     );
   });
 

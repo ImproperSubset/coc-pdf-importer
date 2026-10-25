@@ -1,11 +1,12 @@
 // A book's world compendium packs, flagged with the source PDF's file name and
 // their role, and filed in a compendium folder named for the book. The actor
-// and item packs hold the import; the hidden base packs hold, for each world
-// copy, what was last loaded or applied to it.
+// and item packs hold the import; the base packs, in an "Import records"
+// subfolder, hold for each world copy what was last loaded or applied to it.
 
 // Foundry globals (game, foundry) are declared in ./foundry.d.ts.
 
 import { ensureBookFolder } from "./folders.ts";
+import { parentId } from "./target.ts";
 
 export const SCOPE = "coc-pdf-importer";
 
@@ -20,15 +21,7 @@ const ROLES: Record<PackRole, { type: "Actor" | "Item"; label: string }> = {
 
 export const BASE_ROLES: PackRole[] = ["actor-bases", "item-bases"];
 
-// Ownership NONE for every role, the GM's included: the Compendium sidebar
-// lists only packs a user can observe by role, while the GM still reads and
-// writes them.
-export const HIDDEN_OWNERSHIP = {
-  PLAYER: "NONE",
-  TRUSTED: "NONE",
-  ASSISTANT: "NONE",
-  GAMEMASTER: "NONE",
-};
+export const RECORDS_FOLDER = "Import records";
 
 export interface BookFlag {
   sourceFile: string;
@@ -83,8 +76,6 @@ export async function ensureBookPack(
           flags: { [SCOPE]: { sourceFile, role } },
         },
       );
-    if (BASE_ROLES.includes(role))
-      await pack.configure({ ownership: HIDDEN_OWNERSHIP });
     // Chapter folders sit at the pack's top level, in printed order.
     if (role === "actors") {
       const modes = game.settings.get("core", "collectionSortingModes") ?? {};
@@ -94,7 +85,9 @@ export async function ensureBookPack(
       });
     }
   }
-  const folder = await ensureBookFolder("Compendium", title, sourceFile);
+  const book = await ensureBookFolder("Compendium", title, sourceFile);
+  const folder =
+    book && BASE_ROLES.includes(role) ? await recordsFolder(book) : book;
   if (folder && pack.folder?.id !== folder.id) await pack.setFolder(folder);
   if (pack.locked)
     throw new Error(
@@ -103,15 +96,24 @@ export async function ensureBookPack(
   return pack;
 }
 
-// Make the book base packs visible (or hidden again) in the Compendium
-// sidebar, for cleanup.
-export async function showBasePacks(show: boolean): Promise<number> {
-  const packs =
-    game.packs?.filter((p: any) => {
-      const role = bookOf(p)?.role;
-      return role !== undefined && BASE_ROLES.includes(role);
-    }) ?? [];
-  for (const pack of packs)
-    await pack.configure({ ownership: show ? undefined : HIDDEN_OWNERSHIP });
-  return packs.length;
+// The "Import records" compendium folder inside the book's, found or made.
+async function recordsFolder(
+  book: FoundryFolder,
+): Promise<FoundryFolder | null> {
+  const found = game.folders?.find(
+    (f) =>
+      f.type === "Compendium" &&
+      f.name === RECORDS_FOLDER &&
+      parentId(f) === book.id,
+  );
+  if (found) return found;
+  try {
+    return await Folder.create({
+      name: RECORDS_FOLDER,
+      type: "Compendium",
+      folder: book.id ?? null,
+    });
+  } catch {
+    return null;
+  }
 }

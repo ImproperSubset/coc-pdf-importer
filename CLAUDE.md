@@ -337,27 +337,32 @@ chapters in play, updated in place when a re-import fixes the book.
   reads the old keys, with deprecation warnings), so the module builds the
   entry for the running generation.
 - The base of each world copy (what was last loaded or applied) is kept in a
-  pair of base packs per book, hidden by ownership NONE for every role: the
-  Compendium sidebar lists only packs whose `visible` (role ownership, no GM
-  exception) is at least OBSERVER, while the server's pack write check
-  (`isOwner`) treats the GM as owner. Unload deletes the
-  unloaded documents' bases with them, and a book's base packs are deleted
-  once none of its documents is loaded (after Unload all, or the last
-  chapter's Unload). The module setting Show import records makes the base
-  packs visible again, for cleanup.
+  pair of base packs per book, visible, in an "Import records" compendium
+  folder inside the book's. They are not hidden: v14's compendium settings
+  schema allows only OWNER for the Gamemaster, and a pack's own metadata
+  ownership is not used to get round that. Unload deletes the unloaded
+  documents' bases with them, and a book's base packs (and their folder) are
+  deleted once none of its documents is loaded (after Unload all, or the
+  last chapter's Unload).
 - Update compares base, world copy and pack, field by field (`src/merge.ts`;
-  embedded items by id, arrays as one value; ids, folder, sort, ownership,
-  `_stats`, effects and this module's flags left out): a field only the pack
+  embedded items by id, arrays as one value, an empty object as no value;
+  ids, folder, sort, ownership, `_stats`, effects, this module's flags and
+  CoC7's `system.flags` (sheet lock, open panels, a skill's improvement tick)
+  left out): a field only the pack
   changed is applied, a field only
   play changed is kept, and a field both changed is listed in a review
   dialog (world value against the pack's, with the base), keeping the world
   value unless the Keeper picks the pack's. An embedded item added in play
   is kept; one removed in play stays removed unless the pack also changed
   it. The Keeper notes are one field (the Keeper doesn't edit them in
-  play). Applying updates the world document in place and saves a new base:
+  play). The review names each field in sheet terms (`src/review.ts`) and
+  says why it asks. Applying updates the world document in place (removals
+  as v14's `ForcedDeletion`, v13's `-=` keys), each document on its own,
+  and saves a new base:
   the pack entry, so a world value the Keeper kept is not asked about again
-  until the pack changes it. Cancelling the review changes nothing. A PDF
-  re-import offers the update when it finishes.
+  until the pack changes it; a document that fails keeps its old base.
+  Cancelling the review changes nothing. A PDF re-import offers the update
+  once the import window is closed.
 - Unlinked scene tokens keep their own changes apart from the actor, so an
   update reaches them except for an embedded item the token changed (CoC7's
   `coc-id-actor-update-items.js` updates token actors separately; this

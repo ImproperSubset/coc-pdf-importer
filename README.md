@@ -136,8 +136,9 @@ Appendices B–D), or that print appendix-style entries inline in their chapters
    loaded chapters: the import's fixes are applied, changes made in play are
    kept, and anything both changed is shown for review (the world value is
    kept unless you pick the import's). What each loaded entry was loaded from
-   is recorded in hidden compendiums, removed when the book's last chapter is
-   unloaded; the module setting **Show import records** shows them.
+   is recorded in two compendiums in the book's **Import records** folder,
+   removed when the book's last chapter is unloaded. Sheet settings (the lock,
+   open panels) and a skill's improvement tick are never touched.
 
 ## Development
 
@@ -193,7 +194,7 @@ testable.
 
 3. **Load, unload and update** — `chapters.ts` copies a chapter's entries into
    the world under their compendium ids, saving each copy's base (what it was
-   loaded from) in hidden base compendiums; an update compares base, world copy
+   loaded from) in the book's base compendiums; an update compares base, world copy
    and compendium entry field by field (`merge.ts`) and asks the Keeper only
    about fields both play and the import changed.
 

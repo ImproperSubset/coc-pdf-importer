@@ -1,7 +1,7 @@
 // Loading a book's chapters from its packs into the world, unloading them, and
 // updating loaded copies after a re-import. A world copy keeps its pack entry's
-// id; its base (what was last loaded or applied) is kept in the book's hidden
-// base packs, and an update compares the three (see merge.ts).
+// id; its base (what was last loaded or applied) is kept in the book's base
+// packs, and an update compares the three (see merge.ts).
 
 // Foundry globals (game, ui, foundry, Hooks) are declared in ./foundry.d.ts.
 
@@ -13,6 +13,7 @@ import {
   bookOf,
   bookPack,
   ensureBookPack,
+  RECORDS_FOLDER,
   SCOPE,
   type PackRole,
 } from "./packs.ts";
@@ -395,10 +396,16 @@ async function anyLoaded(book: Book): Promise<boolean> {
 }
 
 async function deleteBasePacks(book: Book): Promise<void> {
+  let folder: FoundryFolder | null = null;
   for (const role of BASE_ROLES) {
     const pack = bookPack(book.sourceFile, role);
+    folder ??= pack?.folder ?? null;
     if (pack) await pack.deleteCompendium();
   }
+  const emptied =
+    folder?.name === RECORDS_FOLDER &&
+    !game.packs?.filter((p: any) => p.folder?.id === folder!.id).length;
+  if (emptied) await folder!.delete?.();
 }
 
 // Delete the book's world folders left empty, deepest first, the book's

@@ -1,12 +1,6 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
-import {
-  bookOf,
-  ensureBookPack,
-  HIDDEN_OWNERSHIP,
-  packName,
-  showBasePacks,
-} from "./packs.ts";
+import { bookOf, ensureBookPack, packName } from "./packs.ts";
 
 let packs: any[];
 let folders: any[];
@@ -106,16 +100,23 @@ describe("book packs", () => {
     assert.equal(first.folder.name, "Renamed Book");
   });
 
-  test("base packs are hidden, and the settings button shows them", async () => {
+  test("base packs are filed in an Import records folder inside the book's", async () => {
+    const actors = await ensureBookPack(
+      "A Test Book",
+      "cha99999_test",
+      "actors",
+    );
     const base = await ensureBookPack(
       "A Test Book",
       "cha99999_test",
       "actor-bases",
     );
-    await ensureBookPack("A Test Book", "cha99999_test", "actors");
-    assert.deepEqual(base.configured, [{ ownership: HIDDEN_OWNERSHIP }]);
-    assert.equal(await showBasePacks(true), 1);
-    assert.deepEqual(base.configured.at(-1), { ownership: undefined });
+    await ensureBookPack("A Test Book", "cha99999_test", "item-bases");
+    assert.equal(base.folder.name, "Import records");
+    assert.equal(base.folder.type, "Compendium");
+    assert.equal(base.folder.folder, actors.folder.id);
+    assert.equal(folders.filter((f) => f.name === "Import records").length, 1);
+    assert.deepEqual(base.configured, []); // visible, as Foundry wants
   });
 
   test("a locked pack stops the import", async () => {
