@@ -295,8 +295,5 @@ content order.
 
 ## Open ideas, not yet decided
 
-- Chaosium's Fan Material Policy requires a fixed disclaimer on fan works and
-  lists "downloadable apps and virtual tabletops" as excluded; neither upstream
-  nor the fork addresses this. The operator's call.
 - Remove the deprecated `includeCoAuthoredBy` from the operator's Claude Code
   settings (superseded by `attribution`).
