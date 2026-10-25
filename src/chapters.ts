@@ -226,9 +226,11 @@ export async function syncBook(
     const cache = new Map<string, Promise<FoundryFolder | null>>();
     const data = [];
     for (const entry of entries) {
+      // Ownership is kept: it is what Unload carried back, or the import's.
       const d = kind.world.fromCompendium(entry, {
         keepId: true,
         clearFolder: true,
+        clearOwnership: false,
       });
       d.folder = (await worldFolderFor(kind, book, entry, cache))?.id ?? null;
       data.push(d);
@@ -373,12 +375,23 @@ export async function unloadBook(
       `<p>Delete the world copies of ${actors} actor(s) and ${items} item(s) ` +
       `from ${escapeHtml(what)} of ${escapeHtml(book.title)}?</p>` +
       `<p>Their play state (current HP, Sanity, notes on the copies) is lost. ` +
-      `Tokens placed in scenes stop working until the chapter is loaded ` +
-      `again, when they find their actors under the same ids.</p>`,
+      `Their portraits, prototype tokens and ownership are kept in the ` +
+      `compendium and come back when the chapter is loaded again. Tokens ` +
+      `placed in scenes keep their own art; they stop working until the ` +
+      `chapter is loaded again, when they find their actors under the same ` +
+      `ids.</p>`,
   });
   if (!ok) return;
+  const locked = kinds(book).find((k) => k.pack.locked);
+  if (locked) {
+    ui.notifications.error(
+      `The compendium "${locked.pack.title}" is locked; unlock it to unload, so the Keeper's settings can be kept in it.`,
+    );
+    return;
+  }
   for (const { kind, ids } of loaded) {
     if (!ids.length) continue;
+    await carryBack(kind, ids);
     await kind.cls.deleteDocuments(ids);
     await deleteBases(kind, ids);
   }
@@ -387,6 +400,30 @@ export async function unloadBook(
   ui.notifications.info(
     `${book.title}: unloaded ${actors} actor(s) and ${items} item(s).`,
   );
+}
+
+// The Keeper's settings on world copies about to be unloaded, written back
+// into their pack entries so a later Load restores them (and a re-import
+// keeps them, as it keeps an entry's art, token and ownership): an actor's
+// portrait, prototype token and ownership; an item's ownership.
+const CARRIED: Record<"Actor" | "Item", string[]> = {
+  Actor: ["img", "prototypeToken", "ownership"],
+  Item: ["ownership"],
+};
+
+async function carryBack(kind: Kind, ids: string[]): Promise<void> {
+  const updates = ids.map((id) => {
+    const data = kind.world.get(id).toObject();
+    return {
+      _id: id,
+      ...Object.fromEntries(
+        CARRIED[kind.type]
+          .filter((k) => data[k] !== undefined)
+          .map((k) => [k, data[k]]),
+      ),
+    };
+  });
+  await kind.cls.updateDocuments(updates, { pack: kind.pack.collection });
 }
 
 // Whether any of the book's pack entries has a world copy.

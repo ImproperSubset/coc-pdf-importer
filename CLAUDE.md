@@ -323,11 +323,15 @@ chapters in play, updated in place when a re-import fixes the book.
   the book's sidebar folders (chapter folders in printed order, item type
   folders) and creates each missing actor and item in one call under its
   pack id (`fromCompendium` with `keepId`, which also sets
-  `_stats.compendiumSource`); documents already loaded go through the update
-  review. Unload
-  deletes the world copies by id, then folders left empty, after a
-  confirmation (play state is lost; placed tokens resolve again once the
-  chapter is loaded, the ids being the same).
+  `_stats.compendiumSource`, and ownership kept); documents already loaded
+  go through the update review. Unload, after a confirmation, writes the
+  Keeper's settings on each world copy back into its pack entry (an actor's
+  portrait, whole prototype token and ownership; an item's ownership), then
+  deletes the world copies by id and the folders left empty. Load restores
+  those settings, and a re-import keeps them as it keeps an entry's art,
+  token and ownership. Play state is lost; placed tokens keep their own art
+  and resolve again once the chapter is loaded, the ids being the same. A
+  locked pack stops the unload before anything is deleted.
 - An item's chapter is the section it is printed in (from its page), so
   appendix spells, tomes and artefacts load with their appendix.
 - Menu entries come from the `getFolderContextOptions` and

@@ -131,7 +131,9 @@ Appendices B–D), or that print appendix-style entries inline in their chapters
    Compendium sidebar, right-click either of the book's compendiums for
    **Load all chapters**, **Unload all chapters** or **Update loaded
    chapters**. Loaded entries keep their compendium ids, so tokens placed in
-   scenes find their actors again when a chapter is reloaded.
+   scenes find their actors again when a chapter is reloaded. Unloading keeps
+   each actor's portrait, prototype token and ownership (and each item's
+   ownership) in the compendium, and loading again restores them.
 5. After a re-import of a corrected PDF, the importer offers to update the
    loaded chapters: the import's fixes are applied, changes made in play are
    kept, and anything both changed is shown for review (the world value is

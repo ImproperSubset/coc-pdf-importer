@@ -117,6 +117,12 @@ function docClass(type: string) {
     deleteDocuments: async (ids: string[], opts: any = {}) => {
       for (const id of ids) store(opts).delete(id);
     },
+    updateDocuments: async (list: any[], opts: any = {}) => {
+      for (const { _id, ...u } of list) {
+        const doc = store(opts).get(_id);
+        Object.assign(doc._source, clone(u));
+      }
+    },
   };
 }
 
@@ -128,6 +134,7 @@ function worldCollection(type: string) {
       const data = doc.toObject();
       if (!opts.keepId) delete data._id;
       if (opts.clearFolder) delete data.folder;
+      if (opts.clearOwnership !== false) data.ownership = { default: 0 };
       delete data._stats;
       return data;
     },
@@ -591,5 +598,49 @@ describe("update safety", () => {
         .description.keeper,
       "<p>Old notes.</p>",
     );
+  });
+});
+
+describe("the Keeper's settings across Unload and Load", () => {
+  test("an actor's portrait, prototype token and ownership come back after reloading", async () => {
+    const book = seedBook();
+    await syncBook(book, "Chapter 1: Test Land");
+    const settings = {
+      img: "worlds/test/my-beast.webp",
+      prototypeToken: {
+        texture: { src: "worlds/test/my-beast-token.webp" },
+        width: 3,
+      },
+      ownership: { default: 0, Player00000000001: 2 },
+    };
+    Object.assign(worldActor("Testa00000000001")._source, clone(settings));
+    await unloadBook(book, "Chapter 1: Test Land");
+    assert.equal(worldActor("Testa00000000001"), undefined);
+    await syncBook(book, "Chapter 1: Test Land");
+    const src = worldActor("Testa00000000001")._source;
+    assert.equal(src.img, settings.img);
+    assert.deepEqual(src.prototypeToken, settings.prototypeToken);
+    assert.deepEqual(src.ownership, settings.ownership);
+  });
+
+  test("an item's ownership comes back; its other fields stay the import's", async () => {
+    const book = seedBook();
+    await syncBook(book, "Appendix A: Test Foes");
+    const tome = world.Item.get("Tome000000000001");
+    tome._source.ownership = { default: 2 };
+    tome._source.img = "worlds/test/elsewhere.webp";
+    await unloadBook(book, "Appendix A: Test Foes");
+    await syncBook(book, "Appendix A: Test Foes");
+    const src = world.Item.get("Tome000000000001")._source;
+    assert.deepEqual(src.ownership, { default: 2 });
+    assert.equal(src.img, undefined);
+  });
+
+  test("a locked pack stops the unload before anything is deleted", async () => {
+    const book = seedBook();
+    await syncBook(book, null);
+    book.actors.locked = true;
+    await unloadBook(book, null);
+    assert.equal(world.Actor.size, 2);
   });
 });
