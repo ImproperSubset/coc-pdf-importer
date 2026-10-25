@@ -328,8 +328,11 @@ chapters in play, updated in place when a re-import fixes the book.
   pair of base packs per book, hidden by ownership NONE for every role: the
   Compendium sidebar lists only packs whose `visible` (role ownership, no GM
   exception) is at least OBSERVER, while GM writes go through
-  `testUserPermission`, which treats the GM as owner. The module's settings
-  carry a button that makes the base packs visible again, for cleanup.
+  `testUserPermission`, which treats the GM as owner. Unload deletes the
+  unloaded documents' bases with them, and a book's base packs are deleted
+  once none of its documents is loaded (after Unload all, or the last
+  chapter's Unload). The module's settings carry a button that makes the
+  base packs visible again, for cleanup.
 - Update compares base, world copy and pack, field by field (embedded items
   by id, arrays as one value; ids, folder, sort, `_stats` and this module's
   flags left out): a field only the pack changed is applied, a field only
