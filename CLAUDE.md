@@ -45,10 +45,12 @@ its architecture; this file holds what a session needs beyond it.
   ones but reports `.claude/`. Run the release step outside the sandbox, and
   if `.claude/` still shows, list it in `.git/info/exclude` (never commit or
   delete there without the operator).
-- After a release, the operator must reload the browser before re-importing:
-  Foundry's client caches module code, so a stale `module.js` keeps running
-  after the module updates. When a fix seems absent, check the running
-  version in the console: `game.modules.get("coc-pdf-importer").version`.
+- After a release, the operator must hard-refresh the browser before
+  re-importing: Foundry's client caches module code, so a stale `module.js`
+  keeps running after the module updates (the compendium menus were missing
+  until a hard refresh). `game.modules.get("coc-pdf-importer").version`
+  reports the installed manifest, not the code running, so it doesn't prove
+  a refresh happened.
 - Install URL:
   `https://github.com/ImproperSubset/coc-pdf-importer/releases/latest/download/module.json`
 
@@ -100,7 +102,15 @@ its architecture; this file holds what a session needs beyond it.
   book's folder and its chapter subfolders and save with
   `foundry.utils.saveDataToFile(JSON.stringify(actors.map(function (a) {
 return a.toObject(); })), "application/json", "<file>.json")`; the operator puts exports in
-  `~/Downloads`. Single items come from Foundry's own Export Data.
+  `~/Downloads`. Single items come from Foundry's own Export Data. A snippet
+  finds a book's folders as the module does: by the `sourceFile` flag, else
+  by title (folders from releases up to `1.1.2.hh.9` may lack the flag).
+- Compendium changes are checked live on a snapshot of the operator's world,
+  never the live one: a state snippet records, before the update, after it,
+  and after Unload and Load, each book actor's and item's id, folder,
+  portrait, token, ownership, HP and embedded ids, every placed token, and
+  the hotbar, and the files are compared field by field. Imported NPC sheets
+  are locked, so their weapons can't be dragged to the hotbar.
 - To compare against Core Content, ask for exports of the equivalent
   compendium items (`fvtt-Item-<name>.json`) and match field by field. A
   whole pack comes from `pack.getDocuments()`, or its index with chosen
@@ -398,3 +408,16 @@ chapters in play, updated in place when a re-import fixes the book.
   so it is no substitute for Load. Foundry's Import All on a pack makes new
   ids unless "keep ids" is ticked and saves no base, so its copies can't be
   updated; Load all is the whole-book import.
+- A token placed in a scene stays in the scene's data through an Unload,
+  linked or not, and finds its actor again after Load. An unlinked token
+  keeps its own changes (a wound) through the unload; a linked token shows
+  the actor's, which the reload resets. Neither Foundry nor CoC7 deletes a
+  scene's tokens when their actor is deleted.
+- Unload treats investigators like any actor: a book's pre-generated
+  investigators (Appendix D) lose their play state when unloaded. Accepted
+  as is; the operator's players use their own characters.
+- Considered and not done, so not to be re-proposed without a new reason:
+  carrying play state (current HP, MP, Sanity, Luck) through an Unload; an
+  id map keeping an adopted actor's embedded ids through its first reload;
+  hiding the base packs; a dialog for the update summary (it is a
+  notification).
