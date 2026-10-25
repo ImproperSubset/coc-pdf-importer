@@ -88,6 +88,17 @@ describe("mergeDocument", () => {
     assert.equal(m.applied + m.kept + m.conflicts.length, 0);
   });
 
+  test("CoC7's sheet and play flags are left alone, on actors and their items", () => {
+    const world = npc();
+    world.system.flags = { locked: false, panelKeeper: true };
+    world.items[0].system.flags = { developement: true };
+    const pack = npc();
+    pack.system.flags = { locked: true, panelKeeper: false };
+    const m = mergeDocument(null, world, pack);
+    assert.deepEqual(m.conflicts, []);
+    assert.deepEqual(m.set, {});
+  });
+
   test("embedded items merge field by field, by id", () => {
     const base = npc();
     const world = npc();

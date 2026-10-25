@@ -366,7 +366,8 @@ describe("Load chapter", () => {
       .update({ "system.attribs.hp.max": 11 });
     answer = () => "world";
     await syncBook(book, "Chapter 1: Test Land");
-    assert.match(dialogs[0].content, /system\.attribs\.hp\.max/);
+    assert.match(dialogs[0].content, /Testa — Hit points \(max\)/);
+    assert.match(dialogs[0].content, /it was 10 when loaded/);
     assert.equal(
       worldActor("Testa00000000001")._source.system.attribs.hp.max,
       12,
@@ -449,8 +450,11 @@ describe("world copies from before packs", () => {
     answer = () => "world";
     await syncBook(book, "Chapter 1: Test Land", { create: false });
     assert.equal(dialogs.length, 1);
-    assert.match(dialogs[0].content, /origin unknown/);
-    assert.match(dialogs[0].content, /Climb › system\.value/);
+    assert.match(
+      dialogs[0].content,
+      /can&#39;t tell whether play or the import|can't tell whether play or the import/,
+    );
+    assert.match(dialogs[0].content, /Testa — Climb: value/);
     assert.equal(
       worldActor("Testa00000000001")._source.items[0].system.value,
       45,

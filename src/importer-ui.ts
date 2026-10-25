@@ -84,6 +84,8 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
   #importing = false;
   #finished = false;
   #progress: ImportProgress[] = [];
+  // Books whose loaded chapters to offer updating once this window closes.
+  #updates: string[] = [];
 
   _prepareContext(options: object) {
     const totalCreated = this.#progress.reduce((n, p) => n + p.created, 0);
@@ -207,9 +209,20 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
     this.#importing = false;
     this.#finished = true;
     await this.render({ parts: ["progress", "footer"] });
-    for (const [i, entry] of this.#progress.entries())
-      if (entry.status === "done")
-        await offerUpdate(files[i].name.replace(/\.[^.]+$/, ""));
+    this.#updates = files
+      .filter((_f, i) => this.#progress[i].status === "done")
+      .map((f) => f.name.replace(/\.[^.]+$/, ""));
+  }
+
+  // The update offers follow the import window, so they don't open on top
+  // of its results.
+  _onClose(options: object) {
+    super._onClose?.(options);
+    const books = this.#updates;
+    this.#updates = [];
+    void (async () => {
+      for (const sourceFile of books) await offerUpdate(sourceFile);
+    })();
   }
 
   #statusLabel(p: ImportProgress): string {

@@ -7,6 +7,7 @@
 
 import { ensureBookFolder } from "./folders.ts";
 import { mergeDocument, resolve, unsetKey, type Merge } from "./merge.ts";
+import { conflictNote, fieldLabel, shownValue } from "./review.ts";
 import {
   BASE_ROLES,
   bookOf,
@@ -413,19 +414,6 @@ function escapeHtml(text: string): string {
     .replace(/"/g, "&quot;");
 }
 
-// A value as short plain text for the review.
-function shown(value: unknown): string {
-  if (value === undefined) return "(absent)";
-  const text =
-    typeof value === "string"
-      ? value.replace(/<[^>]*>/g, " ")
-      : typeof value === "object" && value !== null && "name" in value
-        ? String((value as any).name)
-        : JSON.stringify(value);
-  const flat = text.replace(/\s+/g, " ").trim();
-  return flat.length > 160 ? `${flat.slice(0, 157)}…` : flat || "(empty)";
-}
-
 // Ask the Keeper, conflict by conflict, whether to keep the world value
 // (the default) or take the pack's. Null when cancelled.
 async function reviewConflicts(
@@ -434,34 +422,38 @@ async function reviewConflicts(
   const rows: string[] = [];
   planned.forEach((p, d) => {
     p.merge.conflicts.forEach((c, i) => {
-      const what = [
-        escapeHtml(p.world.name),
-        c.itemName ? escapeHtml(c.itemName) : "",
+      const field =
+        c.path === null
+          ? (c.itemName ?? "An item")
+          : fieldLabel(c.path, c.itemName);
+      const keep =
         c.path === null
           ? c.world === undefined
-            ? "removed in play"
-            : "not in the import"
-          : escapeHtml(c.path),
-      ]
-        .filter(Boolean)
-        .join(" › ");
-      const origin = "base" in c ? "" : " <em>(origin unknown)</em>";
+            ? "Leave it off"
+            : "Keep it"
+          : `Keep the world's: ${shownValue(c.world)}`;
+      const take =
+        c.path === null
+          ? c.world === undefined
+            ? "Put it back from the import"
+            : "Remove it"
+          : `Take the import's: ${shownValue(c.pack)}`;
       rows.push(
-        `<div class="form-group stacked"><label>${what}${origin}</label>` +
-          `<div class="form-fields">` +
+        `<fieldset><legend>${escapeHtml(p.world.name)} — ${escapeHtml(field)}</legend>` +
+          `<p class="hint">${escapeHtml(conflictNote(c))}</p>` +
           `<label><input type="radio" name="c-${d}-${i}" value="world" checked> ` +
-          `World: ${escapeHtml(shown(c.world))}</label>` +
+          `${escapeHtml(keep)}</label><br>` +
           `<label><input type="radio" name="c-${d}-${i}" value="pack"> ` +
-          `Import: ${escapeHtml(shown(c.pack))}</label></div></div>`,
+          `${escapeHtml(take)}</label></fieldset>`,
       );
     });
   });
   const result = await foundry.applications.api.DialogV2.wait({
-    window: { title: "Review changes both play and the import made" },
+    window: { title: "Review the update" },
     position: { width: 640 },
     content:
-      `<p>These fields changed both in play and in the re-import. ` +
-      `Each keeps the world value unless you pick the import's.</p>` +
+      `<p>The module can't tell on its own which of these to keep. ` +
+      `Each keeps the world's value unless you pick the import's.</p>` +
       `<div class="coc-import-review" style="max-height: 60vh; overflow-y: auto;">${rows.join("")}</div>`,
     buttons: [
       {

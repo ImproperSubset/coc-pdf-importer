@@ -45,8 +45,10 @@ export interface Merge {
 export type Choices = boolean[];
 
 // Fields Update leaves alone: identity and placement, Foundry's bookkeeping,
-// ownership (the Keeper's), this module's flags, and active effects (the
-// import makes none).
+// ownership (the Keeper's), this module's flags, active effects (the import
+// makes none), and CoC7's `system.flags`: sheet state (locked, open panels)
+// and play state (a skill's improvement tick, an investigator's Mythos
+// hardening), which the import sets only when it creates a document.
 const IGNORED = new Set([
   "_id",
   "folder",
@@ -56,6 +58,7 @@ const IGNORED = new Set([
   "items",
   "effects",
   "flags.coc-pdf-importer",
+  "system.flags",
 ]);
 
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
