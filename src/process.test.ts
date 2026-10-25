@@ -61,9 +61,9 @@ describe("attack rules", () => {
     assert.equal(rule("Snatch (mnvr)"), "the target is held.");
     assert.equal(rule("Dodge"), undefined);
     assert.deepEqual(c.notes, [
-      "Fighting attacks: the thing lunges.",
-      "Venom bite: a CON roll or 1D6 more damage.",
-      "Snatch (mnvr): the target is held.",
+      "**Fighting attacks:** the thing lunges.",
+      "**Venom bite:** a CON roll or 1D6 more damage.",
+      "**Snatch (mnvr):** the target is held.",
     ]);
   });
 });

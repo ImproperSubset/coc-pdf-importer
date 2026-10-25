@@ -239,7 +239,8 @@ content order.
   Involvement"), are not imported.
 - An attack rule printed between "Attacks per round" and the attack rows
   ("Bite: …", "Pin down: …", "Fighting attacks: …") goes, every one, to the
-  Keeper notes, and closes the description of the attack it names (by name
+  Keeper notes with its label in bold (marked `**Bite:**` in the parsed
+  notes), and closes the description of the attack it names (by name
   without parentheticals; "Fighting (Bite)" is Bite; else the one label
   ending in the name, "Toxic bite" for Bite). A label follows a sentence end
   or leftover page furniture; a rule ends at its last full stop.

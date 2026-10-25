@@ -1730,6 +1730,15 @@ function parseAttacksPerRound(value: string | null): number | null {
   return match ? Number(match[0]) : null;
 }
 
+// A note paragraph as HTML: escaped, with a leading "**Label:**" (an attack
+// rule's, marked by the parser) in bold.
+function boldLabelHtml(text: string): string {
+  const m = /^\*\*(.+?)\*\*\s*/.exec(text);
+  return m
+    ? `<strong>${escapeHtml(m[1])}</strong> ${escapeHtml(text.slice(m[0].length))}`
+    : escapeHtml(text);
+}
+
 function notesToHtml(character: CocCharacter, type: EntityType): string {
   const parts: string[] = [];
   if (character.sanityLoss) parts.push(`Sanity loss: ${character.sanityLoss}`);
@@ -1737,7 +1746,7 @@ function notesToHtml(character: CocCharacter, type: EntityType): string {
   let html = parts
     .flatMap((p) => p.split(/\n{2,}/))
     .filter((p) => p.trim())
-    .map((p) => `<p>${escapeHtml(p.trim())}</p>`)
+    .map((p) => `<p>${boldLabelHtml(p.trim())}</p>`)
     .join("");
   // A non-investigator (NPC/creature) has no backstory/biography on its sheet,
   // so its background sections would otherwise be dropped. Keep them in the

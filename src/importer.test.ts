@@ -509,6 +509,23 @@ describe("importCharacters — items", () => {
     );
   });
 
+  test("an attack rule's label is bold in the Keeper notes", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          notes: ["**Bite & hold:** a <CON> roll.", "Plain note."],
+        }),
+      ],
+      { notify: false },
+    );
+    const keeper = created[0].system.description.keeper;
+    assert.match(
+      keeper,
+      /<p><strong>Bite &amp; hold:<\/strong> a &lt;CON&gt; roll\.<\/p>/,
+    );
+    assert.match(keeper, /<p>Plain note\.<\/p>/);
+  });
+
   test("an attack's rule closes its weapon's description", async () => {
     await importCharacters(
       [

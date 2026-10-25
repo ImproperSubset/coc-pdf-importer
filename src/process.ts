@@ -1703,7 +1703,8 @@ function parseBlock(
   // The attack rules go to their attacks and, all of them, to the notes.
   const rules = parseAttackRules(combatText);
   attachAttackRules(combat, rules);
-  for (const r of rules) notes.push(`${r.label}: ${r.text}`);
+  // The label is marked bold ("**Bite:** …"), as the importer renders it.
+  for (const r of rules) notes.push(`**${r.label}:** ${r.text}`);
   const keeperNote = parseKeeperNote(printedBody);
   if (keeperNote) notes.push(keeperNote);
   // The optional Pulp Cthulhu variant printed inside the block. A block with
