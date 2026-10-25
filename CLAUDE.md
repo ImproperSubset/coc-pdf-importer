@@ -297,5 +297,23 @@ content order.
 
 ## Open ideas, not yet decided
 
+- Import into compendiums instead of the world sidebar. Foundry's compendium
+  article: world documents load for every user, pack data only when needed,
+  and storing unused documents in packs "greatly reduces the time it takes to
+  load your world". Plan: one world compendium per book for actors and one for
+  items, with the chapter and item-type folders inside, and replace-by-id kept
+  within the pack; then bring world copies up to date by CoC ID. A copy
+  dragged into the world keeps its flags (actors already carry
+  `a.<type>.hh-<book>-<name>`) and `_stats.compendiumSource`; scene tokens
+  all rest on a world actor (linked tokens point at it, unlinked ones keep
+  only their own changes), so updating the world actor reaches them. To
+  decide: what an update overwrites (the book's stats, skills, weapons,
+  spells, notes) and what it keeps (current HP/MP/SAN/Luck, art under the
+  default-icon rule, token settings, ownership, the Keeper's own changes);
+  items need CoC IDs too (`i.<type>.hh-<book>-<name>`), and copies embedded
+  in actors are harder than sidebar items; whether the update runs with a
+  re-import or as its own step; possibly a world-or-compendium choice in the
+  dialog. Read CoC7's `coc7/apps/coc-id-actor-update-items.js` first, and
+  check pack creation against Foundry's client source.
 - Remove the deprecated `includeCoAuthoredBy` from the operator's Claude Code
   settings (superseded by `attribution`).
