@@ -604,7 +604,17 @@ function attachWriteups(
   breaks: number[],
 ): void {
   if (!nameHeight || nameHeight <= bodyHeight) return;
-  const key = (name: string) => name.toLowerCase().replace(/\s+/g, " ").trim();
+  // Names compare with titles in one form ("Doctor Mason Thibault" is "Dr.
+  // Mason Thibault").
+  const key = (name: string) =>
+    name
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim()
+      .replace(/^(?:doctor|dr\s*\.?)\s+/, "dr ")
+      .replace(/^(?:professor|prof\s*\.?)\s+/, "prof ")
+      .replace(/^(?:reverend|rev\s*\.?)\s+/, "rev ")
+      .replace(/^(?:captain|capt\s*\.?)\s+/, "capt ");
   const bare = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, "");
   const byName = new Map<string, CocCharacter[]>();
   const add = (k: string, c: CocCharacter) => {
@@ -621,16 +631,36 @@ function attachWriteups(
   for (let i = 0; i < chunks.length; i++) {
     if (!isHeading(chunks[i]) || !chunks[i].newline) continue;
     let j = i;
-    const words: string[] = [];
+    const lines: string[] = [];
     while (j < chunks.length && isHeading(chunks[j]))
-      words.push(chunks[j++].text);
+      lines.push(chunks[j++].text);
     i = j - 1;
-    const heading = words.join(" ").replace(/\s+/g, " ").trim();
-    const comma = heading.indexOf(",");
-    if (comma <= 0 || j >= chunks.length || /^STR\b/.test(chunks[j].text))
-      continue;
-    const targets = byName.get(key(heading.slice(0, comma)));
-    if (!targets) continue;
+    if (j >= chunks.length || /^STR\b/.test(chunks[j].text)) continue;
+    // The heading may follow a caption set at the same height ("Handout:
+    // Calcutta 1"): drop leading lines until it names someone. One heading
+    // may name several ("Mortimer Allen (32) and Lloyd Allen (10), father and
+    // son"), each with an age in parentheses.
+    let heading = "";
+    let targets: CocCharacter[] = [];
+    for (let l = 0; l < lines.length && !targets.length; l++) {
+      heading = lines.slice(l).join(" ").replace(/\s+/g, " ").trim();
+      const comma = heading.indexOf(",");
+      if (comma <= 0) continue;
+      const names = heading
+        .slice(0, comma)
+        .split(/\s+and\s+/)
+        .map((n) => n.replace(/\s*\(\d+\)\s*$/, ""));
+      targets = names.flatMap(
+        (n) => byName.get(key(n)) ?? byName.get(key(bare(n))) ?? [],
+      );
+    }
+    // A heading without a comma names a group by itself ("Bolivian
+    // Soldiers"): it counts when it is exactly an actor's name.
+    if (!targets.length && !lines.join(" ").includes(",")) {
+      heading = lines.join(" ").replace(/\s+/g, " ").trim();
+      targets = byName.get(key(heading)) ?? [];
+    }
+    if (!targets.length) continue;
     // Ends at the next heading or section title; a stat block's STR before
     // either makes this the block's own heading, whose intro the block keeps.
     const collect = (from: number) => {
@@ -671,17 +701,18 @@ function attachWriteups(
         }
       }
     }
-    // One whose bullets a sidebar cuts off ("• Description: …", a sidebar,
-    // then "• Traits: …") resumes at the next bullet it lacks, on this page
-    // or the next, before the next name heading.
+    // One whose bullets a sidebar or a full-page diagram cuts off resumes at
+    // the first NPC bullet it lacks, within the next three pages and before
+    // the next heading at name height (an NPC's, or a topic's like "The Inner
+    // Night's Involvement", whose bullets are its own).
     const bulletLabel =
       /^•\s*(Description|Traits|Roleplaying\s+hooks?|Likely\s+to\s+be\s+found\s+at)\s*:/i;
     const joined = parts.join(" ");
-    if (/•\s*Description\s*:/i.test(joined)) {
+    if (!/•\s*Roleplaying\s+hooks?\s*:/i.test(joined)) {
       const page = chunks[first.next - 1]?.page ?? 0;
       for (let k = first.next; k < chunks.length; k++) {
         const c = chunks[k];
-        if ((c.page ?? 0) > page + 1 || isHeading(c)) break;
+        if ((c.page ?? 0) > page + 3 || isHeading(c)) break;
         const label = isBody(c) && c.newline ? bulletLabel.exec(c.text) : null;
         if (!label) continue;
         if (new RegExp(`•\\s*${label[1]}\\s*:`, "i").test(joined)) break;
@@ -1656,6 +1687,15 @@ function parseBlock(
   // "• Description: … • Traits: … • Roleplaying hooks: …").
   if (!background.length) background = parseNpcBullets(printedBody);
   if (!background.length) background = parseNpcBullets(sharedTail);
+  // An NPC read through the investigator headings keeps the NPC bullets those
+  // lack (Dr. Gonçalves' "Roleplaying Hooks").
+  for (const b of parseNpcBullets(printedBody))
+    if (
+      (b.title === "Roleplaying Hooks" ||
+        b.title === "Likely to Be Found At") &&
+      !background.some((s) => s.title === b.title)
+    )
+      background.push(b);
   const note = parseNoteBeforeCombat(body);
   const notes = note ? [note] : [];
   const intro = parseIntro(preTable, name, description);

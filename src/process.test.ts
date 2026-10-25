@@ -111,6 +111,18 @@ describe("prose around a stat block", () => {
     assert.ok(c.notes.includes("Move 8*: Able to walk on ceilings."));
   });
 
+  test("an NPC read through the investigator headings keeps its Roleplaying Hooks", () => {
+    const [c] = parseCocCharacters(
+      "Jane Doe, 30, clerk STR 50 CON 50 SIZ 50 DEX 50 INT 50 APP 50 POW 50 EDU 50 SAN 50 HP 10 " +
+        "DB: 0 Build: 0 Move: 8 MP: 10 • Description: tidy. • Traits: nervous. " +
+        "• Roleplaying Hooks: asks for a loan.",
+    );
+    assert.deepEqual(
+      c.background.map((b) => b.title),
+      ["Personal Description", "Traits", "Roleplaying Hooks"],
+    );
+  });
+
   test("keeps bulleted character notes and the Keeper note, to their last full stop", () => {
     const c = block(
       "The Thing, lurking horror",
@@ -1084,6 +1096,84 @@ describe("parseCocCharacters (unit)", () => {
       "Testa Vane, 60, keeper of keys\n\nTesta guards the old house. " +
         "• Description: grey and stooped. • Traits: counts doors. " +
         "• Roleplaying hook: asks for help.",
+    );
+  });
+
+  // A write-up under `heading` lines, then the stat blocks of `names`.
+  const writeupFor = (
+    heading: { t: string; h?: number }[],
+    names: string[],
+    prose = "Testa guards the old house.",
+  ) => {
+    const { text, chunks } = chunked([
+      ...heading.map((l) => ({ h: 11, ...l })),
+      { t: prose },
+      { t: "THE OLD HOUSE", h: 14 },
+      ...names.flatMap((n) => [
+        { t: n + ",", h: 11 },
+        { t: "60, keeper of keys", h: 11 },
+        { t: STATS + " Combat Brawl 40% (20/8), damage 1D3 Skills Charm 40%." },
+      ]),
+    ]);
+    return parseCocCharacters(text, chunks);
+  };
+
+  test("a write-up heading matches with titles in either form and without a parenthetical", () => {
+    const [c] = writeupFor(
+      [{ t: "Doctor Testa Vane (Old Mother)," }, { t: "60, keeper" }],
+      ["Dr. Testa Vane"],
+    );
+    assert.equal(c.name, "Dr. Testa Vane");
+    assert.match(
+      c.notes[0],
+      /^Doctor Testa Vane \(Old Mother\), 60, keeper\n\n/,
+    );
+  });
+
+  test("a caption before a write-up heading is not part of it", () => {
+    const [c] = writeupFor(
+      [{ t: "Handout: Town 1" }, { t: "Testa Vane," }, { t: "60, keeper" }],
+      ["Testa Vane"],
+    );
+    assert.match(c.notes[0], /^Testa Vane, 60, keeper\n\n/);
+  });
+
+  test("a write-up heading naming two people goes to both", () => {
+    const cs = writeupFor(
+      [{ t: "Testa Vane (60) and Bram Vane (10)," }, { t: "mother and son" }],
+      ["Testa Vane", "Bram Vane"],
+    );
+    assert.equal(cs.length, 2);
+    for (const c of cs) assert.match(c.notes[0], /guards the old house/);
+  });
+
+  test("a comma-less heading that is exactly an actor's name is its write-up", () => {
+    const [c] = writeupFor(
+      [{ t: "Town Guards" }],
+      ["Town Guards"],
+      "The guards are bored.",
+    );
+    assert.equal(c.notes[0], "Town Guards\n\nThe guards are bored.");
+  });
+
+  test("a write-up's bullets after a full-page diagram resume", () => {
+    const { text, chunks } = chunked([
+      { t: "Testa Vane,", h: 11 },
+      { t: "60, keeper of keys", h: 11 },
+      { t: "Testa guards the old house." },
+      { t: "TOWN DIAGRAM", h: 72, p: 2 },
+      { t: "• Description: grey. • Roleplaying hook: asks for help.", p: 4 },
+      { t: "Testa Vane,", h: 11, p: 5 },
+      { t: "60, keeper of keys", h: 11, p: 5 },
+      {
+        t: STATS + " Combat Brawl 40% (20/8), damage 1D3 Skills Charm 40%.",
+        p: 5,
+      },
+    ]);
+    assert.equal(
+      parseCocCharacters(text, chunks)[0].notes[0],
+      "Testa Vane, 60, keeper of keys\n\nTesta guards the old house. " +
+        "• Description: grey. • Roleplaying hook: asks for help.",
     );
   });
 

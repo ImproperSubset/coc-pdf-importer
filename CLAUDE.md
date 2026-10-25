@@ -179,16 +179,22 @@ content order.
   header.
 - An NPC's write-up in the chapter text (a heading at name height, "Abidin,"
   "29, local guide", then prose and bullets instead of STR) opens the Keeper
-  notes of the actor of exactly that name, heading first. It ends at the next
-  heading or at a repeated section title inside the page's body text
+  notes of the actor it names, heading first. Names match exactly, with
+  titles in either form ("Doctor"/"Dr.") and with or without a parenthetical
+  ("(Zyneste)"); a heading may name several ("Mortimer Allen (32) and Lloyd
+  Allen (10), …"), follow a same-height caption ("Handout: Calcutta 1"), or
+  be a bare group name with no comma ("Bolivian Soldiers"). It ends at the
+  next heading or at a repeated section title inside the page's body text
   ("THE SETTING", stripped as furniture; running headers sit outside the body
   and don't count); portrait captions inside it are skipped. One broken off
   mid-sentence by a sidebar resumes at the first body line, on that page or
-  the next, that starts in lowercase after a finished sentence; one whose
-  bullets a sidebar cuts off resumes at the next bullet it lacks, on that
-  page or the next, before another name heading. Prose that runs
-  into STR is the block's own intro, and a write-up the notes already hold is
-  dropped. Write-ups for people without a stat block are not imported.
+  the next, that starts in lowercase after a finished sentence; one that
+  lacks its Roleplaying hook resumes at the first NPC bullet it lacks, within
+  three pages and before the next name-height heading (a sidebar or a
+  full-page diagram between). Prose that runs into STR is the block's own
+  intro, and a write-up the notes already hold is dropped. Write-ups for
+  people without a stat block, and topic sections ("The Inner Night's
+  Involvement"), are not imported.
 - An attack rule printed between "Attacks per round" and the attack rows
   ("Bite: …", "Pin down: …", "Fighting attacks: …") goes, every one, to the
   Keeper notes, and closes the description of the attack it names (by name
