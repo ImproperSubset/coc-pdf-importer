@@ -315,5 +315,3 @@ content order.
   re-import or as its own step; possibly a world-or-compendium choice in the
   dialog. Read CoC7's `coc7/apps/coc-id-actor-update-items.js` first, and
   check pack creation against Foundry's client source.
-- Remove the deprecated `includeCoAuthoredBy` from the operator's Claude Code
-  settings (superseded by `attribution`).
