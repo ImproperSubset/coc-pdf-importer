@@ -39,6 +39,16 @@ its architecture; this file holds what a session needs beyond it.
   `module.zip` and attaches it with `module.json`. Only `.hh.` versions release.
 - A workflow run needs a push: after a release commit that didn't trigger one,
   push an empty commit.
+- `npm run release` refuses a dirty tree. The sandbox leaves empty read-only
+  placeholder files where it mounts `/dev/null` over protected paths
+  (`.claude/settings.json`, `.mcp.json`, `.bashrc`, …); git ignores the root
+  ones but reports `.claude/`. Run the release step outside the sandbox, and
+  if `.claude/` still shows, list it in `.git/info/exclude` (never commit or
+  delete there without the operator).
+- After a release, the operator must reload the browser before re-importing:
+  Foundry's client caches module code, so a stale `module.js` keeps running
+  after the module updates. When a fix seems absent, check the running
+  version in the console: `game.modules.get("coc-pdf-importer").version`.
 - Install URL:
   `https://github.com/ImproperSubset/coc-pdf-importer/releases/latest/download/module.json`
 
@@ -53,7 +63,8 @@ its architecture; this file holds what a session needs beyond it.
   `cha23125_-_the_two-headed_serpent_v1.2.pdf`.
 - Parser changes: diff `npm run dump:json -- "<pdf>"` output against
   `golden/<name>.json` and confirm only the intended actors/items changed, then
-  copy `out/<name>.json` into `golden/`. The golden test
+  copy `out/<name>.json` into `golden/`. The argument is the file name alone
+  (it resolves in `fixtures/`). The golden test
   (`test/integration/golden.test.ts`) checks a fixed list of fixture names.
   The book-level integration tests are cancelled when their fixtures are
   absent; that is the harness, not a regression.
@@ -63,15 +74,36 @@ its architecture; this file holds what a session needs beyond it.
   weapons' backing skills or the folders actors land in. To test an unexported
   function, copy `src/*.ts` to a scratch directory, append an `export`, and
   symlink `node_modules` there.
-- `npm run dump:text` writes the raw pdf.js text for reading a layout.
+- `npm run dump:text` writes the raw pdf.js text for reading a layout. For
+  font sizes and line structure, temporarily stash `parseActors`' chunks on
+  `globalThis` and run `processPDF` from a scratch script; for positions, read
+  the page with `pdfjs-dist/legacy/build/pdf.mjs` from a scratch directory
+  with `node_modules` symlinked (`item.transform[4]`/`[5]` are x/y). Remove
+  any debug line before committing: Prettier can split it past a one-line
+  `sed`, so grep for it.
+- Fix classes, not instances: when one case breaks (a write-up cut by a
+  sidebar), audit the whole book for its kind before fixing — every name
+  heading that matched no actor, every NPC bullet no actor holds, every note
+  ending without punctuation — and fix what the audit finds together.
+- A behaviour that needs Foundry's machinery to verify (an ApplicationV2
+  action, a template) is checked against the API docs first; what the docs
+  don't settle is built in this module's own code (its own template and
+  action) rather than assumed of Foundry's.
 - Live checks need the operator's Foundry: give them console snippets (written
-  out in full, in one place). To pull a book's actors for inspection, walk the
+  out in full, in one place). Write each to a scratch `.js` file, check it
+  with `node --check`, and use plain `function`s with no `=>` and no `<`:
+  snippets with arrow functions and angle brackets arrived broken in the
+  operator's console twice (cause unconfirmed). Save results with
+  `saveDataToFile` rather than printing them, and compare a live export with
+  the golden dump field by field. To pull a book's actors for inspection, walk the
   book's folder and its chapter subfolders and save with
-  `foundry.utils.saveDataToFile(JSON.stringify(actors.map((a) => a.toObject())),
-"application/json", "<file>.json")`; the operator puts exports in
+  `foundry.utils.saveDataToFile(JSON.stringify(actors.map(function (a) {
+return a.toObject(); })), "application/json", "<file>.json")`; the operator puts exports in
   `~/Downloads`. Single items come from Foundry's own Export Data.
 - To compare against Core Content, ask for exports of the equivalent
-  compendium items (`fvtt-Item-<name>.json`) and match field by field.
+  compendium items (`fvtt-Item-<name>.json`) and match field by field. A
+  whole pack comes from `pack.getDocuments()`, or its index with chosen
+  fields from `pack.getIndex({ fields })`.
 
 ## How it reads PDFs
 
@@ -262,9 +294,6 @@ content order.
 
 ## Open ideas, not yet decided
 
-- Capture the prose around stat blocks (creature descriptions, attack rules
-  such as a Charge's knockdown) into Keeper notes; needs a boundary design.
-  Deferred by the operator to a later session.
 - Chaosium's Fan Material Policy requires a fixed disclaimer on fan works and
   lists "downloadable apps and virtual tabletops" as excluded; neither upstream
   nor the fork addresses this. The operator's call.
