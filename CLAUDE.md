@@ -287,23 +287,54 @@ return a.toObject(); })), "application/json", "<file>.json")`; the operator puts
   a scalpel is a knife; names with laser/ray/beam/blaster are firearms (a
   staff takes Rifle/Shotgun). `Brawl` is not mapped to Core Content's `Punch`.
 
-## Open ideas, not yet decided
+## Planned, not yet built: compendium import
 
-- Import into compendiums instead of the world sidebar. Foundry's compendium
-  article: world documents load for every user, pack data only when needed,
-  and storing unused documents in packs "greatly reduces the time it takes to
-  load your world". Plan: one world compendium per book for actors and one for
-  items, with the chapter and item-type folders inside, and replace-by-id kept
-  within the pack; then bring world copies up to date by CoC ID. A copy
-  dragged into the world keeps its flags (actors already carry
-  `a.<type>.hh-<book>-<name>`) and `_stats.compendiumSource`; scene tokens
-  all rest on a world actor (linked tokens point at it, unlinked ones keep
-  only their own changes), so updating the world actor reaches them. To
-  decide: what an update overwrites (the book's stats, skills, weapons,
-  spells, notes) and what it keeps (current HP/MP/SAN/Luck, art under the
-  default-icon rule, token settings, ownership, the Keeper's own changes);
-  items need CoC IDs too (`i.<type>.hh-<book>-<name>`), and copies embedded
-  in actors are harder than sidebar items; whether the update runs with a
-  re-import or as its own step; possibly a world-or-compendium choice in the
-  dialog. Read CoC7's `coc7/apps/coc-id-actor-update-items.js` first, and
-  check pack creation against Foundry's client source.
+Foundry's compendium article: world documents load for every user, pack data
+only when needed, and storing unused documents in packs "greatly reduces the
+time it takes to load your world". The goal is a world that holds only the
+chapters in play, updated in place when a re-import fixes the book.
+
+- The import writes one world compendium per book for actors and one for
+  items, flagged as this module's (pack metadata has a `flags` field in v13
+  and v14; whether the server keeps flags given at `createCompendium` is
+  unchecked, else the pack's folders and documents carry the flag). Actors
+  sit in chapter folders, items in type folders, as in the sidebar now. A
+  re-import replaces by id within the pack; packs hold no play state.
+- A chapter folder in the pack offers Load chapter and Unload chapter; the
+  pack offers Load all and Unload all. Nothing is added to sidebar folders.
+  Load finds or creates the book's sidebar folder and the chapter folder in
+  printed order, and copies the chapter's actors and items in under their
+  pack ids. Unload deletes those world copies by id, then folders left
+  empty, after a confirmation (play state is lost; placed tokens break until
+  the chapter is loaded again).
+- An item's chapter is the section it is printed in (from its page), so
+  appendix spells, tomes and artefacts load with their appendix.
+- Menu entries come from the `getFolderContextOptions` and
+  `getCompendiumContextOptions` hooks (both versions). Entries are
+  `name`/`condition`/`callback(header)` in v13 and
+  `label`/`visible`/`onClick(event, header)` in v14 (v14 still reads the
+  old keys, with deprecation warnings), so the module builds the entry for
+  the running generation.
+- Loading saves a base on each world copy: a module flag with one hash per
+  field, embedded items (by id) included. Update loaded chapters compares
+  base, world copy and the pack: a field only the pack changed is applied, a
+  field only play changed is kept, and a field both changed is listed in a
+  review dialog (world value against the pack's), keeping the world value
+  unless the Keeper picks the pack's. An embedded item added in play is
+  kept; one removed in play stays removed unless the pack also changed it.
+  The Keeper notes are one field (the Keeper doesn't edit them in play).
+  Applying saves a new base.
+- Unlinked scene tokens keep their own changes apart from the actor, so an
+  update leaves them alone; linked tokens are the world actor.
+- A world copy with no base (imported straight from the PDF) counts as
+  untouched when `_stats.modifiedTime` equals `_stats.createdTime`; else
+  every field that differs from the pack is listed as of unknown origin.
+  Unchecked: whether the import's own follow-up updates move
+  `modifiedTime`.
+- Foundry's own drag of a pack folder into the sidebar creates its folders
+  and documents with `keepId`, and builds them again on a second drag (its
+  already-present check compares the pack folder object with the world's),
+  so it is no substitute for Load.
+- Undecided: whether the import dialog keeps a straight-to-world option.
+- Before code: read CoC7's `coc7/apps/coc-id-actor-update-items.js` and
+  Foundry's pack creation, and write the plan.
