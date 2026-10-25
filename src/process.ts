@@ -188,14 +188,14 @@ export function parseCocCharacters(
     : 0;
 
   // A characteristics run always starts "STR <value> … CON". Values are numbers
-  // (optionally marked with *), a lone "-" (em/en dash for N/A), "?", or "n/a",
+  // of up to four digits (a dhole's STR 2525; optionally marked with *), a lone "-" (em/en dash for N/A), "?", or "n/a",
   // each optionally followed by a "(3D6 x 5)"-style roll formula and/or an
   // "Average Rolls" multiplier printed after the formula ("45 (1D6+6) ×5").
   //
   // Classic Chaosium order is STR … CON directly. Modern two-column sheets
   // (Innsmouth et al.) flatten as STR val APP val CON val POW … — so other
   // characteristic labels may sit between STR's value(s) and CON.
-  const value = String.raw`(?:\d{1,3}\*?|-|\?|[Nn]/[Aa])(?:\s*\([^)]*\)|\s+\d*[dD]\d+(?:[+-]\d+)?(?=\s*[×xX]\s*\d+))?(?:\s*[×xX]\s*\d+)?`;
+  const value = String.raw`(?:\d{1,4}\*?|-|\?|[Nn]/[Aa])(?:\s*\([^)]*\)|\s+\d*[dD]\d+(?:[+-]\d+)?(?=\s*[×xX]\s*\d+))?(?:\s*[×xX]\s*\d+)?`;
   const midLabel = String.raw`(?:APP|POW|SIZ|EDU|DEX|SAN|INT|HP|DB|Build|Move|MP|Luck)`;
   const afterStr = String.raw`(?:${value}|${midLabel}\s+${value})`;
   const anchorRe = new RegExp(
@@ -1825,8 +1825,8 @@ const DERIVED_LINE =
   /\bHP\s+\d{1,3}\*?\s+DB\s+(?:[+-]?\d*[dD]\d+(?:[+-]\d+)?|[+-]?\d+|-)\*?\s+Build\s+-?\d+\*?\s+Move\s+\d+\*{0,2}\s+MP\s+\d+\b/;
 // The HP a block's derived line must show: hit points are (CON + SIZ) / 10.
 function expectedHitPoints(header: string): number | null {
-  const con = /\bCON\s+(\d{1,3})\b/.exec(header);
-  const siz = /\bSIZ\s+(\d{1,3})\b/.exec(header);
+  const con = /\bCON\s+(\d{1,4})\b/.exec(header);
+  const siz = /\bSIZ\s+(\d{1,4})\b/.exec(header);
   return con && siz ? Math.floor((Number(con[1]) + Number(siz[1])) / 10) : null;
 }
 function derivedLineHp(line: string): number {
@@ -2001,7 +2001,7 @@ function tokenizeStatHeader(header: string): Map<string, string[]> {
 
 function isValueToken(token: string): boolean {
   return (
-    /^[+-]?\d{1,3}\*?$/.test(token) || // 40, -2, 32*
+    /^[+-]?\d{1,4}\*?$/.test(token) || // 40, -2, 32*, 2525 (a dhole's STR)
     /^\d{1,3}(?:,\d{3})+\*?$/.test(token) || // 1,750 (the Black Sphinx's SIZ)
     /^[+-]?\d*[dD]\d+(?:[+-]\d+)?$/.test(token) || // +1D4, 1D10+5
     token === "-" || // em/en dash (N/A)

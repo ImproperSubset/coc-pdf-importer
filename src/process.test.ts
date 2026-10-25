@@ -201,6 +201,16 @@ describe("parseCocCharacters (unit)", () => {
     assert.equal(c.derived.DB, "+1D6");
   });
 
+  test("four-digit characteristics start a stat block", () => {
+    const [c] = parseCocCharacters(
+      "Vast Worm, burrowing titan STR 2400 CON 700 SIZ 2600 DEX 10 INT 30 APP — POW 150 " +
+        "EDU — SAN — HP 330 DB: +60D6 Build: 61 Move: 12 MP: 30",
+    );
+    assert.equal(c.name, "Vast Worm");
+    assert.equal(c.characteristics.STR!.value, 2400);
+    assert.equal(c.characteristics.SIZ!.value, 2600);
+  });
+
   test("reordered / reduced characteristic sets (Quick-Start style)", () => {
     const [c] = parseCocCharacters(
       "RAT PACK, swarm STR 35 CON 55 SIZ 35 POW 50 DEX 70 HP: 9 " +
