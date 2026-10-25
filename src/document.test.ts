@@ -7,6 +7,7 @@ import assert from "node:assert";
 import { createPulpItems, pulpItemDoc } from "./document.ts";
 import type { PulpItem } from "./pulp.ts";
 import { tome } from "./test-items.ts";
+import type { Target } from "./target.ts";
 
 const talent = (name: string): PulpItem => ({
   kind: "talent",
@@ -560,17 +561,18 @@ describe("createPulpItems", () => {
       },
     };
     (globalThis as any).Folder = {
-      create: async (d: any) => {
-        const f = { id: "f" + ++n, ...d };
+      create: async (d: any, opts?: { pack?: string }) => {
+        const f = { id: "f" + ++n, ...d, pack: opts?.pack };
         folders.push(f);
         return f;
       },
     };
     (globalThis as any).Item = {
       // Mirror Foundry: `keepId` creates the item under the given `_id`.
-      create: async (d: any, opts?: { keepId?: boolean }) => {
+      create: async (d: any, opts?: { keepId?: boolean; pack?: string }) => {
         const it: any = {
           ...d,
+          pack: opts?.pack,
           id: opts?.keepId && d._id ? d._id : "it" + ++n,
           deleted: false,
         };
@@ -588,6 +590,47 @@ describe("createPulpItems", () => {
   afterEach(() => {
     for (const k of ["game", "ui", "Item", "Folder"])
       delete (globalThis as any)[k];
+  });
+
+  const PACK = "world.test-book-items";
+  const pack = (): Target => ({
+    pack: PACK,
+    type: "Item",
+    folders: () => folders.filter((f) => f.pack === PACK),
+    documents: () => world.filter((i) => i.pack === PACK),
+  });
+
+  test("into a pack, type folders sit at its top level and items carry their chapter", async () => {
+    await createPulpItems(
+      [{ ...tome({ name: "Test Tome" }), chapter: "Appendix B: Test Lore" }],
+      { folderName: "Book", notify: false, target: pack() },
+    );
+    assert.deepEqual(
+      folders.map((f) => [f.name, f.folder, f.pack]),
+      [["Tomes", null, PACK]],
+    );
+    assert.equal(created[0].pack, PACK);
+    assert.equal(
+      created[0].flags["coc-pdf-importer"].chapter,
+      "Appendix B: Test Lore",
+    );
+  });
+
+  test("new pack items take the ids of world items of the same type and name", async () => {
+    await createPulpItems([tome({ name: "Test Tome" }), talent("Alpha")], {
+      notify: false,
+      target: pack(),
+      adopt: [
+        { id: "worldTalent0001", type: "book", name: "Alpha" },
+        { id: "worldTome000001", type: "book", name: "Test Tome" },
+        { id: "worldTalent0002", type: "talent", name: "Alpha" },
+      ],
+    });
+    assert.equal(
+      created.find((i) => i.name === "Test Tome").id,
+      "worldTome000001",
+    );
+    assert.equal(created.find((i) => i.name === "Alpha").id, "worldTalent0002");
   });
 
   test("creates a document folder with a per-type subfolder holding the items", async () => {

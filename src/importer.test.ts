@@ -6,6 +6,7 @@
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { importCharacters } from "./importer.ts";
+import type { Target } from "./target.ts";
 import type { CocCharacter, Characteristics, CombatEntry } from "./process.ts";
 
 // --- generic fixtures ------------------------------------------------------
@@ -99,8 +100,8 @@ beforeEach(() => {
     },
   };
   (globalThis as any).Folder = {
-    create: async (d: any) => {
-      const f: any = { id: "f" + ++n, ...d };
+    create: async (d: any, opts?: { pack?: string }) => {
+      const f: any = { id: "f" + ++n, ...d, pack: opts?.pack };
       f.update = async (u: any) => Object.assign(f, u);
       folders.push(f);
       return f;
@@ -108,21 +109,26 @@ beforeEach(() => {
   };
   (globalThis as any).Actor = {
     // Mirror Foundry: `keepId` creates the actor under the given `_id`.
-    create: async (d: any, opts?: { keepId?: boolean }) => {
+    create: async (d: any, opts?: { keepId?: boolean; pack?: string }) => {
       const a: any = {
         ...d,
+        pack: opts?.pack,
         id: opts?.keepId && d._id ? d._id : "a" + ++n,
         items: [],
         updates: [],
         deleted: false,
       };
-      a.createEmbeddedDocuments = async (_type: string, docs: any[]) => {
-        // Mirror Foundry: assign ids and return the created documents.
-        const withIds = docs.map((doc: any) => ({
-          ...doc,
-          _id: "it" + ++n,
-          id: "it" + n,
-        }));
+      a.createEmbeddedDocuments = async (
+        _type: string,
+        docs: any[],
+        opts?: { keepId?: boolean },
+      ) => {
+        // Mirror Foundry: assign ids (or keep the given ones with `keepId`)
+        // and return the created documents.
+        const withIds = docs.map((doc: any) => {
+          const id = opts?.keepId && doc._id ? doc._id : "it" + ++n;
+          return { ...doc, _id: id, id };
+        });
         a.items.push(...withIds);
         return withIds;
       };
@@ -2513,5 +2519,116 @@ describe("importCharacters — pulp variants", () => {
       standard.items.filter((i: any) => i.type === "talent").length,
       0,
     );
+  });
+});
+
+describe("importCharacters — into a pack", () => {
+  const PACK = "world.test-book-actors";
+  const pack = (): Target => ({
+    pack: PACK,
+    type: "Actor",
+    folders: () => folders.filter((f) => f.pack === PACK),
+    documents: () => world.filter((a) => a.pack === PACK),
+  });
+
+  test("chapters are folders at the pack's top level, with no book folder", async () => {
+    await importCharacters(
+      [
+        makeCharacter({ name: "Testa", chapter: "Chapter 1: Test Land" }),
+        makeCharacter({ name: "Testb", chapter: "Appendix A: Test Foes" }),
+      ],
+      { folderName: "Test Book", notify: false, target: pack() },
+    );
+    assert.deepEqual(
+      folders.map((f) => [f.name, f.folder, f.pack]),
+      [
+        ["Chapter 1: Test Land", null, PACK],
+        ["Appendix A: Test Foes", null, PACK],
+      ],
+    );
+    assert.ok(folders[0].sort < folders[1].sort); // printed order
+    assert.ok(created.every((a) => a.pack === PACK));
+    assert.equal(created[0].folder, folders[0].id);
+  });
+
+  test("actors carry their chapter in a module flag", async () => {
+    await importCharacters(
+      [makeCharacter({ name: "Testa", chapter: "Chapter 1: Test Land" })],
+      { notify: false, target: pack() },
+    );
+    assert.equal(
+      created[0].flags["coc-pdf-importer"].chapter,
+      "Chapter 1: Test Land",
+    );
+  });
+
+  test("a re-import keeps the actor's id and its embedded items' ids", async () => {
+    const character = () =>
+      makeCharacter({
+        name: "Testa",
+        chapter: "Chapter 1: Test Land",
+        skills: { Climb: 40, "Spot Hidden": 55 },
+        combat: [attack("Odd Gadget", { value: 35 })],
+      });
+    await importCharacters([character()], { notify: false, target: pack() });
+    const first = created[0];
+    await importCharacters([character()], { notify: false, target: pack() });
+    const second = created[1];
+    assert.equal(second.id, first.id);
+    const ids = (a: any) => a.items.map((i: any) => [i.name, i._id]);
+    assert.deepEqual(ids(second), ids(first));
+    assert.equal(
+      new Set(ids(first).map((p: any) => p[1])).size,
+      first.items.length,
+    );
+    // The custom weapon links its backing skill by that stable id.
+    const weapon = item(second, "Odd Gadget");
+    const skill = second.items.find(
+      (i: any) => i._id === weapon.system.skill.main.id,
+    );
+    assert.ok(skill);
+  });
+
+  test("new actors take the ids of same-named world actors to adopt", async () => {
+    await importCharacters(
+      [
+        makeCharacter({ name: "Testa" }),
+        makeCharacter({
+          name: "Testb",
+          pulp: { combat: [], talents: [] } as any,
+        }),
+      ],
+      {
+        notify: false,
+        target: pack(),
+        adopt: [
+          { id: "worldTesta00001", name: "Testa" },
+          { id: "worldTestb00001", name: "Testb (Pulp)" },
+          { id: "worldOther00001", name: "Someone Else" },
+        ],
+      },
+    );
+    assert.equal(created.find((a) => a.name === "Testa").id, "worldTesta00001");
+    assert.equal(
+      created.find((a) => a.name === "Testb (Pulp)").id,
+      "worldTestb00001",
+    );
+    assert.notEqual(
+      created.find((a) => a.name === "Testb").id,
+      "worldTestb00001",
+    );
+  });
+
+  test("a pack import leaves world actors alone", async () => {
+    world.push({
+      name: "Testa",
+      folder: null,
+      delete: async () => assert.fail("world actor deleted"),
+    });
+    await importCharacters([makeCharacter({ name: "Testa" })], {
+      notify: false,
+      target: pack(),
+    });
+    assert.equal(created[0].pack, PACK);
   });
 });

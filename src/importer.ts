@@ -9,6 +9,7 @@ import type {
 import { claimReplaced, createReplacing, pairByName } from "./replace.ts";
 import { citationHtml, sourceCitation } from "./citation.ts";
 import { ensureBookFolder } from "./folders.ts";
+import { embeddedIds } from "./ids.ts";
 import {
   createOptions,
   documentsUnder,
@@ -224,18 +225,25 @@ async function importCharacter(
     createOptions(target),
   );
 
+  // Embedded items take stable ids, so a re-import's items match a loaded
+  // copy's by id.
+  const idFor = embeddedIds(actor.id ?? "");
   const { base, customWeapons } = buildItems(character, indexes);
-  const embedded = [...base, ...extraItems];
+  const embedded = [...base, ...extraItems].map((d) => ({
+    ...d,
+    _id: idFor(d),
+  }));
   if (embedded.length) {
     await actor.createEmbeddedDocuments("Item", embedded, {
       renderSheet: false,
+      keepId: true,
     });
   }
   // Weapons not found in a compendium need a backing skill created and linked by
   // id (the system can't resolve them, which pops a "select weapon skill" modal).
   // Done after the base items so their skills — including ones the compendium
   // weapons created — can be reused.
-  await attachCustomWeapons(actor, customWeapons, indexes, type);
+  await attachCustomWeapons(actor, customWeapons, indexes, type, idFor);
 
   await applyDerivedOverrides(actor, character);
   return actor;
@@ -1230,6 +1238,7 @@ async function attachCustomWeapons(
   customWeapons: CustomWeapon[],
   indexes: CompendiumIndexes,
   type: EntityType,
+  idFor: (doc: any) => string = () => "",
 ): Promise<void> {
   if (!customWeapons.length) return;
 
@@ -1357,9 +1366,11 @@ async function attachCustomWeapons(
     resolved.push({ weapon, skill });
   }
 
+  for (const skill of newSkills) skill._id = idFor(skill) || undefined;
   const createdSkills = newSkills.length
     ? ((await actor.createEmbeddedDocuments("Item", newSkills, {
         renderSheet: false,
+        keepId: true,
       })) ?? [])
     : [];
   const createdByName = new Map(createdSkills.map((d: any) => [d.name, d]));
@@ -1376,7 +1387,11 @@ async function attachCustomWeapons(
     }
     return weapon;
   });
-  await actor.createEmbeddedDocuments("Item", weapons, { renderSheet: false });
+  for (const weapon of weapons) weapon._id = idFor(weapon) || undefined;
+  await actor.createEmbeddedDocuments("Item", weapons, {
+    renderSheet: false,
+    keepId: true,
+  });
 }
 
 // Resolve the backing skill a compendium weapon references. A CoCID reference is
