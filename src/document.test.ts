@@ -6,6 +6,7 @@ import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
 import { createPulpItems, pulpItemDoc } from "./document.ts";
 import type { PulpItem } from "./pulp.ts";
+import { tome } from "./test-items.ts";
 
 const talent = (name: string): PulpItem => ({
   kind: "talent",
@@ -723,23 +724,7 @@ describe("createPulpItems", () => {
   test("tomes and artefacts without a region sit directly in their type folder", async () => {
     await createPulpItems(
       [
-        {
-          kind: "tome",
-          name: "Plain Tome",
-          language: "English",
-          author: "",
-          date: "",
-          physical: "",
-          link: "",
-          description: "d.",
-          relevance: "",
-          sanityLoss: "",
-          cthulhuMythos: { initial: 0, final: 0 },
-          mythosRating: 0,
-          study: { necessary: 0, units: "" },
-          spells: "",
-          region: "",
-        },
+        tome({ name: "Plain Tome", language: "English", description: "d." }),
         {
           kind: "artefact",
           name: "Plain Charm",
@@ -839,23 +824,9 @@ describe("createPulpItems", () => {
     };
     await createPulpItems(
       [
-        {
-          kind: "tome",
-          name: "Fog Tome",
-          language: "",
-          author: "",
-          date: "",
-          physical: "",
-          link: "",
-          description: "Thin booklet.",
-          relevance: "",
-          sanityLoss: "1D4",
-          cthulhuMythos: { initial: 1, final: 2 },
-          mythosRating: 9,
-          study: { necessary: 2, units: "CoC7.weeks" },
+        tome({
           spells: "Fog Ward, Contact Mistgods, Shadow Grasp and Lost Spell.",
-          region: "",
-        },
+        }),
         {
           kind: "spell",
           name: "Fog Ward (Variant)",
@@ -875,17 +846,17 @@ describe("createPulpItems", () => {
       { folderName: "Masks", notify: false },
     );
     const spell = created.find((i) => i.name === "Fog Ward (Variant)");
-    const tome = created.find((i) => i.name === "Fog Tome");
+    const book = created.find((i) => i.name === "Fog Tome");
     assert.deepEqual(
-      tome.system.itemDocuments.map((d: any) => [d.name, d._id, d.type]),
+      book.system.itemDocuments.map((d: any) => [d.name, d._id, d.type]),
       [["Fog Ward (Variant)", spell.id, "spell"]],
     );
-    assert.deepEqual(tome.system.itemKeys, [
+    assert.deepEqual(book.system.itemKeys, [
       "i.spell.contact-deity-mistgod",
       "i.spell.wither-shade",
     ]);
     assert.match(
-      tome.system.description.keeper,
+      book.system.description.keeper,
       /Spells: Fog Ward, Contact Mistgods, Shadow Grasp and Lost Spell\./,
     );
   });
@@ -908,23 +879,16 @@ describe("createPulpItems", () => {
           note: "",
           description: "Makes fog.",
         },
-        {
-          kind: "tome",
-          name: "Fog Tome",
+        tome({
           language: "English",
           author: "A Author",
           date: "1900",
           physical: "Pamphlet.",
           link: "Shelf, page 1.",
-          description: "Thin booklet.",
           relevance: "none.",
-          sanityLoss: "1D4",
-          cthulhuMythos: { initial: 1, final: 2 },
-          mythosRating: 9,
-          study: { necessary: 2, units: "CoC7.weeks" },
           spells: "Fog Test",
           region: "Egypt",
-        },
+        }),
         {
           kind: "artefact",
           name: "Fog Charm",

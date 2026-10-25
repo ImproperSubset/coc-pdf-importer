@@ -2,6 +2,7 @@ import { describe, test } from "node:test";
 import assert from "node:assert/strict";
 import { applyCorrections, bookCode } from "./errata.ts";
 import { pulpItemDoc } from "./document.ts";
+import { tome } from "./test-items.ts";
 
 const corrections = [
   {
@@ -13,23 +14,6 @@ const corrections = [
 ];
 
 const actor = (spells: string[]): any => ({ name: "Testa", spells, notes: [] });
-const tome = (spells: string): any => ({
-  kind: "tome",
-  name: "Fog Tome",
-  language: "",
-  author: "",
-  date: "",
-  physical: "",
-  link: "",
-  description: "Thin booklet.",
-  relevance: "",
-  sanityLoss: "1D4",
-  cthulhuMythos: { initial: 1, final: 2 },
-  mythosRating: 9,
-  study: { necessary: 2, units: "CoC7.weeks" },
-  spells,
-  region: "",
-});
 
 describe("bookCode", () => {
   test("is the product code that starts the file name", () => {
@@ -49,7 +33,7 @@ describe("applyCorrections", () => {
   });
 
   test("corrects a tome's spell list and shows the note in its Keeper notes", () => {
-    const t = tome("Dim Light, Fog Warding.");
+    const t = tome({ spells: "Dim Light, Fog Warding." });
     applyCorrections(corrections, [], [t]);
     assert.equal(t.spells, "Dim Light, Fog Ward");
     const keeper = pulpItemDoc(t, "Test Source").system.description.keeper;
@@ -61,7 +45,7 @@ describe("applyCorrections", () => {
   });
 
   test("leaves an uncorrected tome as printed", () => {
-    const t = tome("Dim Light.");
+    const t = tome({ spells: "Dim Light." });
     applyCorrections(corrections, [], [t]);
     assert.equal(t.spells, "Dim Light.");
     assert.equal(t.errata, undefined);
