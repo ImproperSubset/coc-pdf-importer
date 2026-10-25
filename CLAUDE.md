@@ -295,11 +295,11 @@ time it takes to load your world". The goal is a world that holds only the
 chapters in play, updated in place when a re-import fixes the book.
 
 - The import writes one world compendium per book for actors and one for
-  items, flagged as this module's (pack metadata has a `flags` field in v13
-  and v14; whether the server keeps flags given at `createCompendium` is
-  unchecked, else the pack's folders and documents carry the flag). Actors
-  sit in chapter folders, items in type folders, as in the sidebar now. A
-  re-import replaces by id within the pack; packs hold no play state.
+  items, flagged as this module's in the pack metadata's `flags` (the v13
+  and v14 servers clean `createCompendium`'s metadata with the pack schema,
+  which has `flags`, and save it to `world.json`). Actors sit in chapter
+  folders, items in type folders, as in the sidebar now. A re-import
+  replaces by id within the pack; packs hold no play state.
 - A chapter folder in the pack offers Load chapter and Unload chapter; the
   pack offers Load all and Unload all. Nothing is added to sidebar folders.
   Load finds or creates the book's sidebar folder and the chapter folder in
@@ -327,14 +327,16 @@ chapters in play, updated in place when a re-import fixes the book.
 - Unlinked scene tokens keep their own changes apart from the actor, so an
   update leaves them alone; linked tokens are the world actor.
 - A world copy with no base (imported straight from the PDF) counts as
-  untouched when `_stats.modifiedTime` equals `_stats.createdTime`; else
-  every field that differs from the pack is listed as of unknown origin.
-  Unchecked: whether the import's own follow-up updates move
-  `modifiedTime`.
+  untouched when `_stats.modifiedTime` is within a few seconds of
+  `_stats.createdTime` (the import's own follow-up updates move it by up to
+  about 120 ms); else every field that differs from the pack is listed as of
+  unknown origin.
 - Foundry's own drag of a pack folder into the sidebar creates its folders
   and documents with `keepId`, and builds them again on a second drag (its
   already-present check compares the pack folder object with the world's),
-  so it is no substitute for Load.
-- Undecided: whether the import dialog keeps a straight-to-world option.
-- Before code: read CoC7's `coc7/apps/coc-id-actor-update-items.js` and
-  Foundry's pack creation, and write the plan.
+  so it is no substitute for Load. Foundry's Import All on a pack makes new
+  ids unless "keep ids" is ticked and saves no base, so its copies can't be
+  updated; Load all is the whole-book import, and the PDF dialog has no
+  straight-to-world option.
+- Before code: read CoC7's `coc7/apps/coc-id-actor-update-items.js`, and
+  write the plan.
