@@ -431,7 +431,7 @@ describe("world copies from before packs", () => {
     world.Actor.set(entry._id, makeDoc(entry, { type: "Actor" }));
   };
 
-  test("an untouched copy takes the import whole", async () => {
+  test("an untouched copy takes the import, its items updated in place under their ids", async () => {
     const book = seedBook();
     adopt(book, 1100);
     await syncBook(book, "Chapter 1: Test Land", { create: false });
@@ -441,7 +441,14 @@ describe("world copies from before packs", () => {
         i._id,
         i.system.value,
       ]),
-      [["ClimbTesta00000000001", 40]],
+      [["OldClimb00000001", 40]],
+    );
+    // The saved base carries the world's item ids, so the next update
+    // compares by id.
+    assert.equal(
+      basePack("actor-bases").entries.get("Testa00000000001")._source.items[0]
+        ._id,
+      "OldClimb00000001",
     );
   });
 

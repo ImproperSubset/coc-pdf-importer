@@ -164,6 +164,37 @@ describe("mergeDocument", () => {
     assert.equal(m.conflicts[0].world, undefined);
   });
 
+  test("an untouched copy's items pair by type and name and update in place", () => {
+    const world = npc({
+      items: [
+        {
+          _id: "OldClimb00000001",
+          type: "skill",
+          name: "Climb",
+          system: { value: 40 },
+        },
+        {
+          _id: "OldSwim000000001",
+          type: "skill",
+          name: "Swim",
+          system: { value: 20 },
+        },
+      ],
+    });
+    const pack = npc();
+    pack.items[0].system.value = 45;
+    const m = mergeDocument(world, world, pack, { pairByName: true });
+    assert.deepEqual(m.items.update, [
+      { _id: "OldClimb00000001", "system.value": 45 },
+    ]);
+    assert.deepEqual(m.items.delete, ["OldSwim000000001"]); // the import has no Swim
+    assert.deepEqual(
+      m.items.create.map((i: any) => i.name),
+      ["Odd Gadget"],
+    );
+    assert.deepEqual(m.conflicts, []);
+  });
+
   test("without a base every difference is a conflict, items paired by type and name", () => {
     // A world copy from before packs: random embedded ids.
     const world = npc({

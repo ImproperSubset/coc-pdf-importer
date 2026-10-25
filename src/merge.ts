@@ -3,8 +3,9 @@
 // Field by field, a change only the pack made is applied, a change only play
 // made is kept, and a change both made is a conflict for the Keeper, who keeps
 // the world value unless picking the pack's. Without a base, every difference
-// is a conflict of unknown origin. Embedded items are compared by id; with no
-// base, a world item pairs with the pack item of the same type and name.
+// is a conflict of unknown origin. Embedded items are compared by id; for a
+// copy with no saved base, a world item pairs with the pack item of the same
+// type and name, keeping the world's id.
 // Pure: no Foundry calls, so the rules are unit-tested here.
 
 export interface Conflict {
@@ -178,15 +179,19 @@ function pairItems(world: any[], pack: any[]): Map<string, string> {
   return ids;
 }
 
+// `pairByName` pairs embedded items by type and name rather than id: for a
+// world copy with no saved base, whose items carry ids from an import made
+// before packs (its own data standing in as the base when untouched).
 export function mergeDocument(
   base: any | null,
   world: any,
   packEntry: any,
+  { pairByName = base === null }: { pairByName?: boolean } = {},
 ): Merge {
   const worldItems: any[] = world.items ?? [];
-  const ids = base
-    ? new Map<string, string>()
-    : pairItems(worldItems, packEntry.items ?? []);
+  const ids = pairByName
+    ? pairItems(worldItems, packEntry.items ?? [])
+    : new Map<string, string>();
   const pack = ids.size ? (remapIds(packEntry, ids) as any) : packEntry;
   const fields = mergeFields(base, world, pack, null);
   const merge: Merge = {

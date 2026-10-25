@@ -795,13 +795,20 @@ export async function createPulpItems(
       return doc;
     });
     const replaced = await claimReplacedItems(target, folder, docs);
-    const adopted = pairByName(
-      adoptable.get(docs[0]?.type) ?? [],
-      docs.map((d) => d.name),
+    // A folder can mix types (an artefact is a weapon or a plain item), so
+    // world copies pair by type as well as name.
+    const adopted = new Map(
+      [...new Set(docs.map((d) => d.type))].map((type) => [
+        type,
+        pairByName(
+          adoptable.get(type) ?? [],
+          docs.filter((d) => d.type === type).map((d) => d.name),
+        ),
+      ]),
     );
     for (const doc of docs) {
       try {
-        const adoptId = adopted.take(doc.name)?.id;
+        const adoptId = adopted.get(doc.type)?.take(doc.name)?.id;
         const created = await createReplacing(
           Item,
           replaced.take(doc.name),

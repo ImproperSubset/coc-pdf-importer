@@ -616,6 +616,38 @@ describe("createPulpItems", () => {
     );
   });
 
+  test("in a folder mixing types, each item takes the id of its own type's world copy", async () => {
+    const artefact = (name: string, isWeapon: boolean): any => ({
+      kind: "artefact",
+      name,
+      link: "",
+      description: isWeapon ? "A test gun that deals 1D6 damage." : "A charm.",
+      keeper: "",
+      isWeapon,
+      region: "",
+    });
+    await createPulpItems(
+      [artefact("Test Charm", false), artefact("Test Gun", true)],
+      {
+        notify: false,
+        target: pack(),
+        adopt: [
+          { id: "worldCharm00001", type: "item", name: "Test Charm" },
+          { id: "worldGun0000001", type: "weapon", name: "Test Gun" },
+        ],
+      },
+    );
+    assert.equal(created.find((i) => i.name === "Test Gun").type, "weapon");
+    assert.equal(
+      created.find((i) => i.name === "Test Gun").id,
+      "worldGun0000001",
+    );
+    assert.equal(
+      created.find((i) => i.name === "Test Charm").id,
+      "worldCharm00001",
+    );
+  });
+
   test("new pack items take the ids of world items of the same type and name", async () => {
     await createPulpItems([tome({ name: "Test Tome" }), talent("Alpha")], {
       notify: false,

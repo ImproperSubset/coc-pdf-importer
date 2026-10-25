@@ -313,8 +313,8 @@ chapters in play, updated in place when a re-import fixes the book.
   locked pack stops the import with a message. The PDF dialog imports only
   into the packs.
 - The first import into a book's packs gives an entry with nothing to
-  replace the id of the same-named world document under the book's sidebar
-  folder, so existing world documents become loaded copies (tokens, links
+  replace the id of the world document of the same type and name under the
+  book's sidebar folder (an Artefacts folder mixes weapons and plain items), so existing world documents become loaded copies (tokens, links
   and art stay attached).
 - A chapter folder in the actor pack offers Load chapter and Unload chapter
   (`src/chapters.ts`);
@@ -371,9 +371,11 @@ chapters in play, updated in place when a re-import fixes the book.
   untouched when `_stats.modifiedTime` is within a few seconds of
   `_stats.createdTime` (the import's own follow-up updates move it by up to
   about 120 ms), its own data serving as the base; else every field that
-  differs from the pack is listed as of unknown origin, its embedded items
-  paired with the pack's by type and name (pack ids mapped to the world's,
-  in the new base too).
+  differs from the pack is listed as of unknown origin. Either way its
+  embedded items pair with the pack's by type and name and are updated in
+  place under the world's ids (pack ids mapped to the world's, in the new
+  base too), so macros, token item changes and chat cards that point at
+  them keep working.
 - Foundry's own drag of a pack folder into the sidebar creates its folders
   and documents with `keepId`, and builds them again on a second drag (its
   already-present check compares the pack folder object with the world's),

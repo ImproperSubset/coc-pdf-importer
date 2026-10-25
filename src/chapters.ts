@@ -171,12 +171,16 @@ interface Planned {
 
 // The base a loaded copy is compared against: its saved base; else, for a copy
 // untouched since an import made before packs, the copy itself; else none.
-function baseFor(world: any, saved: any | undefined): any | null {
-  if (saved) return saved;
+// Without a saved base, embedded items pair by type and name.
+function baseFor(
+  world: any,
+  saved: any | undefined,
+): { base: any | null; pairByName: boolean } {
+  if (saved) return { base: saved, pairByName: false };
   const s = world._stats;
   if (s?.createdTime && s.modifiedTime - s.createdTime < UNTOUCHED_MS)
-    return world.toObject();
-  return null;
+    return { base: world.toObject(), pairByName: true };
+  return { base: null, pairByName: true };
 }
 
 // Load the entries of `chapter` (every entry when null) and update those
@@ -199,11 +203,10 @@ export async function syncBook(
     );
     for (const entry of loaded) {
       const world = kind.world.get(entry.id);
-      const merge = mergeDocument(
-        baseFor(world, bases.get(entry.id)),
-        world.toObject(),
-        entry.toObject(),
-      );
+      const { base, pairByName } = baseFor(world, bases.get(entry.id));
+      const merge = mergeDocument(base, world.toObject(), entry.toObject(), {
+        pairByName,
+      });
       planned.push({ kind, world, merge });
     }
   }
