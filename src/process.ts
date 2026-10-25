@@ -98,6 +98,15 @@ export interface CombatEntry {
   fifth: number | null;
   damage: string | null;
   note: string | null;
+  /** The attack's rule, printed before the attack rows ("Bite: …"). */
+  rule?: string;
+}
+
+// A rule printed between "Attacks per round" and the attack rows: a labelled
+// paragraph ("Bite: injects venom …", "Fighting attacks: …").
+export interface AttackRule {
+  label: string;
+  text: string;
 }
 
 export type Skills = Record<string, number>;
@@ -1506,6 +1515,10 @@ function parseBlock(
   }
   const note = parseNoteBeforeCombat(body);
   const notes = note ? [note] : [];
+  // The attack rules go to their attacks and, all of them, to the notes.
+  const rules = parseAttackRules(combatText);
+  attachAttackRules(combat, rules);
+  for (const r of rules) notes.push(`${r.label}: ${r.text}`);
   // The optional Pulp Cthulhu variant printed inside the block. A block with
   // combat of its own does not take the pulp sections of the block it shares a
   // tail with: a base form's "... Form" continuation prints its own Pulp Combat.
@@ -2930,6 +2943,71 @@ function parseAttacksPerRound(combatText: string): string | null {
       rest,
     );
   return m ? clean(m[0]) : null;
+}
+
+// The attack rules printed between "Attacks per round: N (…)" and the first
+// attack row, each a labelled paragraph ("Bite: …", "Bite and hold (mnvr): …",
+// "Fighting attacks: …"). A label follows a sentence's end, or page furniture
+// left in the text (a running header's "APPENDIX A", "CHAPTER 6"). A rule ends
+// at its last full stop: what trails it without one is the first row's name, a
+// caption ("X by Artist Name") or that furniture.
+export function parseAttackRules(combatText: string): AttackRule[] {
+  const head = /Attacks per round\s*:?\s*/i.exec(combatText);
+  if (!head) return [];
+  let rest = combatText.slice(head.index + head[0].length);
+  const value =
+    /^(?:up to\s+)?\d+(?:[dD]\d+)?(?:\s*\([^)]*\)|\s+(?![A-Z])[^\s(]+)*/.exec(
+      rest,
+    );
+  if (value) rest = rest.slice(value[0].length).trimStart();
+  const row = /\d{1,3}\s*%\s*\(\s*\d+\s*\/\s*\d+\s*\)/.exec(rest);
+  if (row) rest = rest.slice(0, row.index);
+  const label =
+    /(?:^|(?<=(?:[.!?)”]|\b[A-Z]+|\b\d+)\s+))([A-Z][a-z][\w’'-]*(?:\s+[A-Za-z][a-z][\w’'-]*){0,3}(?:\s*\([^)]*\))?)\s*:\s+/g;
+  const starts: { label: string; at: number; end: number }[] = [];
+  for (let m = label.exec(rest); m; m = label.exec(rest))
+    starts.push({
+      label: clean(m[1]),
+      at: m.index,
+      end: m.index + m[0].length,
+    });
+  const rules: AttackRule[] = [];
+  for (let i = 0; i < starts.length; i++) {
+    const body = rest.slice(
+      starts[i].end,
+      i + 1 < starts.length ? starts[i + 1].at : rest.length,
+    );
+    const stop = body.search(/[.!?][)”"]?[^.!?]*$/);
+    const text = (stop >= 0 ? body.slice(0, stop + 1) : "")
+      .replace(/\s+/g, " ")
+      .trim();
+    if (text) rules.push({ label: starts[i].label, text });
+  }
+  return rules;
+}
+
+// A rule's attack, by name with any parenthetical ("(mnvr)", "(fighting
+// maneuver)") and case aside: "Bite and hold (mnvr)" is the "Bite and Hold
+// (mnvr)" row. "Fighting (Bite)" is the attack Bite, as the importer names it.
+function attackKey(name: string): string {
+  return name
+    .replace(/^Fighting\s*\(([^)]*)\)/i, "$1")
+    .replace(/\([^)]*\)/g, " ")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// Give each attack the rule printed for it, when one is: the rule of its name,
+// else the one rule whose label ends in its name ("Toxic bite" for "Bite").
+function attachAttackRules(combat: CombatEntry[], rules: AttackRule[]): void {
+  for (const entry of combat) {
+    const key = attackKey(entry.name);
+    const exact = rules.find((r) => attackKey(r.label) === key);
+    const ending = rules.filter((r) => attackKey(r.label).endsWith(` ${key}`));
+    const rule = exact ?? (ending.length === 1 ? ending[0] : undefined);
+    if (rule) entry.rule = rule.text;
+  }
 }
 
 function parseCombat(text: string): CombatEntry[] {

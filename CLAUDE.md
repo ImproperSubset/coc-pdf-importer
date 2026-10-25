@@ -169,6 +169,12 @@ content order.
 - A Pulp variant is named `<name> (Pulp)` and filed beside its standard actor.
   A variant an older import put in a separate `<folder> (Pulp)` folder is
   replaced under its id, and that folder is deleted once empty.
+- An attack rule printed between "Attacks per round" and the attack rows
+  ("Bite: …", "Pin down: …", "Fighting attacks: …") goes, every one, to the
+  Keeper notes, and closes the description of the attack it names (by name
+  without parentheticals; "Fighting (Bite)" is Bite; else the one label
+  ending in the name, "Toxic bite" for Bite). A label follows a sentence end
+  or leftover page furniture; a rule ends at its last full stop.
 - Each printed attack stays its own named weapon, with its own damage. An
   unmatched weapon's skill comes from its category: a creature's melee attacks
   and manoeuvres use `Fighting (Fighting)`; a human's melee uses its weapon

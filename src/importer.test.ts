@@ -498,6 +498,26 @@ describe("importCharacters — items", () => {
     );
   });
 
+  test("an attack's rule closes its weapon's description", async () => {
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [
+            {
+              ...attack("Knife", { damage: "1D4", note: "held" }),
+              rule: "a <keen> & cruel blade.",
+            },
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    assert.equal(
+      item(created[0], "Knife").system.description.value,
+      "<p>held</p><p>a &lt;keen&gt; &amp; cruel blade.</p>",
+    );
+  });
+
   test("a custom weapon's backing skill is created and linked by id", async () => {
     await importCharacters(
       [

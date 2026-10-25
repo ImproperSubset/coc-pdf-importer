@@ -13,7 +13,57 @@ import {
   joinLigatureSplits,
   paragraphStarts,
   markParagraphs,
+  parseAttackRules,
 } from "./process.ts";
+
+describe("attack rules", () => {
+  test("reads each labelled rule before the attack rows", () => {
+    assert.deepEqual(
+      parseAttackRules(
+        "Attacks per round: 2 (bite, grab) Fighting attacks: the beast lunges. " +
+          "Venom bite: a CON roll or 1D6 more damage. Snatch (mnvr): the target is held. " +
+          "Fighting 50% (25/10), damage 1D6",
+      ),
+      [
+        { label: "Fighting attacks", text: "the beast lunges." },
+        { label: "Venom bite", text: "a CON roll or 1D6 more damage." },
+        { label: "Snatch (mnvr)", text: "the target is held." },
+      ],
+    );
+  });
+
+  test("drops a caption and page furniture between rules", () => {
+    assert.deepEqual(
+      parseAttackRules(
+        "Attacks per round: 1 (bite) Bite: a CON roll or 1D8 damage. " +
+          "Testa by Ann Artist APPENDIX A Lash: reaches 10 feet. Bite 40% (20/8), damage 1D4",
+      ),
+      [
+        { label: "Bite", text: "a CON roll or 1D8 damage." },
+        { label: "Lash", text: "reaches 10 feet." },
+      ],
+    );
+  });
+
+  test("gives an attack its rule and keeps every rule in the notes", () => {
+    const [c] = parseCocCharacters(
+      "The Thing, horror STR 70 CON 70 SIZ 90 DEX 80 INT 80 APP — POW 100 EDU — SAN — HP 16 " +
+        "DB: +1D6 Build: 2 Move: 6 MP: 20 Combat Attacks per round: 1 (bite, grab) " +
+        "Fighting attacks: the thing lunges. Venom bite: a CON roll or 1D6 more damage. " +
+        "Snatch (mnvr): the target is held. Fighting (Bite) 50% (25/10), damage 1D6 " +
+        "Snatch (mnvr) 40% (20/8), damage held Dodge 30% (15/6)",
+    );
+    const rule = (name: string) => c.combat.find((e) => e.name === name)?.rule;
+    assert.equal(rule("Fighting (Bite)"), "a CON roll or 1D6 more damage.");
+    assert.equal(rule("Snatch (mnvr)"), "the target is held.");
+    assert.equal(rule("Dodge"), undefined);
+    assert.deepEqual(c.notes, [
+      "Fighting attacks: the thing lunges.",
+      "Venom bite: a CON roll or 1D6 more damage.",
+      "Snatch (mnvr): the target is held.",
+    ]);
+  });
+});
 
 describe("parseCocCharacters (unit)", () => {
   test("em-dash characteristics parse as null", () => {

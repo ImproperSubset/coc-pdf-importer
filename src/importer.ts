@@ -911,6 +911,7 @@ function buildItems(
           : null;
         if (skill) addSkill(skill);
       }
+      addAttackRule(weapon, attack);
       base.push(weapon);
     } else {
       let weapon: any;
@@ -928,6 +929,7 @@ function buildItems(
         weapon = customWeaponData(attack, ranged, character.derived.DB);
       }
       if (thrown) applyThrownProfile(weapon);
+      addAttackRule(weapon, attack);
       customWeapons.push({ weapon, value: attack.value, ranged, thrown });
     }
   }
@@ -1102,6 +1104,15 @@ function overrideBookDamage(
   sys.properties = sys.properties ?? {};
   sys.properties.addb = addb;
   sys.properties.ahdb = ahdb;
+}
+
+// An attack's printed rule ("Bite: injects venom …") closes its weapon's
+// description.
+function addAttackRule(weapon: any, attack: CombatEntry): void {
+  if (!attack.rule) return;
+  const description = (weapon.system.description ??= {});
+  description.value =
+    (description.value ?? "") + `<p>${escapeHtml(attack.rule)}</p>`;
 }
 
 // Weapon document for a custom (non-compendium) attack. Its backing skill is
