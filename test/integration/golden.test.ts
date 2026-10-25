@@ -57,7 +57,7 @@ describe("golden snapshots — parser output is unchanged", () => {
       if (!goldenBuf) return t.skip("golden snapshot missing");
       if (!pdfBuf) return t.skip("fixture PDF missing");
 
-      const doc = await processPDF(new Uint8Array(pdfBuf));
+      const doc = await processPDF(new Uint8Array(pdfBuf), { fileName: base });
       const actual = JSON.stringify(doc, null, 2);
       const goldenText = goldenBuf.toString("utf8");
       if (actual === goldenText) return;
@@ -98,7 +98,9 @@ describe("no actor falls back to an Unknown name", () => {
     test(base, async (t) => {
       const pdfBuf = await readOrNull(`fixtures/${base}.pdf`);
       if (!pdfBuf) return t.skip("fixture PDF missing");
-      const { actors } = await processPDF(new Uint8Array(pdfBuf));
+      const { actors } = await processPDF(new Uint8Array(pdfBuf), {
+        fileName: base,
+      });
       const unknown = actors.filter((a) => a.name === "Unknown").length;
       assert.equal(
         unknown,
