@@ -86,9 +86,10 @@ its architecture; this file holds what a session needs beyond it.
   heading that matched no actor, every NPC bullet no actor holds, every note
   ending without punctuation — and fix what the audit finds together.
 - A behaviour that needs Foundry's machinery to verify (an ApplicationV2
-  action, a template) is checked against the API docs first; what the docs
-  don't settle is built in this module's own code (its own template and
-  action) rather than assumed of Foundry's.
+  action, a template) is checked against the API docs, then Foundry's client
+  source for v13 and v14 (a local copy, located in `CLAUDE.local.md`) where
+  the docs don't settle it; what neither settles is built in this module's
+  own code rather than assumed of Foundry's.
 - Live checks need the operator's Foundry: give them console snippets (written
   out in full, in one place). Write each to a scratch `.js` file, check it
   with `node --check`, and use plain `function`s with no `=>` and no `<`:
