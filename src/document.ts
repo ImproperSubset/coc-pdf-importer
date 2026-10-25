@@ -17,7 +17,14 @@ import {
 } from "./citation.ts";
 import { importCharacters } from "./importer.ts";
 import type { ImportResult } from "./importer.ts";
-import { claimReplaced, createReplacing } from "./replace.ts";
+import { claimReplaced, createReplacing, pairByName } from "./replace.ts";
+import {
+  createOptions,
+  ensureFolder,
+  parentId,
+  worldTarget,
+  type Target,
+} from "./target.ts";
 import type { PulpItem, PulpTalent, PulpArchetype } from "./pulp.ts";
 import type {
   AppendixSpell,
@@ -673,6 +680,11 @@ export interface CreatePulpItemsOptions {
   source?: string;
   /** Show a UI notification summarising the result (default true). */
   notify?: boolean;
+  /** Where the items go (default: the world, under the book's folder). */
+  target?: Target;
+  /** Documents whose ids new items take, paired by type and name: the world
+   * copies of an import made before the book had packs. */
+  adopt?: any[];
 }
 
 export interface CreatePulpItemsResult {
@@ -707,11 +719,21 @@ export async function createPulpItems(
   // The book's own spells, once created, for its tomes to hold.
   const bookSpells: SpellCandidate<any>[] = [];
   const parentName = options.folderName ?? "PDF Import";
-  const parent = await ensureBookFolder(
-    "Item",
-    parentName,
-    options.sourceFile ?? parentName,
-  );
+  const target = options.target ?? worldTarget("Item");
+  // A pack holds one book, so its top level is the book's folder.
+  const parent = target.pack
+    ? null
+    : await ensureBookFolder(
+        "Item",
+        parentName,
+        options.sourceFile ?? parentName,
+      );
+  const adoptable = new Map<string, any[]>();
+  for (const doc of options.adopt ?? []) {
+    const list = adoptable.get(doc.type) ?? [];
+    list.push(doc);
+    adoptable.set(doc.type, list);
+  }
 
   // Group by kind, then (for artefacts and tomes) by region, so each leaf folder is filled
   // in one pass and re-import replace stays scoped to that folder.
@@ -754,7 +776,7 @@ export async function createPulpItems(
   for (const leaf of leaves) {
     let folder = parent;
     for (const name of leaf.folderPath) {
-      folder = await ensureItemFolder(name, folder?.id ?? null);
+      folder = await ensureFolder(target, name, folder?.id ?? null);
     }
     const kind = leaf.group[0]?.kind ?? "";
     const img = ITEM_TYPE_ICONS[kind];
@@ -762,16 +784,33 @@ export async function createPulpItems(
       const doc = citedItemDoc(item, source, weaponIndex);
       if (item.kind === "tome")
         linkTomeSpells(doc, item.spells, bookSpells, systemSpells);
+      if (item.chapter)
+        doc.flags = {
+          ...doc.flags,
+          "coc-pdf-importer": { chapter: item.chapter },
+        };
       return doc;
     });
-    const replaced = await claimReplacedItems(folder, docs);
+    const replaced = await claimReplacedItems(target, folder, docs);
+    const adopted = pairByName(
+      adoptable.get(docs[0]?.type) ?? [],
+      docs.map((d) => d.name),
+    );
     for (const doc of docs) {
       try {
+        const adoptId = adopted.take(doc.name)?.id;
         const created = await createReplacing(
           Item,
           replaced.take(doc.name),
-          { ...doc, ...(img ? { img } : {}), folder: folder?.id ?? null },
+          {
+            ...(adoptId ? { _id: adoptId } : {}),
+            ...doc,
+            ...(img ? { img } : {}),
+            folder: folder?.id ?? null,
+          },
           KEPT_ITEM_FIELDS,
+          undefined,
+          createOptions(target),
         );
         result.items.push(created);
         result.created++;
@@ -854,25 +893,6 @@ function linkTomeSpells(
   doc.system.itemKeys = keys;
 }
 
-// Find (by name and parent) or create an Item folder.
-async function ensureItemFolder(
-  name: string,
-  parentId: string | null,
-): Promise<FoundryFolder | null> {
-  const existing = game.folders?.find(
-    (f: any) =>
-      f.name === name &&
-      f.type === "Item" &&
-      (f.folder?.id ?? f.folder ?? null) === parentId,
-  );
-  if (existing) return existing;
-  try {
-    return await Folder.create({ name, type: "Item", folder: parentId });
-  } catch {
-    return null;
-  }
-}
-
 // Fields of a replaced item that the Keeper owns rather than the book: they
 // carry over to its replacement along with the id. The icon is not among them;
 // it is assigned per kind at creation.
@@ -880,13 +900,12 @@ const KEPT_ITEM_FIELDS = ["ownership", "sort"];
 
 // The items already in `folder` that incoming documents will replace.
 async function claimReplacedItems(
+  target: Target,
   folder: FoundryFolder | null,
   docs: any[],
 ): Promise<{ take(name: string): FoundryItem | null }> {
   const existing = folder?.id
-    ? (game.items?.filter(
-        (i) => ((i.folder as any)?.id ?? i.folder ?? null) === folder.id,
-      ) ?? [])
+    ? target.documents().filter((i) => parentId(i) === folder.id)
     : [];
   return claimReplaced(
     existing,

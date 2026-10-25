@@ -6,9 +6,18 @@ import type {
   CombatEntry,
   PulpTalentRef,
 } from "./process.ts";
-import { claimReplaced, createReplacing } from "./replace.ts";
+import { claimReplaced, createReplacing, pairByName } from "./replace.ts";
 import { citationHtml, sourceCitation } from "./citation.ts";
 import { ensureBookFolder } from "./folders.ts";
+import {
+  createOptions,
+  documentsUnder,
+  ensureFolder,
+  parentId,
+  removeEmptyFolderTree,
+  worldTarget,
+  type Target,
+} from "./target.ts";
 
 // Foundry globals (game, ui, Actor, Folder) are declared in ./foundry.d.ts.
 
@@ -32,6 +41,11 @@ export interface ImportOptions {
   /** The book's own spell item documents, which its actors' spells match
    * before the system's. */
   bookSpells?: any[];
+  /** Where the actors go (default: the world, under the book's folder). */
+  target?: Target;
+  /** Documents whose ids new actors take, paired by name: the world copies
+   * of an import made before the book had packs. */
+  adopt?: any[];
 }
 
 export interface ImportResult {
@@ -51,11 +65,20 @@ export async function importCharacters(
 ): Promise<ImportResult> {
   const folderName = options.folderName ?? "PDF Import";
   const sourceFile = options.sourceFile ?? folderName;
-  const folder = await ensureBookFolder("Actor", folderName, sourceFile);
-  // The folder is named after the imported file, so a re-import refreshes its
+  const target = options.target ?? worldTarget("Actor");
+  // A pack holds one book, so its top level is the book's folder.
+  const folder = target.pack
+    ? null
+    : await ensureBookFolder("Actor", folderName, sourceFile);
+  const root = folder?.id ?? null;
+  // The folder is found by the imported file, so a re-import refreshes its
   // contents: an actor already in it that shares a name with an incoming one is
   // replaced under the same id rather than duplicated.
-  const replaced = await claimReplacedActors(folder, characters);
+  const replaced = await claimReplacedActors(target, root, characters);
+  const adopted = pairByName(options.adopt ?? [], [
+    ...characters.map(actorName),
+    ...characters.filter((c) => c.pulp).map(pulpVariantName),
+  ]);
   const result: ImportResult = { created: 0, failed: 0, actors: [], pulp: 0 };
 
   // Look up the system's skill/weapon/spell/talent compendia once for the whole
@@ -66,7 +89,7 @@ export async function importCharacters(
     (options.bookSpells ?? []).map((doc) => ({ name: doc.name, value: doc })),
   );
 
-  const chapters = chapterFolders(folder, characters);
+  const chapters = chapterFolders(target, folder, characters);
   for (const character of characters) {
     try {
       const actor = await importCharacter(
@@ -77,6 +100,8 @@ export async function importCharacters(
         [],
         replaced.take(character),
         options.source,
+        target,
+        adopted.take(actorName(character))?.id,
       );
       result.actors.push(actor);
       result.created++;
@@ -97,27 +122,32 @@ export async function importCharacters(
   // empty.
   const pulpCharacters = characters.filter((c) => c.pulp);
   if (pulpCharacters.length) {
-    const variantName = (c: CocCharacter) => `${c.name || "Unknown"} (Pulp)`;
     const variants = pulpCharacters.map((c) => ({
       ...c,
-      name: variantName(c),
+      name: pulpVariantName(c),
     }));
-    const pulpReplaced = await claimReplacedActors(folder, variants);
-    const legacyFolder = findTopActorFolder(`${sourceFile} (Pulp)`);
+    const pulpReplaced = await claimReplacedActors(target, root, variants);
+    // The separate Pulp folder only ever existed in the world.
+    const legacyFolder = target.pack
+      ? null
+      : findTopActorFolder(target, `${sourceFile} (Pulp)`);
     const legacyReplaced = await claimReplacedActors(
-      legacyFolder,
-      pulpCharacters,
+      target,
+      legacyFolder?.id ?? null,
+      legacyFolder ? pulpCharacters : [],
     );
     for (const [i, character] of pulpCharacters.entries()) {
       try {
         const actor = await importCharacter(
-          { ...pulpVariant(character), name: variantName(character) },
+          { ...pulpVariant(character), name: pulpVariantName(character) },
           await chapters.folderFor(character),
           options.entity ?? "auto",
           indexes,
           talentItems(character.pulp!.talents, indexes.talent),
           pulpReplaced.take(variants[i]) ?? legacyReplaced.take(character),
           options.source,
+          target,
+          adopted.take(pulpVariantName(character))?.id,
         );
         result.actors.push(actor);
         result.created++;
@@ -130,7 +160,7 @@ export async function importCharacters(
         );
       }
     }
-    await removeEmptyFolderTree(legacyFolder);
+    await removeEmptyFolderTree(target, legacyFolder);
   }
   let msg: string;
   if (!result.failed) {
@@ -155,10 +185,12 @@ async function importCharacter(
   extraItems: any[] = [],
   replacing: FoundryActor | null = null,
   source?: string,
+  target: Target = worldTarget("Actor"),
+  adoptId?: string,
 ): Promise<any> {
   const type = entity === "auto" ? guessEntityType(character) : entity;
   const citation = source ? sourceCitation(source, character) : "";
-  const name = character.name || "Unknown";
+  const name = actorName(character);
 
   // A creature the system also has takes its art.
   const art = type === "creature" ? indexes.creatureArt.match(name) : undefined;
@@ -166,6 +198,7 @@ async function importCharacter(
     Actor,
     replacing,
     {
+      ...(adoptId ? { _id: adoptId } : {}),
       name,
       type,
       folder: folder?.id ?? null,
@@ -181,10 +214,14 @@ async function importCharacter(
             priority: 0,
           },
         },
+        ...(character.chapter
+          ? { "coc-pdf-importer": { chapter: character.chapter } }
+          : {}),
       },
     },
     KEPT_ACTOR_FIELDS,
     keptArt,
+    createOptions(target),
   );
 
   const { base, customWeapons } = buildItems(character, indexes);
@@ -207,6 +244,9 @@ async function importCharacter(
 // ---------------------------------------------------------------------------
 // Pulp variant
 // ---------------------------------------------------------------------------
+
+const actorName = (c: CocCharacter) => c.name || "Unknown";
+const pulpVariantName = (c: CocCharacter) => `${actorName(c)} (Pulp)`;
 
 // The character as its Pulp Cthulhu variant: the "Pulp Combat" profiles replace
 // the standard ones of the same name (others are kept, new ones added), and the
@@ -1538,53 +1578,23 @@ function languageItem(
 // ---------------------------------------------------------------------------
 
 // A top-level Actor folder by name, without creating it.
-function findTopActorFolder(name: string): FoundryFolder | null {
+function findTopActorFolder(
+  target: Target,
+  name: string,
+): FoundryFolder | null {
   return (
-    game.folders?.find(
-      (f: any) =>
-        f.name === name &&
-        f.type === "Actor" &&
-        (f.folder?.id ?? f.folder ?? null) === null,
-    ) ?? null
+    target.folders().find((f) => f.name === name && parentId(f) === null) ??
+    null
   );
-}
-
-// Delete a folder and its subfolders when no actor is left anywhere in them;
-// subfolders go first, deepest first, so each deletion is of an empty folder.
-async function removeEmptyFolderTree(
-  root: FoundryFolder | null,
-): Promise<void> {
-  if (!root?.id) return;
-  if (game.actors?.filter((a) => isWithinFolder(a.folder?.id, root.id!)).length)
-    return;
-  const depth = (f: FoundryFolder): number => {
-    let d = 0;
-    for (let id: any = f.id; id && id !== root.id && d < 8; d++) {
-      const folder = game.folders?.find((x) => x.id === id);
-      id = (folder?.folder as any)?.id ?? folder?.folder ?? null;
-    }
-    return d;
-  };
-  const tree = (
-    game.folders?.filter((f) => isWithinFolder(f.id, root.id!)) ?? []
-  ).sort((a, b) => depth(b) - depth(a));
-  for (const folder of tree) {
-    try {
-      await folder.delete?.();
-    } catch (err) {
-      console.error(
-        `coc-pdf-importer: failed to remove folder "${folder.name}"`,
-        err,
-      );
-    }
-  }
 }
 
 // The folder each character is filed in: a subfolder of `root` named for its
 // chapter ("Chapter 1: Bolivia"), or `root` itself when it has none. Chapter
 // folders are ordered as the book prints them (root switches to manual sorting
-// for that), and found again by name on a re-import.
+// for that; a pack's top level is sorted when the pack is made), and found
+// again by name on a re-import.
 function chapterFolders(
+  target: Target,
   root: FoundryFolder | null,
   characters: CocCharacter[],
 ): { folderFor(character: CocCharacter): Promise<FoundryFolder | null> } {
@@ -1596,8 +1606,8 @@ function chapterFolders(
   return {
     async folderFor(character) {
       const chapter = character.chapter;
-      if (!chapter || !root?.id) return root;
-      if (!sorted && root.sorting !== "m") {
+      if (!chapter || (!root?.id && !target.pack)) return root;
+      if (root && !sorted && root.sorting !== "m") {
         sorted = true;
         try {
           await root.update?.({ sorting: "m" });
@@ -1611,9 +1621,10 @@ function chapterFolders(
       if (!made.has(chapter))
         made.set(
           chapter,
-          ensureActorSubfolder(
+          ensureFolder(
+            target,
             chapter,
-            root.id,
+            root?.id ?? null,
             (order.indexOf(chapter) + 1) * CHAPTER_SORT_STEP,
           ),
         );
@@ -1623,40 +1634,6 @@ function chapterFolders(
 }
 
 const CHAPTER_SORT_STEP = 100000;
-
-// Find (by name and parent) or create an Actor folder inside another.
-async function ensureActorSubfolder(
-  name: string,
-  parentId: string,
-  sort: number,
-): Promise<FoundryFolder | null> {
-  const existing = game.folders?.find(
-    (f: any) =>
-      f.name === name &&
-      f.type === "Actor" &&
-      (f.folder?.id ?? f.folder ?? null) === parentId,
-  );
-  if (existing) return existing;
-  try {
-    return await Folder.create({ name, type: "Actor", folder: parentId, sort });
-  } catch {
-    return null;
-  }
-}
-
-// Whether a folder id is `rootId` or one of its descendants.
-function isWithinFolder(
-  folderId: string | null | undefined,
-  rootId: string,
-): boolean {
-  let id = folderId ?? null;
-  for (let depth = 0; id && depth < 8; depth++) {
-    if (id === rootId) return true;
-    const folder = game.folders?.find((f) => f.id === id);
-    id = (folder?.folder as any)?.id ?? folder?.folder ?? null;
-  }
-  return false;
-}
 
 // Fields of a replaced actor that the Keeper owns rather than the book: they
 // carry over to its replacement along with the id.
@@ -1679,22 +1656,19 @@ function keptArt(old: any, data: any): Record<string, unknown> {
   return out;
 }
 
-// The actors already under `folder` that incoming characters will replace.
+// The actors already under `root` that incoming characters will replace:
+// anywhere under it, as an actor may sit in a chapter subfolder, or at the top
+// from an import made before chapters were read.
 async function claimReplacedActors(
-  folder: FoundryFolder | null,
+  target: Target,
+  root: string | null,
   characters: CocCharacter[],
 ): Promise<{ take(character: CocCharacter): FoundryActor | null }> {
-  // Anywhere under the folder: an actor may sit in a chapter subfolder, or at
-  // the top from an import made before chapters were read.
-  const existing = folder?.id
-    ? (game.actors?.filter((a) => isWithinFolder(a.folder?.id, folder.id!)) ??
-      [])
-    : [];
   const claims = await claimReplaced(
-    existing,
-    characters.map((c) => c.name || "Unknown"),
+    documentsUnder(target, root),
+    characters.map(actorName),
   );
-  return { take: (c) => claims.take(c.name || "Unknown") };
+  return { take: (c) => claims.take(actorName(c)) };
 }
 
 function localize(key: string, fallback: string): string {

@@ -97,21 +97,28 @@ declare const game: FoundryGame;
 declare const ui: FoundryUi;
 declare const Hooks: { once(hook: string, fn: (...args: any[]) => void): void };
 // `keepId` creates the document under the `_id` given in `data`.
+// `pack` creates in that compendium instead of the world.
 declare const Actor: {
-  create(data: object, options?: { keepId?: boolean }): Promise<FoundryActor>;
+  create(
+    data: object,
+    options?: Record<string, unknown>,
+  ): Promise<FoundryActor>;
 };
 declare const Item: {
-  create(data: object, options?: { keepId?: boolean }): Promise<FoundryItem>;
+  create(data: object, options?: Record<string, unknown>): Promise<FoundryItem>;
 };
 declare const Folder: {
-  create(data: {
-    name: string;
-    type: string;
-    folder?: string | null;
-    sort?: number;
-    sorting?: string;
-    flags?: Record<string, any>;
-  }): Promise<FoundryFolder>;
+  create(
+    data: {
+      name: string;
+      type: string;
+      folder?: string | null;
+      sort?: number;
+      sorting?: string;
+      flags?: Record<string, any>;
+    },
+    options?: Record<string, unknown>,
+  ): Promise<FoundryFolder>;
 };
 declare const foundry: {
   utils: {

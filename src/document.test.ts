@@ -547,7 +547,10 @@ describe("createPulpItems", () => {
     notes = [];
     let n = 0;
     (globalThis as any).game = {
-      folders: { find: (p: any) => folders.find(p) },
+      folders: {
+        find: (p: any) => folders.find(p),
+        filter: (p: any) => folders.filter(p),
+      },
       items: { filter: (p: any) => world.filter(p) },
     };
     (globalThis as any).ui = {

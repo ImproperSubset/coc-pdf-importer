@@ -127,7 +127,11 @@ beforeEach(() => {
         return withIds;
       };
       a.update = async (u: any) => a.updates.push(u);
-      a.delete = async () => (a.deleted = true);
+      a.delete = async () => {
+        a.deleted = true;
+        world.splice(world.indexOf(a), 1);
+      };
+      a.toObject = () => ({ ...d, _id: a.id });
       created.push(a);
       world.push(a);
       return a;

@@ -12,7 +12,7 @@ interface ReplaceableDocument {
 }
 
 interface DocumentClass<T> {
-  create(data: object, options?: { keepId?: boolean }): Promise<T>;
+  create(data: object, options?: Record<string, unknown>): Promise<T>;
 }
 
 // Create a document, or replace `old` with it under the same id. Foundry cannot
@@ -20,15 +20,18 @@ interface DocumentClass<T> {
 // first; if the create then fails, the old one is restored as it was. `kept`
 // names the fields of the old document that the Keeper owns rather than the
 // book, which carry over to the replacement; `carry` works out further ones
-// from the old document and the new data.
+// from the old document and the new data. `options` go with the create (a
+// pack to create in); new data with an `_id` is created under that id.
 export async function createReplacing<T>(
   cls: DocumentClass<T>,
   old: ReplaceableDocument | null,
   data: Record<string, unknown>,
   kept: readonly string[],
   carry?: (old: any, data: Record<string, unknown>) => Record<string, unknown>,
+  options: Record<string, unknown> = {},
 ): Promise<T> {
-  if (!old) return cls.create(data);
+  if (!old)
+    return cls.create(data, data._id ? { ...options, keepId: true } : options);
   const snapshot = old.toObject();
   const carried = {
     ...Object.fromEntries(
@@ -42,11 +45,11 @@ export async function createReplacing<T>(
   try {
     return await cls.create(
       { ...data, ...carried, _id: snapshot._id },
-      { keepId: true },
+      { ...options, keepId: true },
     );
   } catch (err) {
     try {
-      await cls.create(snapshot, { keepId: true });
+      await cls.create(snapshot, { ...options, keepId: true });
     } catch (restoreErr) {
       console.error(
         `coc-pdf-importer: failed to restore "${snapshot.name}" after a failed replace`,
@@ -57,14 +60,14 @@ export async function createReplacing<T>(
   }
 }
 
-// Pair incoming names with the existing documents they replace. Each incoming
-// name takes the next unclaimed existing document of that name, so two
-// same-named incoming entries replace two old ones rather than each other.
-// Old same-named documents beyond the incoming count are deleted now.
-export async function claimReplaced<T extends ReplaceableDocument>(
+// Pair incoming names with existing documents of the same name. Each
+// incoming name takes the next unclaimed existing document of that name, so
+// two same-named incoming entries pair with two old ones rather than one.
+// Same-named documents beyond the incoming count are the surplus.
+export function pairByName<T extends { name?: string }>(
   existing: T[],
   incomingNames: string[],
-): Promise<{ take(name: string): T | null }> {
+): { take(name: string): T | null; surplus: T[] } {
   const wanted = new Map<string, number>();
   for (const name of incomingNames)
     wanted.set(name, (wanted.get(name) ?? 0) + 1);
@@ -76,17 +79,28 @@ export async function claimReplaced<T extends ReplaceableDocument>(
     list.push(doc);
     byName.set(name, list);
   }
-  for (const [name, list] of byName) {
-    for (const extra of list.splice(wanted.get(name) ?? 0)) {
-      try {
-        await extra.delete();
-      } catch (err) {
-        console.error(
-          `coc-pdf-importer: failed to remove duplicate "${extra.name}"`,
-          err,
-        );
-      }
+  const surplus: T[] = [];
+  for (const [name, list] of byName)
+    surplus.push(...list.splice(wanted.get(name) ?? 0));
+  return { take: (name) => byName.get(name)?.shift() ?? null, surplus };
+}
+
+// The existing documents incoming names replace (see `pairByName`); the
+// surplus same-named documents are deleted now.
+export async function claimReplaced<T extends ReplaceableDocument>(
+  existing: T[],
+  incomingNames: string[],
+): Promise<{ take(name: string): T | null }> {
+  const pairs = pairByName(existing, incomingNames);
+  for (const extra of pairs.surplus) {
+    try {
+      await extra.delete();
+    } catch (err) {
+      console.error(
+        `coc-pdf-importer: failed to remove duplicate "${extra.name}"`,
+        err,
+      );
     }
   }
-  return { take: (name) => byName.get(name)?.shift() ?? null };
+  return { take: pairs.take };
 }
