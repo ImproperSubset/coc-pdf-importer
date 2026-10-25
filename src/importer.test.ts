@@ -526,6 +526,17 @@ describe("importCharacters — items", () => {
     assert.match(keeper, /<p>Plain note\.<\/p>/);
   });
 
+  test("a bullet's label is bold in the Keeper notes", async () => {
+    await importCharacters(
+      [makeCharacter({ notes: ["Testa.\n\n• Traits: counts <doors>."] })],
+      { notify: false },
+    );
+    assert.match(
+      created[0].system.description.keeper,
+      /<p>• <strong>Traits:<\/strong> counts &lt;doors&gt;\.<\/p>/,
+    );
+  });
+
   test("an attack's rule closes its weapon's description", async () => {
     await importCharacters(
       [

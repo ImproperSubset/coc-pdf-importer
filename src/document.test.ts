@@ -134,6 +134,14 @@ describe("pulpItemDoc", () => {
     assert.equal(item.system.source, "Test Source");
   });
 
+  test("bolds a bullet's label in a description", () => {
+    const item = spell({ description: "Mist rises.\n\n• Range: one mile." });
+    assert.equal(
+      item.system.description.value,
+      "<p>Mist rises.</p><p>• <strong>Range:</strong> one mile.</p>",
+    );
+  });
+
   test("shows the printed cost when part of it is not deductible", () => {
     const item = spell({
       cost: "3+ magic points per round; 2 POW",

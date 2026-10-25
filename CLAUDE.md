@@ -129,7 +129,8 @@ content order.
   a short sentence-ending line, a wider gap, or an in-column subheading a
   little larger than body text) and marked as blank lines in parsed
   descriptions, notes and backgrounds (`markParagraphs`); the importer renders
-  them as `<p>` paragraphs. Each bullet ("• Traits: …") starts a paragraph. A column's left edge is the leftmost full line near
+  them as `<p>` paragraphs. Each bullet ("• Traits: …") starts a paragraph,
+  its label in bold. A column's left edge is the leftmost full line near
   it (bullet lines can be nearly full width too).
 - Ligature-split words ("Kornf ield") are joined when the document prints the
   word whole elsewhere (`joinLigatureSplits`).

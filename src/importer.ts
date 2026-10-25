@@ -1730,13 +1730,16 @@ function parseAttacksPerRound(value: string | null): number | null {
   return match ? Number(match[0]) : null;
 }
 
-// A note paragraph as HTML: escaped, with a leading "**Label:**" (an attack
-// rule's, marked by the parser) in bold.
-function boldLabelHtml(text: string): string {
-  const m = /^\*\*(.+?)\*\*\s*/.exec(text);
-  return m
-    ? `<strong>${escapeHtml(m[1])}</strong> ${escapeHtml(text.slice(m[0].length))}`
-    : escapeHtml(text);
+// A paragraph as HTML: escaped, with its label in bold — an attack rule's
+// leading "**Label:**" (marked by the parser) or a bullet's "• Label:".
+export function boldLabelHtml(text: string): string {
+  const rule = /^\*\*(.+?)\*\*\s*/.exec(text);
+  if (rule)
+    return `<strong>${escapeHtml(rule[1])}</strong> ${escapeHtml(text.slice(rule[0].length))}`;
+  const bullet = /^•\s*([^:•]{1,40}:)\s*/.exec(text);
+  if (bullet)
+    return `• <strong>${escapeHtml(bullet[1])}</strong> ${escapeHtml(text.slice(bullet[0].length))}`;
+  return escapeHtml(text);
 }
 
 function notesToHtml(character: CocCharacter, type: EntityType): string {

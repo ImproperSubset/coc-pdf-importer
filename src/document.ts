@@ -6,7 +6,7 @@
 // with a single call.
 import { processPDF } from "./process.ts";
 import { ensureBookFolder } from "./folders.ts";
-import { loadSpellIndex, loadWeaponIndex } from "./importer.ts";
+import { boldLabelHtml, loadSpellIndex, loadWeaponIndex } from "./importer.ts";
 import { SpellMatcher, indexedSpells, tomeSpellNames } from "./spellmatch.ts";
 import type { SpellCandidate } from "./spellmatch.ts";
 import type { SourcePage } from "./process.ts";
@@ -55,12 +55,13 @@ function escapeHtml(text: string): string {
 }
 
 // Each part as one or more <p> paragraphs: a blank line ("\n\n", marked by the
-// parser where the book starts a paragraph) separates paragraphs within a part.
+// parser where the book starts a paragraph) separates paragraphs within a part;
+// a bullet's label is bold.
 function paragraphs(parts: string[]): string {
   return parts
     .flatMap((p) => (p ?? "").split(/\n{2,}/))
     .filter((p) => p.trim())
-    .map((p) => `<p>${escapeHtml(p.trim())}</p>`)
+    .map((p) => `<p>${boldLabelHtml(p.trim())}</p>`)
     .join("");
 }
 
