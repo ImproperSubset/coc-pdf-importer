@@ -5,6 +5,7 @@ import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert/strict";
 import {
   bookFromPack,
+  offerUpdate,
   registerMenus,
   syncBook,
   unloadBook,
@@ -517,5 +518,28 @@ describe("menus", () => {
     );
     assert.equal(typeof entries[0].callback, "function");
     assert.equal(typeof entries[0].condition, "function");
+  });
+});
+
+describe("after a re-import", () => {
+  test("offers to update loaded chapters, and updates them on yes", async () => {
+    const book = seedBook();
+    await syncBook(book, "Chapter 1: Test Land");
+    await book.actors.entries
+      .get("Testa00000000001")
+      .update({ "system.description.keeper": "<p>Fixed notes.</p>" });
+    await offerUpdate(SOURCE);
+    assert.equal(dialogs.at(-1)!.kind, "confirm");
+    assert.equal(
+      worldActor("Testa00000000001")._source.system.description.keeper,
+      "<p>Fixed notes.</p>",
+    );
+    assert.equal(world.Actor.size, 1); // nothing new loaded
+  });
+
+  test("asks nothing when no chapter is loaded", async () => {
+    seedBook();
+    await offerUpdate(SOURCE);
+    assert.equal(dialogs.length, 0);
   });
 });

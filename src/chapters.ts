@@ -289,6 +289,23 @@ async function applyMerge(doc: any, m: Merge): Promise<boolean> {
   return changed;
 }
 
+// After a PDF re-import, offer to update the world copies of the book's
+// loaded chapters.
+export async function offerUpdate(sourceFile: string): Promise<void> {
+  const pack = bookPack(sourceFile, "actors") ?? bookPack(sourceFile, "items");
+  const book = pack ? bookFromPack(pack) : null;
+  if (!book || !(await anyLoaded(book))) return;
+  const ok = await foundry.applications.api.DialogV2.confirm({
+    window: { title: `Update ${book.title}` },
+    content:
+      `<p>Chapters of ${escapeHtml(book.title)} are loaded. Update their ` +
+      `world copies from this import now?</p>` +
+      `<p>The import's fixes are applied and changes made in play are kept; ` +
+      `anything both changed is shown for review.</p>`,
+  });
+  if (ok) await guarded(() => syncBook(book, null, { create: false }));
+}
+
 // --- unload -------------------------------------------------------------------
 
 export async function unloadBook(

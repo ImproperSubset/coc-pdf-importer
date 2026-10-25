@@ -1,4 +1,5 @@
 import { importDocument } from "./document.ts";
+import { offerUpdate } from "./chapters.ts";
 import { bookTitleFromFileName } from "./citation.ts";
 
 // The dialog's footer: Import, or, once an import has finished and no new
@@ -206,6 +207,9 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
     this.#importing = false;
     this.#finished = true;
     await this.render({ parts: ["progress", "footer"] });
+    for (const [i, entry] of this.#progress.entries())
+      if (entry.status === "done")
+        await offerUpdate(files[i].name.replace(/\.[^.]+$/, ""));
   }
 
   #statusLabel(p: ImportProgress): string {
