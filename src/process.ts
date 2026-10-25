@@ -4515,18 +4515,19 @@ export function paragraphStarts(pages: RawItem[][]): Set<string> {
 }
 
 // Mark the paragraph breaks in a parsed text: a space before a recorded
-// paragraph start becomes a blank line ("\n\n").
+// paragraph start becomes a blank line ("\n\n"), and so does one before a
+// bullet ("• Description: … • Traits: …"), so each bullet is a paragraph.
 export function markParagraphs(text: string, starts: Set<string>): string {
-  if (!text || !starts.size) return text;
+  if (!text) return text;
   let out = "";
   let from = 0;
-  for (let i = 1; i < text.length; i++) {
+  for (let i = 1; starts.size && i < text.length; i++) {
     if (text[i - 1] !== " ") continue;
     if (!starts.has(text.slice(i, i + PARAGRAPH_SNIPPET))) continue;
     out += text.slice(from, i - 1) + "\n\n";
     from = i;
   }
-  return out + text.slice(from);
+  return (out + text.slice(from)).replace(/(?<=\S)[ \t]+•\s*/g, "\n\n• ");
 }
 
 // The title of the section a PDF page falls in, or "" when none does.

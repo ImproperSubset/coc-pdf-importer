@@ -3083,6 +3083,20 @@ describe("paragraphs", () => {
     );
   });
 
+  test("each bullet starts a paragraph", () => {
+    assert.equal(
+      markParagraphs(
+        "She is tidy. • Description: grey. • Traits: patient.",
+        new Set(),
+      ),
+      "She is tidy.\n\n• Description: grey.\n\n• Traits: patient.",
+    );
+    assert.equal(
+      markParagraphs("• Appears in: Chapter 2", new Set()),
+      "• Appears in: Chapter 2",
+    );
+  });
+
   test("a continuation of an indented bullet line is not a start", () => {
     const bullets = [
       line(700, "A plain full line of body text to set the column edge at"),
