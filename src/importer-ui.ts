@@ -1,6 +1,40 @@
 import { importDocument } from "./document.ts";
 import { bookTitleFromFileName } from "./citation.ts";
 
+// The dialog's footer: Import, or, once an import has finished and no new
+// files are chosen, Close — Import would only run the same files again.
+interface FooterButton {
+  type: "submit" | "button";
+  action?: string;
+  icon: string;
+  label: string;
+  disabled?: boolean;
+}
+export function footerButtons(
+  importing: boolean,
+  finished: boolean,
+): FooterButton[] {
+  if (finished && !importing)
+    return [
+      {
+        type: "button",
+        action: "closeImporter",
+        icon: "fa-solid fa-check",
+        label: "coc-pdf-importer.Form.Close",
+      },
+    ];
+  return [
+    {
+      type: "submit",
+      icon: importing ? "fa-solid fa-spinner fa-spin" : "fa-solid fa-upload",
+      label: importing
+        ? "coc-pdf-importer.Progress.Working"
+        : "coc-pdf-importer.Settings.Label",
+      disabled: importing,
+    },
+  ];
+}
+
 type ImportProgress = {
   name: string;
   status: "pending" | "working" | "done" | "error";
@@ -25,6 +59,9 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
       closeOnSubmit: false,
       handler: PdfImporterConfig.#onSubmit,
     },
+    actions: {
+      closeImporter: PdfImporterConfig.#onCloseImporter,
+    },
     position: {
       width: 550,
     },
@@ -39,11 +76,12 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
       template: "modules/coc-pdf-importer/templates/import-progress.hbs",
     },
     footer: {
-      template: "templates/generic/form-footer.hbs",
+      template: "modules/coc-pdf-importer/templates/import-footer.hbs",
     },
   };
 
   #importing = false;
+  #finished = false;
   #progress: ImportProgress[] = [];
 
   _prepareContext(options: object) {
@@ -58,19 +96,12 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
       totalLabel: game.i18n.format("coc-pdf-importer.Progress.Total", {
         created: totalCreated,
       }),
-      buttons: [
-        {
-          type: "submit",
-          icon: this.#importing
-            ? "fa-solid fa-spinner fa-spin"
-            : "fa-solid fa-upload",
-          label: this.#importing
-            ? "coc-pdf-importer.Progress.Working"
-            : "coc-pdf-importer.Settings.Label",
-          disabled: this.#importing,
-        },
-      ],
+      buttons: footerButtons(this.#importing, this.#finished),
     };
+  }
+
+  static #onCloseImporter(this: PdfImporterConfig) {
+    this.close();
   }
 
   static async #onSubmit(
@@ -104,6 +135,11 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
     if (!input || input.dataset.cocBookTitles) return;
     input.dataset.cocBookTitles = "1";
     input.addEventListener("change", () => {
+      // New files bring the Import button back.
+      if (this.#finished) {
+        this.#finished = false;
+        this.render({ parts: ["footer"] });
+      }
       const box = form.querySelector(".coc-book-titles");
       if (!box) return;
       box.replaceChildren();
@@ -168,6 +204,7 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
     }
 
     this.#importing = false;
+    this.#finished = true;
     await this.render({ parts: ["progress", "footer"] });
   }
 

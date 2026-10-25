@@ -7,7 +7,8 @@
     },
     "Form": {
       "Upload": "Choose files to upload",
-      "BookTitleHint": "Book title cited, with the page, in each imported entry's Keeper notes."
+      "BookTitleHint": "Book title cited, with the page, in each imported entry's Keeper notes.",
+      "Close": "Close"
     },
     "Progress": {
       "Title": "Import progress",
