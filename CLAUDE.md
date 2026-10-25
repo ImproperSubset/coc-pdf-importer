@@ -297,35 +297,53 @@ chapters in play, updated in place when a re-import fixes the book.
 - The import writes one world compendium per book for actors and one for
   items, flagged as this module's in the pack metadata's `flags` (the v13
   and v14 servers clean `createCompendium`'s metadata with the pack schema,
-  which has `flags`, and save it to `world.json`). Actors sit in chapter
-  folders, items in type folders, as in the sidebar now. A re-import
-  replaces by id within the pack; packs hold no play state.
-- A chapter folder in the pack offers Load chapter and Unload chapter; the
-  pack offers Load all and Unload all. Nothing is added to sidebar folders.
-  Load finds or creates the book's sidebar folder and the chapter folder in
-  printed order, and copies the chapter's actors and items in under their
-  pack ids. Unload deletes those world copies by id, then folders left
-  empty, after a confirmation (play state is lost; placed tokens break until
-  the chapter is loaded again).
+  which has `flags`, and save it to `world.json`), in a compendium folder
+  named for the book. Actors sit in chapter folders, items in type folders,
+  as in the sidebar now; each entry also carries its chapter in a flag. A
+  re-import replaces by name within the pack, keeping ids; packs hold no
+  play state. A locked pack stops the import with a message. The PDF dialog
+  imports only into the packs.
+- The first import into a book's packs gives an entry with nothing to
+  replace the id of the same-named world document under the book's sidebar
+  folder, so existing world documents become loaded copies (tokens, links
+  and art stay attached).
+- A chapter folder in the actor pack offers Load chapter and Unload chapter;
+  either of the book's packs offers Load all, Unload all and Update loaded,
+  acting on both. Nothing is added to sidebar folders. Load finds or creates
+  the book's sidebar folders (chapter folders in printed order, item type
+  folders) and creates each missing actor and item in one call under its
+  pack id; documents already loaded go through the update review. Unload
+  deletes the world copies by id, then folders left empty, after a
+  confirmation (play state is lost; placed tokens resolve again once the
+  chapter is loaded, the ids being the same).
 - An item's chapter is the section it is printed in (from its page), so
   appendix spells, tomes and artefacts load with their appendix.
 - Menu entries come from the `getFolderContextOptions` and
-  `getCompendiumContextOptions` hooks (both versions). Entries are
-  `name`/`condition`/`callback(header)` in v13 and
-  `label`/`visible`/`onClick(event, header)` in v14 (v14 still reads the
-  old keys, with deprecation warnings), so the module builds the entry for
-  the running generation.
-- Loading saves a base on each world copy: a module flag with one hash per
-  field, embedded items (by id) included. Update loaded chapters compares
-  base, world copy and the pack: a field only the pack changed is applied, a
-  field only play changed is kept, and a field both changed is listed in a
-  review dialog (world value against the pack's), keeping the world value
-  unless the Keeper picks the pack's. An embedded item added in play is
-  kept; one removed in play stays removed unless the pack also changed it.
-  The Keeper notes are one field (the Keeper doesn't edit them in play).
-  Applying saves a new base.
+  `getCompendiumContextOptions` hooks (both versions), shown to the GM on
+  this module's packs only. Entries are `name`/`condition`/`callback(header)`
+  in v13 and `label`/`visible`/`onClick(event, header)` in v14 (v14 still
+  reads the old keys, with deprecation warnings), so the module builds the
+  entry for the running generation.
+- The base of each world copy (what was last loaded or applied) is kept in a
+  pair of base packs per book, hidden by ownership NONE for every role: the
+  Compendium sidebar lists only packs whose `visible` (role ownership, no GM
+  exception) is at least OBSERVER, while GM writes go through
+  `testUserPermission`, which treats the GM as owner. The module's settings
+  carry a button that makes the base packs visible again, for cleanup.
+- Update compares base, world copy and pack, field by field (embedded items
+  by id, arrays as one value; ids, folder, sort, `_stats` and this module's
+  flags left out): a field only the pack changed is applied, a field only
+  play changed is kept, and a field both changed is listed in a review
+  dialog (world value against the pack's, with the base), keeping the world
+  value unless the Keeper picks the pack's. An embedded item added in play
+  is kept; one removed in play stays removed unless the pack also changed
+  it. The Keeper notes are one field (the Keeper doesn't edit them in
+  play). Applying updates the world document in place and saves a new base.
+  A PDF re-import offers the review when it finishes.
 - Unlinked scene tokens keep their own changes apart from the actor, so an
-  update leaves them alone; linked tokens are the world actor.
+  update reaches them except for an embedded item the token changed (CoC7's
+  `coc-id-actor-update-items.js` updates token actors separately; not
+  planned); linked tokens are the world actor.
 - A world copy with no base (imported straight from the PDF) counts as
   untouched when `_stats.modifiedTime` is within a few seconds of
   `_stats.createdTime` (the import's own follow-up updates move it by up to
@@ -336,7 +354,12 @@ chapters in play, updated in place when a re-import fixes the book.
   already-present check compares the pack folder object with the world's),
   so it is no substitute for Load. Foundry's Import All on a pack makes new
   ids unless "keep ids" is ticked and saves no base, so its copies can't be
-  updated; Load all is the whole-book import, and the PDF dialog has no
-  straight-to-world option.
-- Before code: read CoC7's `coc7/apps/coc-id-actor-update-items.js`, and
-  write the plan.
+  updated; Load all is the whole-book import.
+- Build order: (1) items get `chapter` in `processPDF` (golden diff: that
+  field only), releasable alone; (2) the import targets the packs
+  (`src/packs.ts`; `importCharacters`/`createPulpItems` take a world-or-pack
+  target); (3) load and unload (`src/chapters.ts`); (4) the update
+  (`src/merge.ts`, pure and unit-tested, and the review dialog); 2–4 release
+  together. To check against Foundry's source while building: renaming a
+  world pack's label, putting packs in a compendium folder, `fromCompendium`
+  and `_stats.compendiumSource`, and embedded creates on a pack actor.
