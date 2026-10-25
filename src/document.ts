@@ -5,7 +5,8 @@
 // importDocument ties the two together so callers (the UI, the dump tool) deal
 // with a single call.
 import { processPDF } from "./process.ts";
-import { ensureBookFolder } from "./folders.ts";
+import { ensureBookFolder, findBookFolder } from "./folders.ts";
+import { ensureBookPack } from "./packs.ts";
 import { boldLabelHtml, loadSpellIndex, loadWeaponIndex } from "./importer.ts";
 import { SpellMatcher, indexedSpells, tomeSpellNames } from "./spellmatch.ts";
 import type { SpellCandidate } from "./spellmatch.ts";
@@ -20,7 +21,9 @@ import type { ImportResult } from "./importer.ts";
 import { claimReplaced, createReplacing, pairByName } from "./replace.ts";
 import {
   createOptions,
+  documentsUnder,
   ensureFolder,
+  packTarget,
   parentId,
   worldTarget,
   type Target,
@@ -931,9 +934,11 @@ export interface ImportDocumentResult {
   items: CreatePulpItemsResult;
 }
 
-// Import a document's actors and items in one call. Actors are created at the top
-// level of a "<folderName>" Actor folder (unchanged, for compatibility); items go
-// into typed subfolders of a same-named Item folder (see createPulpItems).
+// Import a document's actors and items into the book's actor and item packs:
+// actors in chapter folders, items in type folders (see importCharacters and
+// createPulpItems). An entry new to a pack takes the id of the same-named
+// world document under the book's sidebar folder, so the world copies an
+// earlier import made count as loaded from the pack.
 export async function importDocument(
   data: Uint8Array,
   options: ImportDocumentOptions = {},
@@ -941,6 +946,12 @@ export async function importDocument(
   const sourceFile = options.folderName ?? "PDF Import";
   const { actors, items } = await processPDF(data, { fileName: sourceFile });
   const title = options.bookTitle || bookTitleFromFileName(sourceFile);
+  const actorPack = await ensureBookPack(title, sourceFile, "actors");
+  const itemPack = await ensureBookPack(title, sourceFile, "items");
+  const worldCopies = (type: "Actor" | "Item") => {
+    const folder = findBookFolder(type, title, sourceFile);
+    return folder?.id ? documentsUnder(worldTarget(type), folder.id) : [];
+  };
   const actorResult = await importCharacters(actors, {
     folderName: title,
     sourceFile,
@@ -949,17 +960,21 @@ export async function importDocument(
     bookSpells: items
       .filter((i) => i.kind === "spell")
       .map((i) => citedItemDoc(i, title)),
+    target: await packTarget(actorPack),
+    adopt: worldCopies("Actor"),
   });
   const itemResult = await createPulpItems(items, {
     folderName: title,
     sourceFile,
     notify: false,
     source: title,
+    target: await packTarget(itemPack),
+    adopt: worldCopies("Item"),
   });
   if (options.notify !== false) {
     const failed = actorResult.failed + itemResult.failed;
     ui.notifications.info(
-      `Imported ${actorResult.created} actors and ${itemResult.created} items` +
+      `Imported ${actorResult.created} actors and ${itemResult.created} items into the "${title}" compendiums` +
         (failed ? `, ${failed} failed (see console).` : "."),
     );
   }

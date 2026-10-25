@@ -16,7 +16,7 @@
       "Working": "Importing…",
       "Created": "{created} actor(s) imported",
       "CreatedWithErrors": "{created} imported, {failed} failed (see console)",
-      "Total": "Done — {created} actor(s) imported in total."
+      "Total": "Done — {created} actor(s) imported in total, into each book's compendiums. Load chapters from a compendium's menu."
     },
     "Errors": {
       "NoFiles": "Upload at least one file",

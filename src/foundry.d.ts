@@ -62,7 +62,18 @@ interface FoundryGame {
   };
   settings: {
     registerMenu(namespace: string, key: string, config: object): void;
+    register?(namespace: string, key: string, config: object): void;
+    get(namespace: string, key: string): any;
+    set(namespace: string, key: string, value: unknown): Promise<unknown>;
   };
+  /** Compendium packs (CompendiumCollection instances, left untyped). */
+  packs?: {
+    find(predicate: (pack: any) => boolean): any;
+    filter(predicate: (pack: any) => boolean): any[];
+    get(collection: string): any;
+  };
+  user?: { id?: string; isGM?: boolean };
+  release?: { generation: number };
   // The CoC7 system API. `skillNames.getList()` resolves to a map of
   // CoCID -> skill item; `cocid.fromCoCIDRegexBest` returns the best item per
   // CoCID matching a regex (world + compendium, best per era/language), and
@@ -95,7 +106,11 @@ interface FoundryUi {
 // Globals provided by the running Foundry client (not bundled).
 declare const game: FoundryGame;
 declare const ui: FoundryUi;
-declare const Hooks: { once(hook: string, fn: (...args: any[]) => void): void };
+declare const Hooks: {
+  once(hook: string, fn: (...args: any[]) => void): void;
+  on(hook: string, fn: (...args: any[]) => void): number;
+};
+declare function fromUuid(uuid: string): Promise<any>;
 // `keepId` creates the document under the `_id` given in `data`.
 // `pack` creates in that compendium instead of the world.
 declare const Actor: {
@@ -121,6 +136,8 @@ declare const Folder: {
   ): Promise<FoundryFolder>;
 };
 declare const foundry: {
+  /** Document classes and collections (CompendiumCollection), untyped. */
+  documents: any;
   utils: {
     /** An absolute URL path for `path`, including the route prefix if set. */
     getRoute(path: string, prefix?: string | null): string;
