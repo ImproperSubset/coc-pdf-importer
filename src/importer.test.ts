@@ -1343,6 +1343,7 @@ function mockCompendium(opts: {
   skills?: any[];
   weapons?: any[];
   spells?: any[];
+  creatures?: any[];
   otherEraWeapons?: any[];
 }) {
   const byCoCID = (docs: any[]) =>
@@ -1352,7 +1353,9 @@ function mockCompendium(opts: {
       ? weapons
       : cocidRegExp.source.includes("spell")
         ? (opts.spells ?? [])
-        : [];
+        : cocidRegExp.source.includes("creature")
+          ? (opts.creatures ?? [])
+          : [];
   (globalThis as any).game.CoC7 = {
     skillNames: { getList: async () => byCoCID(opts.skills ?? []) },
     cocid: {
@@ -1972,6 +1975,76 @@ describe("importCharacters — folders and de-duplication", () => {
     });
     assert.deepEqual(created[0].ownership, { default: 2 });
     assert.equal(created[0].sort, 500);
+  });
+
+  // A system creature with art of its own.
+  const coreCreature = (name: string, img: string, token: string) => ({
+    name,
+    type: "creature",
+    img,
+    prototypeToken: { texture: { src: token } },
+    flags: { CoC7: { cocidFlag: { id: `a.creature.${name.toLowerCase()}` } } },
+  });
+
+  test("a creature the system has takes its portrait and token art", async () => {
+    mockCompendium({
+      creatures: [
+        coreCreature("Mire Worm", "art/worm.webp", "tokens/worm.webp"),
+      ],
+    });
+    await importCharacters(
+      [
+        makeCharacter({ name: "Mire Worms", sanityLoss: "1/1D6" }),
+        makeCharacter({ name: "Mire Worm of the Deep", sanityLoss: "1/1D6" }),
+        makeCharacter({ name: "Mire Worm" }),
+      ],
+      { notify: false },
+    );
+    const [plural, qualified, npc] = created;
+    assert.equal(plural.img, "art/worm.webp");
+    assert.deepEqual(plural.prototypeToken, {
+      texture: { src: "tokens/worm.webp" },
+    });
+    assert.equal(qualified.img, "art/worm.webp");
+    assert.equal(npc.img, undefined); // an NPC of that name is not the creature
+  });
+
+  test("a re-imported creature keeps its own art but not a default icon", async () => {
+    mockCompendium({
+      creatures: [
+        coreCreature("Mire Worm", "art/worm.webp", "tokens/worm.webp"),
+      ],
+    });
+    folders.push({ id: "fi", name: "Import", type: "Actor" });
+    existingActor("a1", "Mire Worm", {
+      type: "creature",
+      img: "systems/CoC7/assets/icons/floating-tentacles.svg",
+      prototypeToken: {
+        actorLink: true,
+        texture: { src: "systems/CoC7/assets/icons/floating-tentacles.svg" },
+      },
+    });
+    existingActor("a2", "Mire Worm Queen", {
+      type: "creature",
+      img: "custom/queen.webp",
+      prototypeToken: { texture: { src: "custom/queen-token.webp" } },
+    });
+    await importCharacters(
+      [
+        makeCharacter({ name: "Mire Worm", sanityLoss: "1/1D6" }),
+        makeCharacter({ name: "Mire Worm Queen", sanityLoss: "1/1D6" }),
+      ],
+      { folderName: "Import", notify: false },
+    );
+    const worm = created.find((a) => a.id === "a1");
+    assert.equal(worm.img, "art/worm.webp");
+    assert.deepEqual(worm.prototypeToken, {
+      actorLink: true,
+      texture: { src: "tokens/worm.webp" },
+    });
+    const queen = created.find((a) => a.id === "a2");
+    assert.equal(queen.img, "custom/queen.webp");
+    assert.equal(queen.prototypeToken.texture.src, "custom/queen-token.webp");
   });
 
   test("a failed replace restores the old actor under its id", async () => {

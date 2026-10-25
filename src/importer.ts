@@ -1,3 +1,4 @@
+import { CreatureArtMatcher, isDefaultArt } from "./creatureart.ts";
 import { SpellMatcher, indexedSpells } from "./spellmatch.ts";
 import type {
   BackgroundSection,
@@ -159,6 +160,8 @@ async function importCharacter(
   const citation = source ? sourceCitation(source, character) : "";
   const name = character.name || "Unknown";
 
+  // A creature the system also has takes its art.
+  const art = type === "creature" ? indexes.creatureArt.match(name) : undefined;
   const actor = await createReplacing(
     Actor,
     replacing,
@@ -166,6 +169,9 @@ async function importCharacter(
       name,
       type,
       folder: folder?.id ?? null,
+      ...(art
+        ? { img: art.img, prototypeToken: { texture: { src: art.token } } }
+        : {}),
       system: buildActorSystem(character, type, citation),
       flags: {
         CoC7: {
@@ -178,6 +184,7 @@ async function importCharacter(
       },
     },
     KEPT_ACTOR_FIELDS,
+    keptArt,
   );
 
   const { base, customWeapons } = buildItems(character, indexes);
@@ -472,6 +479,8 @@ interface CompendiumIndexes {
   systemSpells: SpellMatcher<any>;
   /** The book's own spells, matched before the system's. */
   bookSpells: SpellMatcher<any>;
+  /** The system's creatures' art, for imported creatures of their names. */
+  creatureArt: CreatureArtMatcher;
 }
 
 // Fetch the system's skill/weapon/spell/talent compendia once (world + packs,
@@ -479,11 +488,12 @@ interface CompendiumIndexes {
 // gracefully to empty indexes when the CoC7 API is absent (unit tests, non-CoC7
 // world), in which case items are built from the parsed data alone.
 async function loadIndexes(): Promise<CompendiumIndexes> {
-  const [skill, weapon, spell, talent] = await Promise.all([
+  const [skill, weapon, spell, talent, creature] = await Promise.all([
     loadSkillIndex(),
     loadCocidIndex(/^i\.weapon\./),
     loadCocidIndex(/^i\.spell\./),
     loadTalentIndex(),
+    loadCocidIndex(/^a\.creature\./, "a"),
   ]);
   return {
     skill,
@@ -492,7 +502,25 @@ async function loadIndexes(): Promise<CompendiumIndexes> {
     talent,
     systemSpells: new SpellMatcher(indexedSpells(spell)),
     bookSpells: new SpellMatcher<any>([]),
+    creatureArt: creatureArtMatcher(creature),
   };
+}
+
+// The system's creatures with art of their own, by name. This importer's own
+// creatures (CoC IDs "a.creature.hh-…") are not among them.
+function creatureArtMatcher(index: ItemIndex): CreatureArtMatcher {
+  const byCocid = new Map<string, any>();
+  for (const doc of index.values()) {
+    const cocid = String(doc?.flags?.CoC7?.cocidFlag?.id ?? "");
+    if (cocid && !cocid.startsWith("a.creature.hh-")) byCocid.set(cocid, doc);
+  }
+  return new CreatureArtMatcher(
+    [...byCocid.values()].map((doc) => ({
+      name: doc.name,
+      img: doc.img,
+      token: doc.prototypeToken?.texture?.src,
+    })),
+  );
 }
 
 // Talents: the world's own talent items (e.g. those a Pulp Cthulhu import
@@ -535,12 +563,15 @@ export function loadSpellIndex(): Promise<Map<string, any>> {
   return loadCocidIndex(/^i\.spell\./);
 }
 
-async function loadCocidIndex(cocidRegExp: RegExp): Promise<ItemIndex> {
+async function loadCocidIndex(
+  cocidRegExp: RegExp,
+  type: "i" | "a" = "i",
+): Promise<ItemIndex> {
   const index: ItemIndex = new Map();
   try {
     const docs = await game.CoC7?.cocid?.fromCoCIDRegexBest?.({
       cocidRegExp,
-      type: "i",
+      type,
     });
     if (docs) indexDocuments(index, docs);
   } catch (err) {
@@ -549,7 +580,7 @@ async function loadCocidIndex(cocidRegExp: RegExp): Promise<ItemIndex> {
   try {
     const docs = await game.CoC7?.cocid?.fromCoCIDRegexAll?.({
       cocidRegExp,
-      type: "i",
+      type,
       era: false,
     });
     if (docs) indexDocuments(index, otherEraItems(index, docs), false);
@@ -1626,7 +1657,24 @@ function isWithinFolder(
 
 // Fields of a replaced actor that the Keeper owns rather than the book: they
 // carry over to its replacement along with the id.
-const KEPT_ACTOR_FIELDS = ["img", "prototypeToken", "ownership", "sort"];
+const KEPT_ACTOR_FIELDS = ["ownership", "sort"];
+
+// A replaced actor's portrait and token carry over too, except where its art
+// is a system default icon and the import brings art (a creature's from the
+// system's): the new art replaces only a default icon.
+function keptArt(old: any, data: any): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (old.img !== undefined)
+    out.img = isDefaultArt(old.img) && data.img ? data.img : old.img;
+  if (old.prototypeToken !== undefined) {
+    const token = structuredClone(old.prototypeToken);
+    const src = data.prototypeToken?.texture?.src;
+    if (src && isDefaultArt(token.texture?.src))
+      token.texture = { ...(token.texture ?? {}), src };
+    out.prototypeToken = token;
+  }
+  return out;
+}
 
 // The actors already under `folder` that incoming characters will replace.
 async function claimReplacedActors(

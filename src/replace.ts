@@ -19,18 +19,25 @@ interface DocumentClass<T> {
 // create a document with an id already in use, so the old one is deleted
 // first; if the create then fails, the old one is restored as it was. `kept`
 // names the fields of the old document that the Keeper owns rather than the
-// book, which carry over to the replacement.
+// book, which carry over to the replacement; `carry` works out further ones
+// from the old document and the new data.
 export async function createReplacing<T>(
   cls: DocumentClass<T>,
   old: ReplaceableDocument | null,
   data: Record<string, unknown>,
   kept: readonly string[],
+  carry?: (old: any, data: Record<string, unknown>) => Record<string, unknown>,
 ): Promise<T> {
   if (!old) return cls.create(data);
   const snapshot = old.toObject();
-  const carried = Object.fromEntries(
-    kept.filter((k) => snapshot[k] !== undefined).map((k) => [k, snapshot[k]]),
-  );
+  const carried = {
+    ...Object.fromEntries(
+      kept
+        .filter((k) => snapshot[k] !== undefined)
+        .map((k) => [k, snapshot[k]]),
+    ),
+    ...(carry ? carry(snapshot, data) : {}),
+  };
   await old.delete();
   try {
     return await cls.create(

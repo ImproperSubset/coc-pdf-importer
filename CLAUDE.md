@@ -147,8 +147,15 @@ content order.
 - Re-import replaces a same-named actor/item under the same id (`src/replace.ts`):
   snapshot, delete, create with `keepId`, restore the snapshot if the create
   fails. Carried over: actor `img`, `prototypeToken`, `ownership`, `sort`; item
-  `ownership`, `sort`. Same-named entries pair up in order; surplus old ones are
-  deleted. Old actors are found anywhere under the book's Actor folder.
+  `ownership`, `sort`. An actor's portrait and token image carry over unless
+  they are system default icons and the import brings art. Same-named entries
+  pair up in order; surplus old ones are deleted. Old actors are found
+  anywhere under the book's Actor folder.
+- An imported creature the system also has (Core Content's Dhole, Ghoul,
+  Lloigor; matched by name loosely, or as the system's name plus an "of …"
+  qualifier, "Formless Spawn of Tsathoggua") takes that creature's portrait
+  and token image (`src/creatureart.ts`); system creatures with default icons
+  offer none. Nothing else comes from the match: the book's stat block stands.
 - Every imported actor and item cites its source, "Source: <book title>, p.
   <printed page>" ("PDF page N" when the book prints no page numbers), as the
   first paragraph of its Keeper notes; talents, archetypes, occupations and
