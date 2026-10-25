@@ -108,14 +108,6 @@ return a.toObject(); })), "application/json", "<file>.json")`; the operator puts
 
 ## How it reads PDFs
 
-pdf.js `getTextContent()` per page; each text item keeps its string, font name,
-height (font size), end-of-line flag, and x/y/width. Reading order is the PDF's
-content order.
-
-- The actor parser merges items into font/height runs, strips running headers
-  and footers (non-body runs repeated on 8+ pages), finds stat blocks by their
-  `STR … CON` run and recovers names from heading sizes. The item parsers read
-  the whole document as one flattened string.
 - Book quirks are handled by general rules (commented with the book that
   motivated them), never by per-book switches.
   The one per-book exception is content corrections (`src/errata.ts`, keyed
