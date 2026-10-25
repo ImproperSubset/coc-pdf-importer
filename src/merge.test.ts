@@ -99,6 +99,16 @@ describe("mergeDocument", () => {
     assert.deepEqual(m.set, {});
   });
 
+  test("an empty object matches one holding only ignored keys", () => {
+    const world = npc();
+    world.flags = {};
+    const pack = npc();
+    pack.flags = { "coc-pdf-importer": { chapter: "Appendix B: Test Lore" } };
+    const m = mergeDocument(world, world, pack);
+    assert.deepEqual(m.unset, []);
+    assert.equal(m.applied + m.conflicts.length, 0);
+  });
+
   test("embedded items merge field by field, by id", () => {
     const base = npc();
     const world = npc();

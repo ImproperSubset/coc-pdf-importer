@@ -240,18 +240,29 @@ export async function syncBook(
   let applied = 0;
   let kept = 0;
   let changed = 0;
+  // Each document is updated on its own, and only an applied one gets its
+  // new base: one that fails is compared afresh next time.
+  const done: Planned[] = [];
+  const failed: string[] = [];
   for (const [i, p] of planned.entries()) {
     const m = resolve(p.merge, choices[i]);
-    if (await applyMerge(p.world, m)) changed++;
-    applied += m.applied;
-    kept += m.kept;
+    try {
+      if (await applyMerge(p.world, m)) changed++;
+      applied += m.applied;
+      kept += m.kept;
+      done.push(p);
+    } catch (err) {
+      console.error(
+        `coc-pdf-importer: failed to update "${p.world.name}"`,
+        err,
+      );
+      failed.push(p.world.name);
+    }
   }
   for (const kind of kinds(book))
     await writeBases(
       kind,
-      planned
-        .filter((p) => p.kind.type === kind.type)
-        .map((p) => p.merge.newBase),
+      done.filter((p) => p.kind.type === kind.type).map((p) => p.merge.newBase),
     );
 
   const parts = [
@@ -259,17 +270,36 @@ export async function syncBook(
     planned.length
       ? `updated ${changed} of ${planned.length} already loaded (${applied} fixes applied, ${kept} play changes kept${conflicts ? `, ${conflicts} reviewed` : ""})`
       : "",
+    failed.length
+      ? `${failed.length} failed to update (see console): ${failed.join(", ")}`
+      : "",
   ].filter(Boolean);
-  ui.notifications.info(
+  ui.notifications[failed.length ? "error" : "info"](
     `${book.title}: ${parts.join("; ") || "nothing to load"}.`,
   );
 }
 
+// An update with its removals (`-=key` keys) in the running Foundry's form:
+// v14 deprecates them for a ForcedDeletion value at the key itself.
+export function withDeletions(
+  update: Record<string, unknown>,
+): Record<string, unknown> {
+  const Forced = (foundry as any).data?.operators?.ForcedDeletion;
+  if (!Forced) return update;
+  return Object.fromEntries(
+    Object.entries(update).map(([key, value]) =>
+      /(^|\.)-=/.test(key)
+        ? [key.replace(/(^|\.)-=/, "$1"), new Forced()]
+        : [key, value],
+    ),
+  );
+}
+
 async function applyMerge(doc: any, m: Merge): Promise<boolean> {
-  const update = {
+  const update = withDeletions({
     ...m.set,
     ...Object.fromEntries(m.unset.map((p) => [unsetKey(p), null])),
-  };
+  });
   let changed = false;
   if (Object.keys(update).length) {
     await doc.update(update);
@@ -280,7 +310,10 @@ async function applyMerge(doc: any, m: Merge): Promise<boolean> {
     changed = true;
   }
   if (m.items.update.length) {
-    await doc.updateEmbeddedDocuments("Item", m.items.update);
+    await doc.updateEmbeddedDocuments(
+      "Item",
+      m.items.update.map((u) => withDeletions(u)),
+    );
     changed = true;
   }
   if (m.items.delete.length) {

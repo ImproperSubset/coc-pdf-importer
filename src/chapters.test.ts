@@ -9,6 +9,7 @@ import {
   registerMenus,
   syncBook,
   unloadBook,
+  withDeletions,
 } from "./chapters.ts";
 import { SCOPE } from "./packs.ts";
 
@@ -545,5 +546,41 @@ describe("after a re-import", () => {
     seedBook();
     await offerUpdate(SOURCE);
     assert.equal(dialogs.length, 0);
+  });
+});
+
+describe("update safety", () => {
+  test("removals use v14's ForcedDeletion, and v13's -= keys otherwise", () => {
+    const update = { "system.a.-=b": null, "-=c": null, "system.d": 1 };
+    assert.deepEqual(withDeletions(update), update);
+    class ForcedDeletion {}
+    (foundry as any).data = { operators: { ForcedDeletion } };
+    const v14 = withDeletions(update);
+    assert.deepEqual(Object.keys(v14), ["system.a.b", "c", "system.d"]);
+    assert.ok(v14["system.a.b"] instanceof ForcedDeletion);
+    assert.equal(v14["system.d"], 1);
+  });
+
+  test("a document that fails to update doesn't stop the others", async () => {
+    const book = seedBook();
+    await syncBook(book, null);
+    for (const id of ["Testa00000000001", "Testb00000000001"])
+      await book.actors.entries
+        .get(id)
+        .update({ "system.description.keeper": "<p>Fixed.</p>" });
+    worldActor("Testa00000000001").update = async () => {
+      throw new Error("refused");
+    };
+    await syncBook(book, null);
+    assert.equal(
+      worldActor("Testb00000000001")._source.system.description.keeper,
+      "<p>Fixed.</p>",
+    );
+    // The failed one keeps its old base, so it is compared afresh next time.
+    assert.equal(
+      basePack("actor-bases").entries.get("Testa00000000001")._source.system
+        .description.keeper,
+      "<p>Old notes.</p>",
+    );
   });
 });

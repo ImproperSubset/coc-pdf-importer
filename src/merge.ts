@@ -64,7 +64,9 @@ const IGNORED = new Set([
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 
-// Leaves of a document by dot path; arrays are single values.
+// Leaves of a document by dot path; arrays are single values. An empty
+// object counts as no value, so `flags: {}` matches flags holding only
+// ignored keys.
 export function flatten(
   data: Record<string, unknown>,
   prefix = "",
@@ -73,9 +75,9 @@ export function flatten(
   for (const [key, value] of Object.entries(data)) {
     const path = prefix ? `${prefix}.${key}` : key;
     if (IGNORED.has(path)) continue;
-    if (isPlainObject(value) && Object.keys(value).length)
-      flatten(value, path, out);
-    else out.set(path, value);
+    if (isPlainObject(value)) {
+      if (Object.keys(value).length) flatten(value, path, out);
+    } else out.set(path, value);
   }
   return out;
 }
