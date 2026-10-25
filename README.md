@@ -25,15 +25,18 @@ Tested on the following documents:
 A single import reads a document once and creates both **actors** and, when the
 document contains them, **items** (Pulp Cthulhu talents/archetypes, Chaosium
 appendix Spells / Tomes / Artefacts, and Down Darker Trails' Old West
-occupations, skills, weapons and spells). Everything is placed in folders named
-after the book's title; a re-import refreshes same-named entries in place,
-keeping their ids, instead of duplicating them. Each imported entry cites its
+occupations, skills, weapons and spells). They go into two world compendiums
+for the book, one for actors and one for items, filed in a compendium folder
+named after the book's title; a re-import refreshes same-named entries in
+place, keeping their ids, instead of duplicating them. Chapters are then
+loaded into the world from the compendiums as they come into play (see
+Usage). Each imported entry cites its
 source — the book's title and the page it is printed on — at the top of its
 Keeper notes, and in its `source` field where the CoC7 item type has one. The
 title defaults to one derived from the file name and can be edited per file
-in the import dialog. The book's folders record the PDF's file name, so a
-re-import of the same file finds them (and renames them) whatever title is
-given.
+in the import dialog. The book's compendiums and folders record the PDF's
+file name, so a re-import of the same file finds them (and renames the
+folders) whatever title is given.
 
 ### Actors
 
@@ -80,14 +83,14 @@ parsed and imported as CoC7 `talent` and `archetype` items. Archetypes carry
 their core characteristic(s), bonus points, suggested occupations/traits, talent
 count, and a resolved skill list (each skill mapped to its CoCID itemKey).
 
-Items are filed in a `<book title>` **Item** folder with one subfolder per type
-(`Talents`, `Archetypes`, `Spells`, `Tomes`, `Artefacts`, …); actors live in a
-same-named **Actor** folder. (Foundry keeps Actor and Item folders in separate
-trees, so these are two sibling folders of the same name.) When the book has a
-contents page listing its chapters ("CHAPTER 1: BOLIVIA 18"), each actor is
-filed in a subfolder for the chapter its stat block is printed in
-(`Chapter 1: Bolivia`, …, `Appendix A: …`), in the book's order; otherwise
-actors sit directly in the Actor folder.
+In the item compendium, items are filed in one folder per type (`Talents`,
+`Archetypes`, `Spells`, `Tomes`, `Artefacts`, …). When the book has a contents
+page listing its chapters ("CHAPTER 1: BOLIVIA 18"), each actor is filed in
+the actor compendium in a folder for the chapter its stat block is printed in
+(`Chapter 1: Bolivia`, …, `Appendix A: …`), in the book's order, and each item
+belongs to the chapter it is printed in. Loaded into the world, they keep this
+structure under a `<book title>` **Actor** folder and a same-named **Item**
+folder.
 
 ### Down Darker Trails
 
@@ -120,10 +123,21 @@ Appendices B–D), or that print appendix-style entries inline in their chapters
    ```
 
 2. Go to Settings → Game Settings → Call of Cthulhu PDF Importer → Import button
-3. Upload the document(s) and wait until the import is complete
-4. Navigate to the Actors or Items sidebar. Entries are created in folders named
-   after the book's title (items under typed subfolders such as `Talents` /
-   `Spells` / `Tomes` / `Artefacts`).
+3. Upload the document(s) and wait until the import is complete. The book's
+   actors and items are now in its compendiums, under a compendium folder
+   named after the book's title.
+4. Load what you need into the world. In the actor compendium, right-click a
+   chapter folder for **Load chapter** or **Unload chapter**; in the
+   Compendium sidebar, right-click either of the book's compendiums for
+   **Load all chapters**, **Unload all chapters** or **Update loaded
+   chapters**. Loaded entries keep their compendium ids, so tokens placed in
+   scenes find their actors again when a chapter is reloaded.
+5. After a re-import of a corrected PDF, the importer offers to update the
+   loaded chapters: the import's fixes are applied, changes made in play are
+   kept, and anything both changed is shown for review (the world value is
+   kept unless you pick the import's). What each loaded entry was loaded from
+   is recorded in hidden compendiums, removed when the book's last chapter is
+   unloaded; the module setting **Show import records** shows them.
 
 ## Development
 
@@ -158,24 +172,30 @@ testable.
      is guarded by its book's own section markers, so a document without those
      sections yields no items. Source-faithful data stays unresolved (e.g. skill
      _names_, not CoCIDs).
-2. **Import** — `importDocument()` (in `document.ts`) creates the world
-   documents:
+2. **Import** — `importDocument()` (in `document.ts`) creates the documents
+   in the book's actor and item compendiums (`packs.ts`; `target.ts` lets the
+   same code fill the world or a pack):
    - actors via `importCharacters()` (`importer.ts`), which maps each
      `CocCharacter` onto CoC7 actor system data and embedded items (skills,
-     weapons + backing skills, spells), in a `<book title>` Actor folder —
-     in a chapter subfolder when `processPDF()` found the book's chapters
+     weapons + backing skills, spells; their ids are stable, `ids.ts`), in a
+     chapter folder when `processPDF()` found the book's chapters
      (`parseBookSections()`: the contents page's entries, mapped to PDF pages
      through the page numbers in the running headers).
    - items via `createPulpItems()` (`document.ts`), which builds the Foundry
      documents (resolving pulp skill names to CoCID itemKeys here) and files
-     them under typed subfolders of a `<book title>` Item folder.
+     them under typed folders.
 
-   A re-import replaces same-named entries in each folder instead of
+   A re-import replaces same-named entries in each compendium instead of
    duplicating them (`replace.ts`): the old document is deleted and the new one
-   created under the same id, so tokens and links that point at it still
-   resolve. An actor keeps its portrait, prototype token, ownership and sort
-   order; an item its ownership and sort order. If the create fails, the old
-   document is restored.
+   created under the same id. If the create fails, the old document is
+   restored. An entry new to a compendium takes the id of the same-named world
+   document an earlier, straight-to-world import made.
+
+3. **Load, unload and update** — `chapters.ts` copies a chapter's entries into
+   the world under their compendium ids, saving each copy's base (what it was
+   loaded from) in hidden base compendiums; an update compares base, world copy
+   and compendium entry field by field (`merge.ts`) and asks the Keeper only
+   about fields both play and the import changed.
 
 ### npm scripts
 
