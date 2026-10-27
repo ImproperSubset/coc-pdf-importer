@@ -399,7 +399,7 @@ function artefactDoc(
               burst: null,
             },
         bullets: stats?.shots ?? null,
-        ammo: 0,
+        ammo: stats?.shots ?? 0,
         malfunction: null,
         blastRadius: null,
         properties: {

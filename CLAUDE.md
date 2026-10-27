@@ -174,6 +174,16 @@ return a.toObject(); })), "application/json", "<file>.json")`; the operator puts
   the range in yards ("15"; feet as "10/3"; thrown "@STR/5"), uses per round as
   normal/max ("1"/"3"), the magazine in `bullets`, and ranged/impale/burn/
   half-damage-bonus as `rngd`/`impl`/`burn`/`ahdb` flags (a whip is ranged).
+- A weapon's magazine size is `system.bullets` and its loaded rounds
+  `system.ammo`; Core Content's weapons store `ammo: 0`, and the ranged
+  attack refuses a shot beyond `ammo` unless the world setting "Disregard
+  ammo" is on. Imported weapons with a magazine are created loaded.
+- The NPC/creature sheet never shows weapons in its Inventory tab
+  (`npc-sheet-v2.js` sets `showInventoryWeapons = false`); they are on the
+  Combat tab, each range in the damage icon's tooltip ("Range 10 yards").
+  The ranged attack measures token centre to centre on the scene and
+  converts the scene's grid units to yards (`ft` ÷ 3; `yd` and `m` as is;
+  any other unit warns and counts as yards).
 - Core Content's "Death ray (prototype)" (`i.weapon.example-death-ray-prototype`)
   is an example item, not the Pulp Cthulhu Death Ray. That one (Pulp Cthulhu
   p. 88) is two-handed, Firearms (Rifle), 1D10+5 heat damage ignoring mundane
@@ -402,6 +412,9 @@ chapters in play, updated in place when a re-import fixes the book.
   the old ids is already broken by the unload). Keeping the world's ids
   through a reload would need an id map stored in the pack entry and applied
   by Load, every update and every re-import, which isn't done.
+- A weapon's loaded rounds (`system.ammo`) are play state: a difference
+  both sides made keeps the world's, base or no base, so an update never
+  reloads a gun in play; an empty gun the pack now loads is loaded.
 - Foundry's own drag of a pack folder into the sidebar creates its folders
   and documents with `keepId`, and builds them again on a second drag (its
   already-present check compares the pack folder object with the world's),

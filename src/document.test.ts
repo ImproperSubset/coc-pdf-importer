@@ -488,6 +488,16 @@ describe("artefact weapons", () => {
     assert.equal(doc.system.properties.impl, false); // not from the equivalent
   });
 
+  test("an artefact weapon with shots is loaded", () => {
+    const doc = pulpItemDoc(
+      artefact({ skill: "Firearms (Handgun)", shots: 6, ranged: true }),
+      "Test Book",
+      compendium,
+    );
+    assert.equal(doc.system.bullets, 6);
+    assert.equal(doc.system.ammo, 6);
+  });
+
   test("a thrown dagger takes a knife's damage and the thrown profile", () => {
     const doc = pulpItemDoc(
       artefact({ skill: "Throw", ranged: true }, "Used as throwing daggers."),

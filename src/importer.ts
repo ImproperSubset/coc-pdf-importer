@@ -982,6 +982,7 @@ function buildItems(
       // the book's damage always wins over the compendium's.
       weapon.name = attack.name;
       overrideBookDamage(weapon, attack, character.derived.DB);
+      loadWeapon(weapon);
       const ranged = !!weapon.system?.properties?.rngd;
       const refs = [
         { ref: weapon.system?.skill?.main?.name, value: attack.value ?? 0 },
@@ -1005,6 +1006,7 @@ function buildItems(
         delete weapon._id;
         weapon.name = attack.name;
         overrideBookDamage(weapon, attack, character.derived.DB);
+        loadWeapon(weapon);
         ranged = !!weapon.system?.properties?.rngd;
       } else {
         ranged = FIREARM_RE.test(attack.name);
@@ -1186,6 +1188,13 @@ function overrideBookDamage(
   sys.properties = sys.properties ?? {};
   sys.properties.addb = addb;
   sys.properties.ahdb = ahdb;
+}
+
+// A weapon with a magazine starts loaded: the system's weapons store none
+// loaded (`ammo` 0), and its ranged attack refuses a shot from an empty one.
+function loadWeapon(weapon: any): void {
+  const bullets = Number(weapon.system?.bullets);
+  if (bullets > 0) weapon.system.ammo = bullets;
 }
 
 // An attack's printed rule ("Bite: injects venom …") closes its weapon's

@@ -272,6 +272,21 @@ describe("mergeDocument without a base", () => {
     );
   });
 
+  test("a weapon's loaded rounds both changed keep the world's, base or no base", () => {
+    const withAmmo = (ammo: number) => set(npc(), "items.1.system.ammo", ammo);
+    for (const base of [withAmmo(0), null]) {
+      const m = mergeDocument(base, withAmmo(3), withAmmo(8));
+      assert.deepEqual(m.conflicts, []);
+      assert.deepEqual(m.items.update, []);
+      assert.equal(m.kept, 1);
+    }
+    // An empty gun the pack now loads is loaded.
+    const m = mergeDocument(withAmmo(0), withAmmo(0), withAmmo(8));
+    assert.deepEqual(m.items.update, [
+      { _id: "Weapon0000000001", "system.ammo": 8 },
+    ]);
+  });
+
   test("with a base, a field both changed is still asked about", () => {
     const base = npc();
     const world = set(npc(), "system.description.keeper", "<p>Mine.</p>");

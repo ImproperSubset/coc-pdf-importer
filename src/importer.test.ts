@@ -860,6 +860,19 @@ describe("importCharacters — items", () => {
     assert.match(rev.flags.CoC7.cocidFlag.id, /9mm-revolver/);
   });
 
+  test("a matched firearm with a magazine is created loaded", async () => {
+    const pistol = weaponDoc(".45 Automatic");
+    pistol.system.bullets = 7;
+    pistol.system.ammo = 0;
+    mockCompendium({ weapons: [pistol] });
+    await importCharacters(
+      [makeCharacter({ combat: [attack(".45 auto", { value: 40 })] })],
+      { notify: false },
+    );
+    const w = created[0].items.find((i: any) => i.type === "weapon");
+    assert.equal(w.system.ammo, 7);
+  });
+
   test("shotguns alias to the compendium entry for their gauge and variant", async () => {
     const shotguns = [
       "10-gauge Shotgun (2B)",

@@ -117,6 +117,10 @@ interface FieldResult {
 const PLAY_FIELDS =
   /^(system\.attribs\.(hp|mp|san|lck)\.value|img|prototypeToken(\..*)?)$/;
 
+// A weapon's loaded rounds are play state, base or no base: a difference both
+// sides made keeps the world's, so an update never reloads a gun in play.
+const ITEM_PLAY_FIELDS = /^system\.ammo$/;
+
 const isEmpty = (v: unknown) => v === undefined || v === null || v === "";
 
 // Without a base, a difference is settled when it can be: a field the pack
@@ -154,7 +158,8 @@ function mergeFields(
   for (const path of new Set([...b.keys(), ...w.keys(), ...p.keys()])) {
     const [bv, wv, pv] = [b.get(path), w.get(path), p.get(path)];
     let side = changedBy(bv, base !== null, wv, pv);
-    if (side === "both" && base === null)
+    if (side === "both" && item && ITEM_PLAY_FIELDS.test(path)) side = "play";
+    else if (side === "both" && base === null)
       side = unknownOrigin(path, pv, item, takeImport);
     switch (side) {
       case "pack":
