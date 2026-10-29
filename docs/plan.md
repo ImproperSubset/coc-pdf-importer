@@ -1,9 +1,10 @@
 # Plan: Masks of Nyarlathotep, profiles, a format, and a rewrite
 
 The working plan for this fork, worked through across sessions. Each phase
-lists its steps, what proves it done, and what it waits on. Decisions record
+lists its steps and how they are checked. Decisions record
 the operator's choice and the reason, so they are not re-asked. Character,
-creature and chapter names are Chaosium's; no book text is quoted here.
+creature and chapter names are Chaosium's; names and short phrases may be
+quoted, never images or long runs of book text.
 
 ## Goal
 
@@ -31,18 +32,19 @@ The long-term shape:
 
 ## Decisions
 
-| Decision                                                                                                                                                                                            | Reason                                                                                                                               |
-| --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| Get MoN to golden on the current TypeScript code first, then build profiles, the format and the rewrite.                                                                                            | The golden output is the oracle every later phase is checked against.                                                                |
-| Book quirks may be specialized per publisher, line and book, as data (profiles). Code branches per book are avoided; a quirk no data can express gets a named hook.                                 | Chaosium typography alone varies widely, and the goal covers any publisher.                                                          |
-| Chapter folders use numerals: "Chapter 2: America", "Prologue: Peru", "Appendix B: Spells".                                                                                                         | Saves horizontal space; matches the running headers and THS's folders.                                                               |
-| One era per import: classic or Pulp, from the world's CoC7 era (`pulp`, `modernPulp`, `downDarkerTrailsPulp` are Pulp), with an override in the dialog. Actors keep plain names, no "(Pulp)" twins. | A campaign is one or the other.                                                                                                      |
-| Pulp-only stat blocks (MoN's "Pulp Option: Ghoul Pack") import into Pulp worlds only, with a pointer in the notes of the section they belong to.                                                    | Optional material for the other flavour.                                                                                             |
-| No automatic migration of old "(Pulp)" actors. The operator cleans up the Pulp campaign world by hand (about six THS actors).                                                                       | Few actors; not worth code.                                                                                                          |
-| Group tables: a complete set, one actor per column (numbered or named), in the import's era.                                                                                                        | In play each column is a token.                                                                                                      |
-| Portraits come from MoN's companion NPC portraits PDF, not the main book. Actor image and token start from the same full portrait; Tokenizer frames and masks the token.                            | The book's copies are ~130×175 px; the portraits PDF's are ~1080×1440 and unframed. The same image keeps reframing by hand possible. |
-| Token frame and mask come from Tokenizer's own settings (frame on, mask on, circle mask, frame per disposition).                                                                                    | `autoToken` reads them; no per-call option exists.                                                                                   |
-| A rewrite is judged by whether it can be verified, not by its size.                                                                                                                                 | The golden and baseline dumps detect regressions.                                                                                    |
+| Decision                                                                                                                                                                                              | Reason                                                                                                                               |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| Get MoN to golden on the current TypeScript code first, then build profiles, the format and the rewrite.                                                                                              | The golden output is the oracle every later phase is checked against.                                                                |
+| Book quirks may be specialized per publisher, line and book, as data (profiles). Code branches per book are avoided; a quirk no data can express gets a named hook.                                   | Chaosium typography alone varies widely, and the goal covers any publisher.                                                          |
+| Chapter folders use numerals: "Chapter 2: America", "Prologue: Peru", "Appendix B: Spells".                                                                                                           | Saves horizontal space; matches the running headers and THS's folders.                                                               |
+| One era per import: classic or Pulp, from the world's CoC7 era (`pulp`, `modernPulp`, `downDarkerTrailsPulp` are Pulp), with an override in the dialog. Actors keep plain names, no "(Pulp)" twins.   | A campaign is one or the other.                                                                                                      |
+| Pulp-only stat blocks (MoN's "Pulp Option: Ghoul Pack") import into Pulp worlds only, with a pointer in the notes of the section they belong to.                                                      | Optional material for the other flavour.                                                                                             |
+| No automatic migration of old "(Pulp)" actors. The operator cleans up the Pulp campaign world by hand (THS has five stat blocks with a Pulp section).                                                 | Few actors; not worth code.                                                                                                          |
+| Group tables: a complete set, one actor per column (numbered or named), in the import's era.                                                                                                          | In play each column is a token.                                                                                                      |
+| Portraits come from MoN's companion NPC portraits PDF, not the main book. Actor image and token start from the same full portrait; Tokenizer frames and masks the token.                              | The book's copies are ~130×175 px; the portraits PDF's are ~1080×1440 and unframed. The same image keeps reframing by hand possible. |
+| Token frame and mask come from Tokenizer's own settings: TheGreatNacho frame 13 trimmed so the ring reaches the token's edge, a full-disc mask, offset −20 (details in 1.5). No Foundry dynamic ring. | `autoToken` reads them; no per-call option exists. Ring close to the edge shows more of the portrait.                                |
+| Git never holds book images or long runs of book text; names and short phrases are fine.                                                                                                              | Copyright.                                                                                                                           |
+| A rewrite is judged by whether it can be verified, not by its size.                                                                                                                                   | The golden and baseline dumps detect regressions.                                                                                    |
 
 ## Phase 1: MoN to golden (current TypeScript)
 
@@ -72,13 +74,14 @@ table and lists:
 `parseBookSections` finds no MoN sections today. General rules:
 
 - strip control characters (MoN ends each top-level contents entry with
-  `\x08` before its page number) with whitespace, dots and `�`
+  `\x08` before its page number) with whitespace, dots and U+FFFD
 - chapter numbers as digits or words (ONE to TWENTY), stored as numerals
 - `PROLOGUE` and `EPILOGUE`, with or without `: TITLE`, beside `INTRODUCTION`
 - `APPENDIX X: Title` in any case, with dot leaders
 - skip an `APPENDICES` umbrella entry
 - `INDEX` ends the last section without a folder (else Appendix D runs into
-  the index for the appendix parsers)
+  the index for the appendix parsers); MoN's text layer prints its page as
+  "6 55", so a page number may be split by a space
 - keep the guards: two chapter entries, a consistent page offset (MoN: 3,
   agreed by 657 of 669 pages)
 - if a prose mention in the Introduction adds a stray entry, limit the scan to
@@ -115,17 +118,20 @@ Importer, re-import pairing and packs; not the parser.
 - retire the "(Pulp)" naming and the old "\<folder> (Pulp)" folder code
 - Pulp-only stat blocks per the decision above
 - operator's THS Pulp world cleanup, after the release: re-import THS so the
-  plain-name actors take the Pulp profile, repoint scene tokens placed from
-  "(Pulp)" actors, then delete those actors (a console snippet can list the
-  tokens and macros pointing at them)
+  plain-name entries take the Pulp profile (Update then brings it to the
+  loaded world copies), repoint scene tokens placed from "(Pulp)" actors, then
+  delete the "(Pulp)" actors, world copies and pack entries both: a re-import
+  pairs entries by name, so nothing replaces or removes the "(Pulp)" ones (a
+  console snippet can list the tokens and macros pointing at them)
 
 ### 1.4 The rest of the audit
 
-- **Write-up name variants** (11 named NPCs miss their write-up): Lieutenant
-  and Lt. (Poole), Captain only in the heading (Savoyard), middle names (both
-  Cowleses, Huston, Hypatia Masters), a nickname only in the stat block (Jack
-  "Brass" Brady), Mr. Lung and Mr. Lung Yun, an unaccented spelling (the
-  Céspedes brothers' joint heading). General rules beside Doctor/Dr.
+- **Write-up name variants** (10 actors miss their write-up): Lieutenant and
+  Lt. (Poole), Captain only in the heading (Savoyard), middle names (both
+  Cowleses, Huston), a middle name plus a form suffix (Hypatia Masters, whose
+  stat block is "Hypatia Masters Aspect"), a nickname only in the stat block
+  (Jack "Brass" Brady), Mr. Lung and Mr. Lung Yun, an unaccented spelling in a
+  joint heading (Julio and Domingo Céspedes). General rules beside Doctor/Dr.
 - **Notes leaks**: Jackson Elias's notes open with an unrelated Introduction
   passage; the Ghoul Pack takes the next section's Keeper note; the ten
   pre-gens' Pulp conversion box folds into Treasured Possession (make it its
@@ -149,32 +155,53 @@ Importer, re-import pairing and packs; not the parser.
 
 ### 1.5 Portraits and tokens
 
-Spike first (below), then build.
+The spike (below) is done; the build follows the plan here.
 
 - **Source**: `cha23153_-_masks_of_nyarlathotep_-_npc_portraits_v2.pdf`, 14
   pages, 9 captioned portraits a page on about 12 of them (roughly 100). Each
   painting is its own image object, with frame and name plate drawn over it
-  separately; captions are real text below each image.
+  separately; captions are real text below each image. The spike's
+  position-based pairing matched 82 portraits; captions in small capitals come
+  out split ("E RICA C ARLYLE") and need joining, and the unmatched rest need
+  a look.
 - **Offline**: pair images with captions by position, captions with actors by
-  the write-up name rules; write `<Name>.webp` into the world's
-  `assets/MoN/`. The audit lists captions matching no actor and named NPCs
-  without a portrait. Files are book content: local only.
-- **Importer** (on Load, on the world copy): set `img` and the token source to
-  the portrait; set disposition from the Dramatis Personae heading the NPC is
-  under (Allies and Independents, Adversaries, Minor NPCs) if the operator
-  agrees; call Tokenizer's `autoToken` when Tokenizer is active, with a
-  head-and-shoulders `tokenOffset`; skip actors without a portrait; if
-  `autoToken` throws, carry on with the plain portrait.
+  the write-up name rules; write each portrait under a file-safe slug of the
+  actor's name into the archive's `assets/MoN/`, and record the pairing
+  (actor name → portrait file) in the book's data, so the importer never
+  guesses from file names. The audit lists captions matching no actor and
+  named NPCs without a portrait. Files are book content: local only.
+- **Import (into the book's packs)**: for each actor with a recorded portrait
+  whose file exists in the world (`worlds/<game.world.id>/assets/MoN/…`,
+  checked with Foundry's file browser), set `img` and
+  `prototypeToken.texture.src` to the portrait, and the token disposition from
+  the Dramatis Personae heading the NPC is under (Allies and Independents,
+  Adversaries, Minor NPCs) if the operator agrees. The pack entry carries the
+  links, so the compendium shows portraits and Load copies them. Archive not
+  installed, or no portrait: the actor keeps the default icons and the import
+  says how many portraits it found. The existing carry-over still applies: a
+  re-import keeps a Keeper-set image or token, and replaces only default
+  icons.
+- **Load (on the world copy)**: when Tokenizer is active and the token source
+  is still the raw portrait, call `autoToken(actor)` with no options (the
+  Tokenizer settings below do the framing). A token already rendered, or set
+  by the Keeper, is left alone, so a reload does not re-render. Unload writes
+  the world copy's token back into the pack entry (existing behaviour), so the
+  rendered token survives Unload and Load. If `autoToken` throws or Tokenizer
+  is off, the token stays the plain portrait.
 - **Tokenizer facts** (`vtta-tokenizer` 5.0.3, source read at
   `github.com/MrPrimate/tokenizer`: `src/hooks.js`, `src/tokenizer/*.js`,
   `src/settings.js`): API at `game.modules.get("vtta-tokenizer").api` —
   `launch`, `tokenizeActor`, `tokenizeSceneToken`, `tokenizeDoc`,
   `updateSceneTokenImg`, `autoToken`; image classes not exported. `autoToken`
   starts from `prototypeToken.texture.src`, fits the image by its larger side
-  and centres it, adds frame and mask per the world settings `add-frame-default`
-  (default on), `add-mask-default` (default off), `default-mask-layer` (circle),
-  frame by disposition (`default-frame-npc` hostile, `default-frame-neutral`),
-  or tints. It uploads `<slug>.Token.webp` to the NPC upload directory
+  (by its shorter side with `default-crop-image`) and centres it, shrinks it
+  by `default-token-offset` when a frame or mask is on, adds frame and mask
+  per the world settings `add-frame-default` (default on), `add-mask-default`
+  (default off), `default-mask-layer` (default: a circle keeping only the
+  middle two-thirds, sized for Foundry's ring), frame by disposition
+  (`default-frame-npc` for hostile, `default-frame-neutral` for neutral and
+  friendly), or tints; `default-color-layer` (default on) puts a white layer
+  behind the image. It uploads `<slug>.Token.webp` to the NPC upload directory
   (`targetFolder` overrides), sets `img` (same file, cache-busting query) and
   the token texture, ring settings, and updates placed tokens on the canvas.
   `tokenOffset: { position: {x, y} }` is a source-comment option; `scale`
@@ -185,9 +212,10 @@ Spike first (below), then build.
   outer edge so the ring fills the token, and with the faint white sheen
   inside the ring made fully transparent (it brightens and flattens the
   portrait); the mask is a full disc out to the ring's outer edge (a mask
-  clips the frame too, so a smaller disc cuts the ring):
-  `Data/tokenizer/frames/nacho-13-trimmed.webp` and
-  `nacho-13-trimmed-mask.webp` (the live server needs the same two files).
+  clips the frame too, so a smaller disc cuts the ring). For the spike they
+  sit in the local runtime's `Data/tokenizer/frames/nacho-13-trimmed.webp`
+  and `nacho-13-trimmed-mask.webp`; the build makes them and ships them in the
+  install archive.
   Tokenizer settings: `add-frame-default` and `add-mask-default` on,
   `default-frame-npc` and `default-frame-neutral` the trimmed frame,
   `default-mask-layer` the trimmed mask, `default-crop-image` on,
@@ -199,7 +227,7 @@ Spike first (below), then build.
   undocumented `tokenOffset.scale` moved the portrait out of view.
 - **Install archive**: the offline step writes one tar or zip per book that
   the operator unpacks inside `worlds/<world>/` on the server (the world's
-  name is not known when it is built): `assets/MoN/<Name>.webp` (portraits)
+  name is not known when it is built): `assets/MoN/<slug>.webp` (portraits)
   and `assets/tokenizer/nacho-13-trimmed.webp` and
   `nacho-13-trimmed-mask.webp` (frame and mask). The importer builds paths
   from `game.world.id` at run time. Tokenizer's settings live in the world's
@@ -209,35 +237,39 @@ Spike first (below), then build.
 - Our carry-over keeps a Keeper-set image and token through re-import and
   Update, so hand fixes in Tokenizer's dialog survive. The dialog starts from
   the current token image, not the portrait.
-- **Open**: token files in Tokenizer's folder or `assets/MoN/`; whether a
-  module may upload into a world's `assets/` on v13/v14; whether the
-  `TOKENS` folder of the operator's MoN Foundry pack
+- **Open**: whether disposition comes from the Dramatis Personae heading;
+  token files in Tokenizer's NPC folder (its default, `tokenizer/npc-images`
+  at the Data root) or under the world (`targetFolder`); whether the `TOKENS`
+  folder of the operator's MoN Foundry pack
   (`~/Downloads/00-PACK-Masks of Nyarlathotep-Foundry`) already has these
   tokens.
 
-#### Spike: what tokens would look like
+#### Spike (done): what tokens look like
 
-Local Foundry (`~/git/foundry-dev`, runtimes 13.351, 14.358, 14.369) already
-has CoC7 8.16, Core Content 1.3 (`cha-coc-fvtt-en-keeperitems`) and a `coc7e`
-world on the 14.x runtimes.
+Run on the local Foundry 14.369 (`~/git/foundry-dev`, latest stable 14.x),
+which has CoC7 8.16, Core Content 1.3 (`cha-coc-fvtt-en-keeperitems`) and the
+`coc7e` world. One portrait (Erica Carlyle) only; MoN itself was not imported.
 
-1. Add to `~/git/foundry-dev/loadout.yaml` (cross-repo: operator approves or
-   does it): `dev_modules: coc-pdf-importer: ~/git/coc-pdf-importer` and
-   `modules: vtta-tokenizer: manifest:
-https://github.com/MrPrimate/tokenizer/releases/latest/download/module.json`.
-   `fvtt sync` symlinks both into every runtime, skips real directories, and
-   probably also updates quench, Blades and mgt2e.
-2. `npm run build` here (the symlink loads this tree's `module.js`).
-3. New world `mon-test`: CoC7, 1920s era, Core Content, this module and
-   Tokenizer; Tokenizer frame and mask on.
-4. Extract portraits by caption into `Data/worlds/mon-test/assets/MoN/`.
-5. Import MoN with the current module.
-6. A snippet (or Playwright) sets portrait, token and disposition and calls
-   `autoToken` with and without a `tokenOffset`; screenshot tokens on a scene
-   and a few sheets.
-
-Open: runtime (whichever matches the server), and who drives the browser
-(Playwright needs the local admin password in `Config/admin.txt`, not read).
+- `foundry-dev/loadout.yaml` gained `coc-pdf-importer` (dev module, symlinked
+  to this repo) and `vtta-tokenizer` (5.0.3); committed in foundry-dev as
+  `dc75064`. `fvtt sync` linked both into every runtime.
+- The admin password was unknown; `config/admin.txt` and the 14.369 copy were
+  renamed to `admin.txt.bak`, so 14.369 has no admin password and `fvtt sync`
+  no longer deploys one (the other runtimes keep the copies they have).
+- Foundry must be launched outside Claude's sandbox: the sandbox kills a
+  command's background processes when the command ends.
+- `fvtt stop` and `fvtt restart` kill every process with a connection on the
+  runtime's port, the operator's browser included (`stop_runtime` in
+  `foundry-dev/bin/lib/process.sh` uses `lsof -ti :<port>`; matching
+  `-sTCP:LISTEN` would fix it). Don't use them while a browser is connected;
+  the fix is the operator's call.
+- `npm run build` without `fvtt.config.js` writes to the repo root; its asset
+  copy then fails on copying `lang/` onto itself and skips the PDF.js worker,
+  while still reporting success. The worker was copied by hand. Fix: skip
+  the copy when source and destination are the same.
+- Result: the chosen token look above. Scene lighting (most likely) washed
+  the test token out on the canvas; the token files themselves keep the portrait's
+  contrast.
 
 ### 1.6 Test-world import and review
 
@@ -295,7 +327,7 @@ Prerequisites:
   Quick-Start in `~/Documents/RPGs/CallOfCthulhu/`), so every code path —
   `oldwest.ts`, `pulp.ts` items, Innsmouth's Pulp HP/Luck, "Notable Folk"
   lists — has an oracle
-- the unit tests (about 7,000 lines of made-up text) carried over as the
+- the unit and integration tests (about 10,500 lines, made-up text) carried over as the
   behaviour spec
 
 Rules: match the golden and baseline output exactly first, then fix as
@@ -340,4 +372,7 @@ from JSON (no running Foundry, per search results; README not checked).
 - `npm run dump:json -- "<pdf>"` and `npm run dump:text -- "<pdf>"` write
   `out/`. The session's audit scripts were scratch files; 1.0 makes them a
   tool.
+- Local Foundry: 14.369 at `http://localhost:30003/` (no admin password),
+  `coc7e` world with the "Token spike" test actors; launch with
+  `~/git/foundry-dev/bin/fvtt launch 14.369` outside the sandbox.
 - Next step: 1.0, then 1.1.
