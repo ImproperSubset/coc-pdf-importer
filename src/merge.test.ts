@@ -154,6 +154,34 @@ describe("mergeDocument", () => {
     assert.equal(m.kept, 2);
   });
 
+  test("an item's ignored fields and key order don't count as play or pack changes", () => {
+    // The world copy's item carries its own timestamps, sheet flags and sort,
+    // with its keys in another order.
+    const touched = (item: any) => ({
+      system: { ...item.system, flags: { improve: false } },
+      name: item.name,
+      type: item.type,
+      _id: item._id,
+      sort: 100,
+      _stats: { createdTime: 5, modifiedTime: 9 },
+    });
+    const world = npc();
+    world.items = world.items.map(touched);
+    const pack = npc();
+    pack.items = pack.items.filter((i: any) => i.name !== "Odd Gadget");
+    const dropped = mergeDocument(npc(), world, pack);
+    assert.deepEqual(dropped.items.delete, ["Weapon0000000001"]);
+    assert.equal(dropped.conflicts.length, 0);
+
+    const base = npc();
+    base.items = base.items.map(touched);
+    const removed = npc();
+    removed.items = removed.items.filter((i: any) => i.name !== "Climb");
+    const kept = mergeDocument(base, removed, npc());
+    assert.equal(kept.conflicts.length, 0);
+    assert.deepEqual(kept.items.create, []);
+  });
+
   test("an item play removed but the pack changed is a conflict", () => {
     const world = npc();
     world.items = world.items.filter((i: any) => i.name !== "Climb");

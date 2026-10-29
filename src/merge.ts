@@ -88,6 +88,15 @@ export function flatten(
 export const same = (a: unknown, b: unknown): boolean =>
   JSON.stringify(a) === JSON.stringify(b);
 
+// Two documents agree on every field Update compares, in any key order.
+function sameFields(a: any, b: any): boolean {
+  const [fa, fb] = [flatten(a), flatten(b)];
+  if (fa.size !== fb.size) return false;
+  for (const [path, value] of fa)
+    if (!fb.has(path) || !same(value, fb.get(path))) return false;
+  return true;
+}
+
 type Side = "pack" | "play" | "both" | "none";
 
 // Which side changed a value: `undefined` base means none is known.
@@ -276,12 +285,12 @@ export function mergeDocument(
       } else if (!bi && wi) {
         merge.kept++; // added in play
       } else if (bi && wi && !pi) {
-        if (same(bi, wi)) {
+        if (sameFields(bi, wi)) {
           merge.items.delete.push(id); // the pack dropped it
           merge.applied++;
         } else merge.conflicts.push(itemConflict(id, wi, undefined, bi));
       } else if (bi && pi && !wi) {
-        if (same(bi, pi))
+        if (sameFields(bi, pi))
           merge.kept++; // removed in play
         else merge.conflicts.push(itemConflict(id, undefined, pi, bi));
       }
