@@ -137,7 +137,9 @@ return a.toObject(); })), "application/json", "<file>.json")`; the operator puts
   it (bullet lines can be nearly full width too).
 - Ligature-split words ("Kornf ield") are joined when the document prints the
   word whole elsewhere (`joinLigatureSplits`).
-- `processPDF()` reads the contents page's sections ("CHAPTER 1: BOLIVIA 18";
+- `processPDF()` reads the contents page's sections ("CHAPTER 1: BOLIVIA 18",
+  "CHAPTER ONE: …", "PROLOGUE: PERU", "Appendix B: Spells"; chapter numbers
+  stored as numerals; an INDEX entry ends the last section without one;
   `parseBookSections`) and the printed-to-PDF page offset from the running
   headers' page numbers (`printedPageOffset`). Each actor gets its `page`,
   `printedPage` and `chapter`; each item gets its page by finding its own

@@ -4327,45 +4327,102 @@ export function parseActors(pageItems: RawItem[][]): CocCharacter[] {
   return parseCocCharacters(parts.join(""), chunks, breaks);
 }
 
-// The book's sections from its contents page — "INTRODUCTION 7", "CHAPTER 1:
-// TESTLAND 18", "APPENDIX A: TEST NPCS AND FOES 240" — each with the
-// PDF page it starts on. The contents gives printed page numbers; the running
-// headers print each page's number ("… 42 CHAPTER 1" on PDF page 43), and the
-// most common difference between the two maps one onto the other. A book
-// without at least two such chapter entries, or without consistent page
-// numbers, has no sections.
+// The book's sections from its contents page — "INTRODUCTION 7", "PROLOGUE:
+// TESTLAND 9", "CHAPTER 1: TESTLAND 18" or "CHAPTER ONE: TESTLAND 18",
+// "Appendix A: Test Spells 240" — each with the PDF page it starts on.
+// Chapter numbers are stored as numerals ("Chapter 1: Testland"). An INDEX
+// entry ends the last section and is returned untitled, so its pages fall in
+// no section. An "APPENDICES" entry over the appendices is not a section.
+// The contents gives printed page numbers; the running headers print each
+// page's number ("… 42 CHAPTER 1" on PDF page 43), and the most common
+// difference between the two maps one onto the other. A book without at
+// least two chapter entries, or without consistent page numbers, has no
+// sections.
 export function parseBookSections(
   pageTexts: string[],
 ): { title: string; page: number }[] {
-  const pages = pageTexts.map((p) => p.replace(/[\s\uFFFD.]+/g, " ").trim());
-  const front = pages.slice(0, 20).join(" ");
-  const title = String.raw`[A-Z][A-Z0-9’'&,\- ]*?[A-Z]`;
-  const entry = new RegExp(
-    String.raw`\b(INTRODUCTION|CHAPTER\s+\d+\s*:\s*${title}|APPENDIX\s+[A-Z]\s*:\s*${title})\s+(\d{1,3})\b`,
-    "g",
+  // Dot leaders, control characters and unmapped glyphs (Masks of
+  // Nyarlathotep's leaders on its top-level entries come out as U+FFFD)
+  // separate an entry from its page.
+  const pages = pageTexts.map((p) =>
+    p.replace(/[\s\x00-\x1f\x7f\uFFFD.]+/g, " ").trim(),
   );
-  const entries: { label: string; printed: number }[] = [];
+  const front = pages.slice(0, 20).join(" ");
+  const upper = String.raw`[A-Z][A-Z0-9’'&,\- ]*?[A-Z]`;
+  const anyCase = String.raw`[A-Z][A-Za-z0-9’'&,\- ]*?[A-Za-z]`;
+  const number = String.raw`\d+|${Object.keys(NUMBER_WORDS).join("|")}`;
+  // The page number may come out split by a space (Masks of
+  // Nyarlathotep's index, "6 55").
+  const entry = new RegExp(
+    String.raw`\b(INTRODUCTION|INDEX|(?:PROLOGUE|EPILOGUE)(?:\s*:\s*${upper})?|CHAPTER\s+(?:${number})\s*:\s*${upper}|APPENDIX\s+[A-Z]\s*:\s*${anyCase})\s+(\d{1,3})(?: (\d{1,2})\b)?\b`,
+    "gi",
+  );
+  const entries: { head: string; rest: string; printed: number }[] = [];
   const seen = new Set<string>();
   for (const m of front.matchAll(entry)) {
-    const key = m[1].split(":")[0].replace(/\s+/g, " ");
-    if (seen.has(key)) continue;
-    seen.add(key);
-    entries.push({ label: m[1], printed: Number(m[2]) });
+    const [rawHead, ...restParts] = m[1].split(/\s*:\s*/);
+    // Only an appendix's title may be in any case: the others are in
+    // capitals, which keeps out prose mentions ("see Chapter 2: America").
+    if (!/^APPENDIX/i.test(rawHead) && m[1] !== m[1].toUpperCase()) continue;
+    const head = rawHead
+      .toUpperCase()
+      .replace(/\s+/g, " ")
+      .replace(
+        new RegExp(String.raw`^CHAPTER (${number})$`, "i"),
+        (_, n: string) => `CHAPTER ${NUMBER_WORDS[n.toUpperCase()] ?? n}`,
+      );
+    if (seen.has(head)) continue;
+    // A split page number is one number when, read whole, it follows the
+    // entry before it and its first part alone would not.
+    const last = entries[entries.length - 1]?.printed ?? 0;
+    let printed = Number(m[2]);
+    if (m[3] && printed < last && Number(m[2] + m[3]) >= last)
+      printed = Number(m[2] + m[3]);
+    seen.add(head);
+    entries.push({ head, rest: restParts.join(": "), printed });
   }
-  if (entries.filter((e) => /^CHAPTER/.test(e.label)).length < 2) return [];
+  if (entries.filter((e) => e.head.startsWith("CHAPTER")).length < 2) return [];
   const offset = printedPageOffset(pageTexts);
   if (offset === null) return [];
 
   return entries
     .map((e) => {
-      const [head, rest] = e.label.split(/\s*:\s*/);
-      const name = rest
-        ? `${titleCaseTitle(head)}: ${titleCaseTitle(rest).replace(/\bNpcs\b/g, "NPCs")}`
-        : titleCaseTitle(head);
-      return { title: name, page: e.printed + offset! };
+      const title =
+        e.head === "INDEX"
+          ? ""
+          : e.rest
+            ? `${titleCaseTitle(e.head)}: ${titleCaseTitle(e.rest).replace(/\bNpcs\b/g, "NPCs")}`
+            : titleCaseTitle(e.head);
+      return { title, page: e.printed + offset! };
     })
     .sort((a, b) => a.page - b.page);
 }
+
+// Chapter numbers written as words, as contents pages print them.
+const NUMBER_WORDS: Record<string, string> = Object.fromEntries(
+  [
+    "ONE",
+    "TWO",
+    "THREE",
+    "FOUR",
+    "FIVE",
+    "SIX",
+    "SEVEN",
+    "EIGHT",
+    "NINE",
+    "TEN",
+    "ELEVEN",
+    "TWELVE",
+    "THIRTEEN",
+    "FOURTEEN",
+    "FIFTEEN",
+    "SIXTEEN",
+    "SEVENTEEN",
+    "EIGHTEEN",
+    "NINETEEN",
+    "TWENTY",
+  ].map((w, i) => [w, String(i + 1)]),
+);
 
 // The difference between a PDF page and the page number printed on it, read
 // from the running headers ("… 42 CHAPTER 1" on PDF page 43): the most common

@@ -150,7 +150,8 @@ if (havePdf) {
   heading("Sections from the contents page", sections.length);
   console.log(`Printed-page offset: ${printedPageOffset(pageTexts) ?? "none"}`);
   if (!sections.length) console.log("\nNone found.");
-  for (const s of sections) console.log(`- ${s.title} [p. ${s.page}]`);
+  for (const s of sections)
+    console.log(`- ${s.title || "(end of the last section)"} [p. ${s.page}]`);
 
   const headings = writeupHeadings(lines);
   const unheld = unheldWriteups(headings, actors);

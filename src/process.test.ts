@@ -3012,6 +3012,38 @@ describe("parseBookSections", () => {
     assert.equal(unplaced.printedPage, undefined);
   });
 
+  test("reads word numbers, a prologue, appendices in any case and an index", () => {
+    const leaders = " \uFFFD \uFFFD \x08 ";
+    const contents =
+      `INTRODUCTION${leaders}2 Test Overview . . . . 3 ` +
+      `PROLOGUE: FOGLAND${leaders}4 The Fog . . . 4 ` +
+      `CHAPTER ONE: TEST LAND${leaders}6 ` +
+      `CHAPTER TWELVE: NEW TEST CITY${leaders}12 ` +
+      `EPILOGUE${leaders}16 APPENDICES${leaders}18 ` +
+      `Appendix A: Test Spells . . . . 18 Appendix B: Tomes . . . 20 ` +
+      `INDEX${leaders}2 5 TABLE OF CONTENTS`;
+    const prose =
+      "As CHAPTER ONE: TEST LAND 30 shows, see Chapter Two: Fog 40.";
+    const book = [
+      contents,
+      `1 ${prose}`,
+      ...Array.from({ length: 28 }, (_, i) => `${i + 2} BODY TEXT`),
+    ];
+    assert.deepEqual(parseBookSections(book), [
+      { title: "Introduction", page: 3 },
+      { title: "Prologue: Fogland", page: 5 },
+      { title: "Chapter 1: Test Land", page: 7 },
+      { title: "Chapter 12: New Test City", page: 13 },
+      { title: "Epilogue", page: 17 },
+      { title: "Appendix A: Test Spells", page: 19 },
+      { title: "Appendix B: Tomes", page: 21 },
+      { title: "", page: 26 },
+    ]);
+    const sections = parseBookSections(book);
+    assert.equal(sectionOfPage(sections, 25), "Appendix B: Tomes");
+    assert.equal(sectionOfPage(sections, 27), "");
+  });
+
   test("a book without chapter entries has no sections", () => {
     assert.deepEqual(
       parseBookSections([

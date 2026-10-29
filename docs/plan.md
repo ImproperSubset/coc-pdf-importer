@@ -69,9 +69,18 @@ table and lists:
 - items with empty descriptions or merged names
 - group tables and their column labels
 
-### 1.1 Chapters
+### 1.1 Chapters (done)
 
-`parseBookSections` finds no MoN sections today. General rules:
+Result: MoN reads Introduction, Prologue: Peru, Chapters 1–8 and Appendices
+A–D, the Index ending Appendix D; every actor and item has a chapter
+(Chapters 1 and 8 hold no stat blocks; Appendix D holds the Egyptian
+Cobra). Two item texts changed, both fixes: Ward of Anubis no longer runs
+into the Tomes appendix's opening, and True Magick's spell list no longer
+ends in a stray "CHINA". THS unchanged. MoN's leaders come out of pdf.js as
+U+FFFD, not `\x08`; no prose mention added a stray entry (prose mentions
+are not in capitals, which the rule requires outside appendices).
+
+The rules as planned:
 
 - strip control characters (MoN ends each top-level contents entry with
   `\x08` before its page number) with whitespace, dots and U+FFFD
@@ -400,4 +409,4 @@ from JSON (no running Foundry, per search results; README not checked).
 - Local Foundry: 14.369 at `http://localhost:30003/` (no admin password),
   `coc7e` world with the "Token spike" test actors; launch with
   `~/git/foundry-dev/bin/fvtt launch 14.369` outside the sandbox.
-- Next step: 1.1.
+- Next step: 1.2.
