@@ -212,20 +212,22 @@ const HUMAN_CHARS = ["STR", "CON", "SIZ", "DEX", "INT", "APP", "POW", "EDU"];
 const CREATURE_CHARS = ["STR", "CON", "SIZ", "DEX", "INT", "POW"];
 
 // Actors missing a part of their stat block: skills, combat, a characteristic
-// (APP and EDU only for actors without a Sanity loss line), or HP.
+// (APP and EDU only for actors without a Sanity loss line), or HP. A value the
+// book prints as none ("—", "n/a": a ghost's STR) is not missing.
 export function incompleteActors(actors: CocCharacter[]): Finding[] {
   const out: Finding[] = [];
+  const absent = (a: CocCharacter, c: string) => {
+    const v = a.characteristics[c as keyof typeof a.characteristics];
+    return v?.value == null && !/^(?:[-—–]|n\/a)\*?$/i.test(v?.raw ?? "");
+  };
   for (const a of actors) {
     const gaps: string[] = [];
     if (!Object.keys(a.skills).length) gaps.push("no skills");
     if (!a.combat.length) gaps.push("no combat");
     const wanted = a.sanityLoss ? CREATURE_CHARS : HUMAN_CHARS;
-    const missing = wanted.filter(
-      (c) =>
-        a.characteristics[c as keyof typeof a.characteristics]?.value == null,
-    );
+    const missing = wanted.filter((c) => absent(a, c));
     if (missing.length) gaps.push("missing " + missing.join(" "));
-    if (a.characteristics.HP?.value == null) gaps.push("null HP");
+    if (absent(a, "HP")) gaps.push("no HP");
     if (gaps.length) out.push({ ...where(a), detail: gaps.join("; ") });
   }
   return out;

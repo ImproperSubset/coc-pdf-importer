@@ -99,12 +99,18 @@ Zoltan, the Australian rowdies, Ahja Singh's hirelings, the sample Children of
 the Sphinx, Leech/Host); lettered squads (Cultist Squad A1–D5). Fixes:
 
 - a tagline after the name (same line or next) goes to the notes, not every
-  column's name (a heading "Grue, Hungry Night-Stalkers" gives "Grue 1", not "Grue Hungry Night-Stalkers 1"; the Kharisiri table is the MoN case)
+  column's name (a heading "Grue, Hungry Night-Stalkers" gives "Grue 1", not "Grue Hungry Night-Stalkers 1"). The audit finds seven MoN titles:
+  the Kharisiri, the Carlyle guard dogs, the Ciimba, the Steadfast
+  Constables, Ahja Singh's hirelings, the Australian rowdies, and one
+  single NPC, Wu ("Wu, the Cat-Demon" imports as "Wu the Cat-Demon")
 - heading words dropped or miscased ("Average", "(Nyc)" for NYC)
 - footnotes restricting a weapon to some columns (the NYC cultists' handguns
   and throwing knives) give it only to those columns
 - tables that come out with no combat and no skills (the Children of the
   Sphinx): find whether the parser fails or the book prints them elsewhere
+- the audit finds 24 of the 27 tables (it takes a group to be consecutive
+  actors whose names differ in their last word and whose notes match); find
+  the three it misses and widen the check
 
 ### 1.3 One era per import
 
@@ -131,7 +137,12 @@ Importer, re-import pairing and packs; not the parser.
   Cowleses, Huston), a middle name plus a form suffix (Hypatia Masters, whose
   stat block is "Hypatia Masters Aspect"), a nickname only in the stat block
   (Jack "Brass" Brady), Mr. Lung and Mr. Lung Yun, an unaccented spelling in a
-  joint heading (Julio and Domingo Céspedes). General rules beside Doctor/Dr.
+  joint heading (Julio and Domingo Céspedes). The audit adds: Constable
+  only in the heading (Hubert Tumwell); middle names only in the stat block
+  (Lawrence and Eloise Vane); one heading for three sisters, each with her
+  age in parentheses (Gertie, Shula and Janice Wycroft); a name that matches
+  exactly yet gets no write-up (Bill Buckley's Ghost: find why); Wu (see the
+  taglines in 1.2). General rules beside Doctor/Dr.
 - **Notes leaks**: Jackson Elias's notes open with an unrelated Introduction
   passage; the Ghoul Pack takes the next section's Keeper note; the ten
   pre-gens' Pulp conversion box folds into Treasured Possession (make it its
@@ -139,14 +150,23 @@ Importer, re-import pairing and packs; not the parser.
 - **Weapons**: `needle` in the firearm keywords (`src/importer.ts`) makes a
   knitting needle a firearm; a thrown weapon at its own value gets a
   `Fighting (…)` skill instead of a Throw variant (darts, African throwing
-  knives); "Firearms (Rifl e)" (ligature split) becomes a melee weapon; Energy
-  Blast (Black Pharaoh) has no value and no skill.
+  knives; in the Pulp variants, "Dart (thrown)" gets `Fighting (Dart
+(thrown))`); "Firearms (Rifl e)" (ligature split) becomes a melee weapon;
+  Energy Blast (Black Pharaoh) has no value and no skill. The audit adds:
+  the Lightning gun gets its own `Firearms (Lightning gun)` skill on 23
+  actors (Kakakatak and the cultist squads) instead of a Firearms category;
+  manoeuvres ("Tongue Lash (mnvr)", "Tentacle Grab (mnvr)") get a skill of
+  their own each.
 - **Names**: `Fergus "McChum " Chum`; "Ping Tun-Tun Fighting" as a weapon
   name; alternate forms named without their owner ("Mother Aspect", "Demon
   Form").
 - **Items**: "Voorish Sign R'lyeh Text Commentaries" (a spell name merged into
   a tome's); Amulet of the Night Beasts and Taan's Ring have empty
   descriptions.
+- **Printed "none"**: Fog-spawn prints its HP as "n/a" with a footnote; the
+  parser drops it, so the dump can't tell "the book says none" from "the
+  parser lost it" (a dash, as Bill Buckley's Ghost prints for STR and HP,
+  is kept). Keep "n/a" values as printed, as dashes are.
 - **Spacing**: spaces before commas in notes (a made-up "Ada Lark , 40" shape); THS has a few.
 - **Open**: animals with no Sanity loss line (elephant, rhino, guard dogs)
   import as NPCs with Brawl, per the current rule. Operator to say whether they

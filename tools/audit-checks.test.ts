@@ -205,7 +205,7 @@ describe("unpunctuated", () => {
 });
 
 describe("incompleteActors", () => {
-  test("lists missing skills, combat, characteristics and HP", () => {
+  test("lists missing skills, combat, characteristics and HP, not printed dashes", () => {
     const found = incompleteActors([
       actor(),
       actor({
@@ -215,10 +215,18 @@ describe("incompleteActors", () => {
         combat: [],
         characteristics: { STR: { value: 50, raw: "50", marked: false } },
       }),
+      actor({
+        name: "Fog Ghost",
+        characteristics: Object.fromEntries(
+          ["STR", "CON", "SIZ", "DEX", "INT", "APP", "POW", "EDU", "HP"].map(
+            (k) => [k, { value: null, raw: "—", marked: false }],
+          ),
+        ),
+      }),
     ]);
     assert.deepStrictEqual(
       found.map((f) => `${f.name}: ${f.detail}`),
-      ["Fog Thing: no skills; no combat; missing CON SIZ DEX INT POW; null HP"],
+      ["Fog Thing: no skills; no combat; missing CON SIZ DEX INT POW; no HP"],
     );
   });
 });
