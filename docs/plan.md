@@ -370,9 +370,8 @@ from JSON (no running Foundry, per search results; README not checked).
   symlink to `~/Documents/RPGs/CallOfCthulhu/Masks of Nyarlathotep/`; the
   Keeper Reference Booklet repeats the book and is not used.
 - `npm run dump:json -- "<pdf>"` and `npm run dump:text -- "<pdf>"` write
-  `out/`. The session's audit scripts were scratch files; 1.0 makes them a
-  tool.
+  `out/`; `npm run audit -- "<name>"` audits a dump (1.0, done).
 - Local Foundry: 14.369 at `http://localhost:30003/` (no admin password),
   `coc7e` world with the "Token spike" test actors; launch with
   `~/git/foundry-dev/bin/fvtt launch 14.369` outside the sandbox.
-- Next step: 1.0, then 1.1.
+- Next step: 1.1.

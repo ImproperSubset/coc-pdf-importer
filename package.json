@@ -11,10 +11,11 @@
     "type-check": "tsc --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "test": "node --experimental-strip-types --import ./node-setup.ts --test ./src/*.test.ts",
+    "test": "node --experimental-strip-types --import ./node-setup.ts --test ./src/*.test.ts ./tools/*.test.ts",
     "test:integration": "node --experimental-strip-types --import ./node-setup.ts --test ./test/integration/*.test.ts",
     "dump:json": "node --experimental-strip-types --import ./node-setup.ts ./tools/dump-json.ts",
-    "dump:text": "node --experimental-strip-types --import ./node-setup.ts ./tools/dump.ts"
+    "dump:text": "node --experimental-strip-types --import ./node-setup.ts ./tools/dump.ts",
+    "audit": "node --experimental-strip-types --import ./node-setup.ts ./tools/audit.ts"
   },
   "keywords": [],
   "author": "",

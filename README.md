@@ -227,12 +227,17 @@ Foundry user data folder (e.g. `/Users/YOU/foundrydata`). Builds then land in
   `out/<name>.json` (each file holds `{ actors, items }`)
 - `npm run dump:text` — dump raw pdf.js text of a fixture → `out/<name>.txt`
   (for debugging extraction)
+- `npm run audit -- "<name>"` — list what the parser likely got wrong in
+  `out/<name>.json` (unpunctuated notes, incomplete stat blocks, odd names,
+  group tables, weapon skills after a mock import); with `fixtures/<name>.pdf`
+  also the PDF's metadata, font table, contents-page sections, write-up
+  headings no actor holds and glued group taglines (`tools/audit-checks.ts`)
 
 ### Testing
 
 Three tiers:
 
-- **Unit** (`src/*.test.ts`, run by `npm test`) — fast, self-contained checks:
+- **Unit** (`src/*.test.ts` and `tools/*.test.ts`, run by `npm test`) — fast, self-contained checks:
   the parsers against synthetic stat-block / reference text, and the Foundry
   builders against a mock harness. These use generic placeholder names, no
   copyrighted text.
