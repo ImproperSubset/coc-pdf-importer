@@ -228,7 +228,7 @@ async function importCharacter(
   // Embedded items take stable ids, so a re-import's items match a loaded
   // copy's by id.
   const idFor = embeddedIds(actor.id ?? "");
-  const { base, customWeapons } = buildItems(character, indexes);
+  const { base, customWeapons } = buildItems(character, indexes, type);
   const embedded = [...base, ...extraItems].map((d) => ({
     ...d,
     _id: idFor(d),
@@ -868,10 +868,18 @@ const WEAPON_ALIASES: {
 const RIFLE_RE =
   /\b(rifle|carbine|enfield|springfield|garand|mauser|winchester|musket)\b|-action\b/i;
 
+// A stat block's "Brawl" attack is its Fighting (Brawl) skill, printed with its
+// damage; it is the system's Unarmed weapon. Mnvr is the system's no-damage
+// Fighting (Brawl) manoeuvre, which every actor with that attack gets.
+const BRAWL_COCID = "i.weapon.brawl";
+const MNVR_COCID = "i.weapon.mnvr";
+const MANEUVER_RE = /\bman(?:oeuv|euv)re?\b|\bmnvr\b/i;
+
 // Ordered candidate canonical names for an attack: exact name, damage-based melee
 // size, then firearm aliases (core name before its wiki fallback within each).
 function weaponCandidates(attack: CombatEntry): string[] {
   const out: string[] = [attack.name];
+  if (/^brawl$/i.test(attack.name.trim())) out.push(BRAWL_COCID);
   out.push(...meleeCandidates(attack));
   const isRifle = RIFLE_RE.test(attack.name);
   for (const rule of WEAPON_ALIASES) {
@@ -927,6 +935,7 @@ function applyThrownProfile(weapon: any): void {
 function buildItems(
   character: CocCharacter,
   indexes: CompendiumIndexes,
+  type: EntityType,
 ): { base: any[]; customWeapons: CustomWeapon[] } {
   const base: any[] = [];
   const customWeapons: CustomWeapon[] = [];
@@ -1016,6 +1025,21 @@ function buildItems(
       addAttackRule(weapon, attack);
       customWeapons.push({ weapon, value: attack.value, ranged, thrown });
     }
+  }
+
+  // Mnvr beside a Brawl, unless a human's printed manoeuvre (which uses Brawl)
+  // already is one; a creature's printed manoeuvres use its Fighting skill.
+  const mnvr = indexes.weapon.get(MNVR_COCID);
+  const hasBrawl = base.some(
+    (d) => d.type === "weapon" && d.flags?.CoC7?.cocidFlag?.id === BRAWL_COCID,
+  );
+  const printsManeuver =
+    type !== "creature" &&
+    character.combat.some((a) => MANEUVER_RE.test(a.name));
+  if (mnvr && hasBrawl && !printsManeuver) {
+    const weapon = structuredClone(mnvr);
+    delete weapon._id;
+    base.push(weapon);
   }
 
   // Spells.
@@ -1213,7 +1237,7 @@ function customWeaponData(
   ranged: boolean,
   db: string | null,
 ): any {
-  const maneuver = /\bman(?:oeuv|euv)re?\b|\bmnvr\b/i.test(attack.name);
+  const maneuver = MANEUVER_RE.test(attack.name);
   const { damage, addb, ahdb } = normalizeWeaponDamage(attack.damage, db);
   return {
     name: attack.name,

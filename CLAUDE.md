@@ -314,6 +314,13 @@ return a.toObject(); })), "application/json", "<file>.json")`; the operator puts
   10/16/20-gauge and 12-gauge sawed-off/pump/semi-auto map to their entries;
   a scalpel is a knife; names with laser/ray/beam/blaster are firearms (a
   staff takes Rifle/Shotgun). `Brawl` is not mapped to Core Content's `Punch`.
+- A printed `Brawl` (or `Fighting (Brawl)`) is the stat blocks' way of listing
+  the Fighting (Brawl) skill, which the Skills line leaves out; it matches the
+  system's Unarmed weapon (`i.weapon.brawl`) and keeps the name "Brawl". An
+  actor with that attack also gets the system's `Mnvr` (`i.weapon.mnvr`, a
+  no-damage Brawl manoeuvre), whatever its type (a human with a Sanity loss
+  line is a creature), unless it is a non-creature that prints a manoeuvre of
+  its own. Without either weapon in the system, the import goes on without it.
 
 ## Compendium import
 

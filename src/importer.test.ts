@@ -1607,6 +1607,121 @@ describe("importCharacters — compendium lookup", () => {
     assert.equal(skill.flags.CoC7.cocidFlag.id, "i.skill.fighting-brawl");
   });
 
+  const brawlSkill = () => ({
+    name: "Fighting (Brawl)",
+    type: "skill",
+    system: { skillName: "Brawl", specialization: "Fighting", base: "25" },
+    flags: { CoC7: { cocidFlag: { id: "i.skill.fighting-brawl" } } },
+  });
+  const unarmed = () => ({
+    name: "Unarmed",
+    type: "weapon",
+    img: "icons/unarmed.svg",
+    system: {
+      skill: { main: { name: "i.skill.fighting-brawl" } },
+      range: { normal: { damage: "1D3" } },
+      properties: { rngd: false, addb: true },
+    },
+    flags: { CoC7: { cocidFlag: { id: "i.weapon.brawl" } } },
+  });
+  const mnvr = () => ({
+    name: "Mnvr",
+    type: "weapon",
+    img: "icons/mnvr.svg",
+    system: {
+      skill: { main: { name: "i.skill.fighting-brawl" } },
+      range: { normal: { damage: "" } },
+      properties: { rngd: false, mnvr: true, addb: false },
+    },
+    flags: { CoC7: { cocidFlag: { id: "i.weapon.mnvr" } } },
+  });
+  const weaponsOf = (a: any) => a.items.filter((i: any) => i.type === "weapon");
+
+  test("a printed Brawl is the system's Unarmed under the book's name, with a Mnvr", async () => {
+    mockCompendium({ skills: [brawlSkill()], weapons: [unarmed(), mnvr()] });
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [attack("Brawl", { value: 45, damage: "1D3" })],
+        }),
+        makeCharacter({
+          name: "Thug",
+          combat: [attack("Fighting (Brawl)", { value: 55, damage: "1D3" })],
+        }),
+      ],
+      { notify: false },
+    );
+    for (const [a, value] of [
+      [created[0], "45"],
+      [created[1], "55"],
+    ]) {
+      const [brawl, maneuver] = weaponsOf(a);
+      assert.equal(brawl.name, "Brawl");
+      assert.equal(brawl.flags.CoC7.cocidFlag.id, "i.weapon.brawl");
+      assert.equal(brawl.system.range.normal.damage, "1D3");
+      assert.equal(maneuver.name, "Mnvr");
+      assert.equal(maneuver.flags.CoC7.cocidFlag.id, "i.weapon.mnvr");
+      assert.equal(maneuver.system.skill.main.name, "i.skill.fighting-brawl");
+      assert.equal(maneuver.system.properties.mnvr, true);
+      const skills = a.items.filter(
+        (i: any) => i.type === "skill" && i.name === "Fighting (Brawl)",
+      );
+      assert.equal(skills.length, 1);
+      assert.equal(skills[0].system.base, value);
+    }
+  });
+
+  test("Mnvr comes only with a Brawl, and not beside a human's printed manoeuvre", async () => {
+    mockCompendium({ skills: [brawlSkill()], weapons: [unarmed(), mnvr()] });
+    await importCharacters(
+      [
+        // An animal with no Sanity loss line: an NPC without a Brawl.
+        makeCharacter({ combat: [attack("Fighting", { value: 50 })] }),
+        makeCharacter({
+          sanityLoss: "1/1D6",
+          combat: [attack("Fighting", { value: 50 })],
+        }),
+        makeCharacter({
+          combat: [
+            attack("Brawl", { value: 45, damage: "1D3" }),
+            attack("Grab (mnvr)", { value: 45, damage: null }),
+          ],
+        }),
+        // A creature's printed manoeuvre uses its Fighting skill, not Brawl.
+        makeCharacter({
+          sanityLoss: "1/1D6",
+          combat: [
+            attack("Brawl", { value: 45, damage: "1D3" }),
+            attack("Grab (mnvr)", { value: 60, damage: null }),
+          ],
+        }),
+      ],
+      { notify: false },
+    );
+    const names = created.map((a) => weaponsOf(a).map((w: any) => w.name));
+    assert.deepEqual(names, [
+      ["Fighting"],
+      ["Fighting"],
+      ["Brawl", "Grab (mnvr)"],
+      ["Brawl", "Mnvr", "Grab (mnvr)"],
+    ]);
+  });
+
+  test("without the system's Mnvr, a Brawl still links to Unarmed", async () => {
+    mockCompendium({ skills: [brawlSkill()], weapons: [unarmed()] });
+    await importCharacters(
+      [
+        makeCharacter({
+          combat: [attack("Brawl", { value: 45, damage: "1D3" })],
+        }),
+      ],
+      { notify: false },
+    );
+    const weapons = weaponsOf(created[0]);
+    assert.equal(weapons.length, 1);
+    assert.equal(weapons[0].flags.CoC7.cocidFlag.id, "i.weapon.brawl");
+  });
+
   const lightningGun = () => ({
     name: "Lightning Gun",
     type: "weapon",
