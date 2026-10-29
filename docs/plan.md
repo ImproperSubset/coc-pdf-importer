@@ -96,7 +96,7 @@ Zoltan, the Australian rowdies, Ahja Singh's hirelings, the sample Children of
 the Sphinx, Leech/Host); lettered squads (Cultist Squad A1–D5). Fixes:
 
 - a tagline after the name (same line or next) goes to the notes, not every
-  column's name ("Kharisiri, Deathless Life-Suckers" gives "Kharisiri 1")
+  column's name (a heading "Grue, Hungry Night-Stalkers" gives "Grue 1", not "Grue Hungry Night-Stalkers 1"; the Kharisiri table is the MoN case)
 - heading words dropped or miscased ("Average", "(Nyc)" for NYC)
 - footnotes restricting a weapon to some columns (the NYC cultists' handguns
   and throwing knives) give it only to those columns
@@ -141,7 +141,7 @@ Importer, re-import pairing and packs; not the parser.
 - **Items**: "Voorish Sign R'lyeh Text Commentaries" (a spell name merged into
   a tome's); Amulet of the Night Beasts and Taan's Ring have empty
   descriptions.
-- **Spacing**: spaces before commas in notes ("Sánchez , 35"); THS has a few.
+- **Spacing**: spaces before commas in notes (a made-up "Ada Lark , 40" shape); THS has a few.
 - **Open**: animals with no Sanity loss line (elephant, rhino, guard dogs)
   import as NPCs with Brawl, per the current rule. Operator to say whether they
   should be creatures.
@@ -180,6 +180,32 @@ Spike first (below), then build.
   `tokenOffset: { position: {x, y} }` is a source-comment option; `scale`
   passes through to `addImageLayer` but is undocumented. Manifest: minimum and
   verified Foundry 13.
+- **Chosen token look** (spike on the local 14.369 `coc7e` world, Erica
+  Carlyle): TheGreatNacho frame 13 (public domain), trimmed to the ring's
+  outer edge so the ring fills the token, and with the faint white sheen
+  inside the ring made fully transparent (it brightens and flattens the
+  portrait); the mask is a full disc out to the ring's outer edge (a mask
+  clips the frame too, so a smaller disc cuts the ring):
+  `Data/tokenizer/frames/nacho-13-trimmed.webp` and
+  `nacho-13-trimmed-mask.webp` (the live server needs the same two files).
+  Tokenizer settings: `add-frame-default` and `add-mask-default` on,
+  `default-frame-npc` and `default-frame-neutral` the trimmed frame,
+  `default-mask-layer` the trimmed mask, `default-crop-image` on,
+  `default-color-layer` off, `default-token-offset` −20, no Foundry dynamic
+  ring (`auto-apply-dynamic-token-ring` off,
+  `force-disable-dynamic-token-ring` on). The importer then calls
+  `autoToken(actor)` with no options; no per-token scale. Tokenizer's own
+  `default-mask.png` is a ring, not a disc, and blanks the token; the
+  undocumented `tokenOffset.scale` moved the portrait out of view.
+- **Install archive**: the offline step writes one tar or zip per book that
+  the operator unpacks inside `worlds/<world>/` on the server (the world's
+  name is not known when it is built): `assets/MoN/<Name>.webp` (portraits)
+  and `assets/tokenizer/nacho-13-trimmed.webp` and
+  `nacho-13-trimmed-mask.webp` (frame and mask). The importer builds paths
+  from `game.world.id` at run time. Tokenizer's settings live in the world's
+  database, so they are set once by hand or by a snippet the archive
+  carries; tokens are rendered on the server by `autoToken` at Load. The
+  book's format file (Phase 3) can travel in the same archive.
 - Our carry-over keeps a Keeper-set image and token through re-import and
   Update, so hand fixes in Tokenizer's dialog survive. The dialog starts from
   the current token image, not the portrait.
