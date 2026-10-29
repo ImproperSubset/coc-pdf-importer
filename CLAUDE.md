@@ -3,7 +3,8 @@
 A Foundry VTT module that imports actors and items from Chaosium Call of Cthulhu
 PDFs into the CoC7 system. This clone is the fork `ImproperSubset/coc-pdf-importer`
 of `dgladkov/coc-pdf-importer`. `README.md` describes the module, its scripts and
-its architecture; this file holds what a session needs beyond it.
+its architecture; this file holds what a session needs beyond it. The
+cross-session work plan and the operator's decisions are in `docs/plan.md`.
 
 ## Working rules
 
