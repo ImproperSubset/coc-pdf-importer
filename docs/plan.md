@@ -357,6 +357,12 @@ size. Today `src/process.ts` is 4,643 lines.
 Open: whether the toolset grows here or in its own repo, with this one as its
 CoC7 Foundry last mile.
 
+## Later (not scheduled)
+
+- Skill checks printed in the book's text ("a Hard Spot Hidden roll"): record
+  them as data so the Keeper can roll them from Foundry. Not started; CoC7's
+  support for roll links not yet checked.
+
 ## Survey: extraction tools and prior art
 
 Extraction, four MoN pages (contents, a sidebar page, the first Dramatis
