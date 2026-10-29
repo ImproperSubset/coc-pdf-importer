@@ -148,6 +148,7 @@ interface TextChunk {
   end: number;
   newline: boolean; // this run begins a new line
   page?: number; // 1-based page the run was extracted from (0 when unknown)
+  font?: string; // the PDF font the run is set in
 }
 
 export interface CocCharacter {
@@ -1179,6 +1180,29 @@ const DESCRIPTION_MAX = 80; // guard against paragraph-headers bleeding into des
 // roll", "devolved humans char. averages roll").
 const STAT_TABLE_COLUMN_HEADER = /\s*\bchar\.?\s+averages?\s+rolls?\s*$/i;
 
+// Where a heading's descriptor ends: the run holding `abs` and the runs after
+// it in the same font and height on the same page (a descriptor set in
+// italics can wrap onto a second line). Null when `abs` is in body text or no
+// chunks are known.
+function descriptorEnd(
+  chunks: TextChunk[] | undefined,
+  abs: number,
+  bodyHeight: number,
+): number | null {
+  if (!chunks) return null;
+  let k = chunks.findIndex((c) => c.start <= abs && abs < c.end);
+  if (k < 0 || chunks[k].height <= bodyHeight) return null;
+  const { font, height, page } = chunks[k];
+  while (
+    k + 1 < chunks.length &&
+    chunks[k + 1].font === font &&
+    chunks[k + 1].height === height &&
+    chunks[k + 1].page === page
+  )
+    k++;
+  return chunks[k].end;
+}
+
 function parseHeader(
   text: string,
   strIndex: number,
@@ -1318,8 +1342,14 @@ function parseHeader(
       text.slice(Math.max(leftBound, commaAbs - nameLookback), commaAbs),
     );
     if (name && looksLikeProperName(name)) {
-      // The descriptor runs until the backstory's first capitalised word.
-      const desc = (text.slice(descAbs).match(/^\s*([^.A-Z]*)/) || [])[1] ?? "";
+      // The descriptor runs to the end of the font its age is set in ("appears
+      // 70, head of Caduceus", in italics after the bold name); without
+      // chunks, until the backstory's first capitalised word.
+      const end = descriptorEnd(chunks, descAbs - 1, bodyHeight);
+      const desc =
+        end != null
+          ? text.slice(descAbs, end)
+          : ((text.slice(descAbs).match(/^\s*([^.A-Z]*)/) || [])[1] ?? "");
       return {
         name,
         age: Number(wideAge[1]),
@@ -4290,6 +4320,7 @@ export function parseActors(pageItems: RawItem[][]): CocCharacter[] {
       end: offset,
       newline: run.newline,
       page: run.page,
+      font: run.font,
     });
   }
 

@@ -190,6 +190,52 @@ describe("write-up bounds from the page layout", () => {
   });
 });
 
+describe("a descriptor read far from STR", () => {
+  const line = (
+    str: string,
+    height: number,
+    y: number,
+    font = height === 9 ? "body" : "bold",
+  ): RawItem => ({
+    str,
+    font,
+    height,
+    eol: true,
+    x: 72,
+    y,
+    w: 200,
+  });
+  const prose = (y: number) =>
+    line("she keeps her plans to herself and trusts nobody here.", 9, y);
+
+  // A long write-up and a taller subheading between the heading and STR send
+  // the parser to the wide search, which reads the descriptor from the
+  // heading's italics, proper nouns and all.
+  test("keeps the heading's whole italic descriptor, capitalised words included", () => {
+    const pages: RawItem[][] = [
+      [
+        line("Testa Vane (Vexa),", 11, 700),
+        line("appears 70, head of", 11, 686, "italic"),
+        line("Oddcorp", 11, 674, "italic"),
+        line("Her Past", 11, 662),
+        ...Array.from({ length: 8 }, (_, i) => prose(660 - i * 12)),
+        line("Her Hidden Plans", 14, 540),
+        ...Array.from({ length: 8 }, (_, i) => prose(520 - i * 12)),
+        line(
+          "STR 50 CON 50 SIZ 50 DEX 50 INT 50 APP 50 POW 50 EDU 50 SAN 50 " +
+            "HP 10 DB: 0 Build: 0 Move: 8 MP: 10 Combat Brawl 40% (20/8), damage 1D3",
+          9,
+          400,
+        ),
+      ],
+    ];
+    const [testa] = parseActors(pages);
+    assert.equal(testa.name, "Testa Vane (Vexa)");
+    assert.equal(testa.age, 70);
+    assert.equal(testa.description, "head of Oddcorp");
+  });
+});
+
 describe("parseCocCharacters (unit)", () => {
   test("em-dash characteristics parse as null", () => {
     const [c] = parseCocCharacters(
