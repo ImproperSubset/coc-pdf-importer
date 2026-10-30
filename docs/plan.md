@@ -352,6 +352,26 @@ which has CoC7 8.16, Core Content 1.3 (`cha-coc-fvtt-en-keeperitems`) and the
 
 ### 1.6 Test-world import and review
 
+Machinery checked on the local 14.369 `coc7e` world with `fvtt eval`: a
+Pulp import of MoN (366 actors, 76 items), table folders with their titles
+as descriptions, Load chapter (Chapter 2: 55 actors under their pack ids,
+the folder tree copied), Load chapter offered on chapter folders only, and
+a classic re-import keeping all 366 ids and the loaded copies'. Found:
+
+- the book title kept the file name's "v1.9 reduced file size" (fixed:
+  `bookTitleFromFileName`); a pack's label keeps the title of its first
+  import, so the test world's MoN packs keep the old one
+- a compendium's top-level sort order is per browser (`core.
+collectionSortingModes`, `scope: "client"`), so any other browser shows
+  the chapter folders alphabetically (Appendix D first, Prologue last), THS
+  included. Open: put the chapters inside one top-level book folder in
+  each pack (a folder's `sorting` is world data), or number them so
+  alphabetical is book order, or accept it.
+- a classic re-import leaves the Pulp-only Ghoul Pack in the pack: a
+  re-import replaces the entries it brings and removes none. Open: whether
+  a re-import removes entries the book no longer yields (the era's
+  Pulp-only ones at least).
+
 Import into the test world (local Foundry or a snapshot of the operator's
 world). Check Core Content matching in a classic world, chapter folders,
 Load/Unload, portraits and tokens. The operator's findings go back into 1.1–1.5.

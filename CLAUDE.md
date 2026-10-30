@@ -361,7 +361,9 @@ chapters in play, updated in place when a re-import fixes the book.
   and v14 servers clean `createCompendium`'s metadata with the pack schema,
   which has `flags`, and save it to `world.json`), in a compendium folder
   named for the book (`src/packs.ts`). Actors sit in chapter folders at the
-  pack's top level (sorted manually, `core.collectionSortingModes`), items in
+  pack's top level (sorted manually through `core.collectionSortingModes`,
+  which v13 and v14 keep per browser, `scope: "client"`: only the browser
+  that made the pack sorts it by book order), items in
   type folders; each entry also carries its chapter in a flag. A re-import
   replaces by name within the pack, keeping ids; packs hold no play state. A
   locked pack stops the import with a message. The PDF dialog imports only
