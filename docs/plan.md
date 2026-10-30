@@ -125,7 +125,12 @@ them). A console snippet can list the tokens and macros pointing at them.
   and text wrapped round a picture were read as indented first lines; 69
   false breaks in MoN, 4 in THS's golden, none added. A break before a
   lowercase word is now left only where it is right ("al-Shakti has been …")
-  or at a notes leak (below).
+  or at a notes leak (below). Checked: where a bullet set further left moves
+  a column's edge, a first-line indent after a full line is missed (MoN 12 of
+  1,694, THS 11 of 858), but none of those lines is in imported text, so it
+  is left as is. Taking the most common full-line start as the edge instead
+  breaks pages whose only full lines are bullets (body text narrowed round a
+  portrait), and losing 50 real breaks in MoN.
 - **Notes leaks**: Jackson Elias's notes open with an unrelated Introduction
   passage; Kakakatak's write-up opens mid-sentence ("conspiracy, and can
   recite …") after its heading; the Ghoul Pack takes the next section's Keeper note; the ten
