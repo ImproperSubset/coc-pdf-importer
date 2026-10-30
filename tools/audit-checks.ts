@@ -23,6 +23,7 @@ export interface TextItem {
   height: number;
   y: number;
   eol: boolean;
+  glued?: boolean; // continues the previous item's word (see markGlued)
 }
 
 // A page's items as lines: an item continues the line when it sits on the
@@ -37,7 +38,9 @@ export function pageLines(page: number, items: TextItem[]): Line[] {
         line = { page, y: it.y, font: it.font, height: it.height, text: "" };
         lines.push(line);
       }
-      line.text = (line.text + " " + it.str).replace(/\s+/g, " ").trim();
+      line.text = (line.text + (it.glued ? "" : " ") + it.str)
+        .replace(/\s+/g, " ")
+        .trim();
       broken = false;
     }
     if (it.eol) broken = true;

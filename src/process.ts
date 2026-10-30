@@ -148,8 +148,23 @@ interface TextChunk {
   start: number;
   end: number;
   newline: boolean; // this run begins a new line
+  glued?: boolean; // continues the previous chunk's word: no space between
   page?: number; // 1-based page the run was extracted from (0 when unknown)
   font?: string; // the PDF font the run is set in
+}
+
+// Chunks' texts joined by spaces, except before a glued chunk.
+function joinChunks(chunks: TextChunk[]): string {
+  let out = "";
+  for (const c of chunks) out += (out && !c.glued ? " " : "") + c.text;
+  return out;
+}
+
+// Add a chunk's text to `parts`, onto the last part when the chunk is glued
+// and follows that part's chunk directly.
+function pushChunk(parts: string[], c: TextChunk, follows: boolean): void {
+  if (follows && c.glued && parts.length) parts[parts.length - 1] += c.text;
+  else parts.push(c.text);
 }
 
 export interface CocCharacter {
@@ -715,7 +730,7 @@ function attachWriteups(
     let j = i;
     const lines: string[] = [];
     while (j < chunks.length && isHeading(chunks[j]))
-      lines.push(chunks[j++].text);
+      pushChunk(lines, chunks[j], j++ > i);
     i = j - 1;
     if (j >= chunks.length || /^STR\b/.test(chunks[j].text)) continue;
     // The heading may follow a caption set at the same height ("Handout:
@@ -749,11 +764,15 @@ function attachWriteups(
       const parts: string[] = [];
       const end = breaks.find((b) => b > chunks[from].start) ?? Infinity;
       let k = from;
+      let pushed = -1;
       for (; k < chunks.length; k++) {
         const c = chunks[k];
         if ((c.height > bodyHeight + 0.5 && c.newline) || c.start >= end) break;
         if (/^STR\b/.test(c.text)) return { parts, next: k, own: true };
-        if (isBody(c)) parts.push(c.text);
+        if (isBody(c)) {
+          pushChunk(parts, c, pushed === k - 1);
+          pushed = k;
+        }
       }
       return { parts, next: k, own: false };
     };
@@ -1030,10 +1049,7 @@ function headerFromChunks(
   // STR means the heading is a section title sitting above a body-height name
   // line ("Unhappily Ever After" over "Hattie May (née James), age 26"); defer to
   // the text parser, which reads that name line.
-  const skipped = chunks
-    .slice(i + 1, anchorIdx)
-    .map((c) => c.text)
-    .join(" ");
+  const skipped = joinChunks(chunks.slice(i + 1, anchorIdx));
   if (
     /\b(?:age|appears)\s+\d{1,3}\b|,\s*\d{1,3}\+?\s*,|\bAge:\s*\d/i.test(
       skipped,
@@ -1070,7 +1086,7 @@ function headerFromChunks(
   // stripped as furniture.
   const lastPage = lines[lines.length - 1][0].page ?? 0;
   lines = lines.filter((line) => (line[0].page ?? 0) === lastPage);
-  const lineText = (line: TextChunk[]) => line.map((c) => c.text).join(" ");
+  const lineText = joinChunks;
   const hasAge = (t: string) =>
     /\b(?:age|appears)\s+\d{1,3}\b|,\s*\d{1,3}\+?\s*,/i.test(t);
   const ageLine = lines.findIndex((line) => hasAge(lineText(line)));
@@ -1168,7 +1184,9 @@ function sectionHeadingFromChunks(
           alpha(parts.join(" ")).includes(alpha(chunks[j].text))));
       j--
     ) {
-      parts.unshift(chunks[j].text);
+      if (chunks[j + 1]?.glued && parts.length)
+        parts[0] = chunks[j].text + parts[0];
+      else parts.unshift(chunks[j].text);
       start = chunks[j].start;
     }
     const text = clean(parts.join(" "));
@@ -1460,11 +1478,17 @@ function parseHeader(
   // No age, but "<Name>, <description>" right before STR (common in books that
   // print names in caps, e.g. "JOSH WINSCOTT, damned by his legacy", or
   // "Walter Corbitt, Undead Fiend").
+  // A descriptor is a phrase, not sentences: "Implant Fear, plus any others
+  // at the Keeper's discretion. *See …" before a table title names no one.
   const descMatch = /([^.,]*?)\s*,\s+(\S[^,]*?)\s*$/.exec(nameWindow);
-  if (descMatch) {
+  if (descMatch && !/[a-z]{3}[.!?]\s/.test(descMatch[2])) {
     const name = extractName(descMatch[1]);
     if (name) {
-      const headerStart = winStart + nameOffset(descMatch[1], name);
+      // Found in the text itself: the match sits anywhere in the window, and
+      // the window may have had a column-header row cut out.
+      const found = text.lastIndexOf(name, strIndex);
+      const headerStart =
+        found >= winStart ? found : winStart + nameOffset(descMatch[1], name);
       return {
         name,
         age: null,
@@ -4266,6 +4290,43 @@ export interface RawItem {
   x: number; // left edge, in PDF points
   y: number; // baseline, in PDF points (up is larger)
   w: number; // width, in PDF points
+  // Touches the previous item on its line with no space between: pdf.js gives
+  // a printed space as its own item, so this continues the previous word
+  // ("Bill Buckley" "’s Ghost", "Hilton Adams" ". Although").
+  glued?: boolean;
+}
+
+// Mark each item that continues the item before it on the same line: no line
+// break, no whitespace at either edge, the same baseline, a gap well short of
+// a space, and a boundary inside a word — punctuation against a word ("Adams"
+// ". Although", "(" "Prospero House") or two letters in one font. A stat
+// label touching its value in another font ("Build:" "3", "10/20*" "MP:") is
+// two words; overlapping items (a page number printed twice) are not glued.
+export function markGlued(items: RawItem[]): RawItem[] {
+  let prev: RawItem | null = null;
+  let broken = true;
+  for (const it of items) {
+    if (it.str) {
+      const gap = prev ? it.x - (prev.x + prev.w) : 0;
+      it.glued =
+        !!prev &&
+        !broken &&
+        !/\s$/.test(prev.str) &&
+        !/^\s/.test(it.str) &&
+        Math.abs(it.y - prev.y) <= 0.5 &&
+        gap >= -1 &&
+        gap <= 0.15 * Math.max(it.height, prev.height) &&
+        (/^[,.;:!?)\]’”%]/.test(it.str) ||
+          /[([“‘]$/.test(prev.str) ||
+          (it.font === prev.font &&
+            /[A-Za-z]$/.test(prev.str) &&
+            /^[A-Za-z]/.test(it.str)));
+      prev = it;
+      broken = false;
+    }
+    if (it.eol) broken = true;
+  }
+  return items;
 }
 
 async function processPage(
@@ -4274,25 +4335,27 @@ async function processPage(
 ): Promise<RawItem[]> {
   const page = await pdf.getPage(i);
   const content = await page.getTextContent();
-  return content.items.map((raw) => {
-    const item = raw as {
-      str?: string;
-      fontName?: string;
-      height?: number;
-      width?: number;
-      transform?: number[];
-      hasEOL?: boolean;
-    };
-    return {
-      str: item.str ?? "",
-      font: item.fontName ?? "",
-      height: Math.round((item.height ?? 0) * 10) / 10,
-      eol: item.hasEOL ?? false,
-      x: item.transform?.[4] ?? 0,
-      y: item.transform?.[5] ?? 0,
-      w: item.width ?? 0,
-    };
-  });
+  return markGlued(
+    content.items.map((raw) => {
+      const item = raw as {
+        str?: string;
+        fontName?: string;
+        height?: number;
+        width?: number;
+        transform?: number[];
+        hasEOL?: boolean;
+      };
+      return {
+        str: item.str ?? "",
+        font: item.fontName ?? "",
+        height: Math.round((item.height ?? 0) * 10) / 10,
+        eol: item.hasEOL ?? false,
+        x: item.transform?.[4] ?? 0,
+        y: item.transform?.[5] ?? 0,
+        w: item.width ?? 0,
+      };
+    }),
+  );
 }
 
 // Read every page's text items once, in parallel. This raw per-page item list is
@@ -4337,9 +4400,16 @@ function pagesToText(
   let out = "";
   pageItems.forEach((items, i) => {
     if (sectionPages.has(i + 1)) out += " " + SECTION_MARK;
-    out += " " + items.map((it) => it.str).join(" ");
+    out += " " + joinItems(items);
   });
   return out.replace(/\s+/g, " ").trim();
+}
+
+// Items' strings joined by spaces, except before a glued item.
+function joinItems(items: RawItem[]): string {
+  let out = "";
+  for (const it of items) out += (out && !it.glued ? " " : "") + it.str;
+  return out;
 }
 
 // Parse actor stat blocks from the raw page items. Extraction keeps the font size
@@ -4356,6 +4426,7 @@ export function parseActors(pageItems: RawItem[][]): CocCharacter[] {
     height: number;
     text: string;
     newline: boolean;
+    glued?: boolean; // continues the previous run's word (no space between)
     page: number;
     y: number;
   }[] = [];
@@ -4385,13 +4456,14 @@ export function parseActors(pageItems: RawItem[][]): CocCharacter[] {
           last.font === it.font &&
           last.height === it.height
         ) {
-          last.text += " " + text;
+          last.text += (it.glued ? "" : " ") + text;
         } else {
           runs.push({
             font: it.font,
             height: it.height,
             text,
             newline,
+            glued: !newline && !!it.glued,
             page,
             y: it.y,
           });
@@ -4480,6 +4552,7 @@ export function parseActors(pageItems: RawItem[][]): CocCharacter[] {
   const parts: string[] = [];
   const breaks: number[] = [];
   let offset = 0;
+  let keptPrev = false; // the run before this one went into the text
   for (const run of runs) {
     const furniture = isFurniture(run);
     prevWasValue = !furniture && /^[\d ]+$/.test(run.text);
@@ -4497,9 +4570,12 @@ export function parseActors(pageItems: RawItem[][]): CocCharacter[] {
         run.y > span.bottom
       )
         breaks.push(offset);
+      keptPrev = false;
       continue;
     }
-    if (parts.length) {
+    const glued = keptPrev && !!run.glued;
+    keptPrev = true;
+    if (parts.length && !glued) {
       parts.push(" ");
       offset += 1;
     }
@@ -4512,6 +4588,7 @@ export function parseActors(pageItems: RawItem[][]): CocCharacter[] {
       start,
       end: offset,
       newline: run.newline,
+      glued,
       page: run.page,
       font: run.font,
     });
@@ -4706,7 +4783,7 @@ function pageLines(items: RawItem[]): PageLine[] {
         };
         lines.push(line);
       } else {
-        line.text += " " + it.str;
+        line.text += (it.glued ? "" : " ") + it.str;
         line.right = Math.max(line.right, it.x + it.w);
         line.height = Math.max(line.height, it.height);
       }

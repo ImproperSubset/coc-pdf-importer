@@ -17,6 +17,7 @@ import {
   parseAttackRules,
   parseIntro,
   parseActors,
+  markGlued,
 } from "./process.ts";
 import type { RawItem } from "./process.ts";
 
@@ -3332,5 +3333,131 @@ describe("paragraphs", () => {
     ];
     const starts = paragraphStarts([bullets]);
     assert.ok(!starts.has("continues here, indented to the "));
+  });
+});
+
+describe("words printed in touching pieces", () => {
+  // An item at x with width w on one baseline; eol ends its line.
+  const item = (
+    str: string,
+    x: number,
+    w: number,
+    font = "body",
+    eol = false,
+    y = 600,
+    height = 9,
+  ): RawItem => ({ str, font, height, eol, x, y, w });
+
+  test("glues punctuation and same-font letters that touch, nothing else", () => {
+    const items = markGlued([
+      item("Ada Lark", 72, 40, "bold"),
+      item(", page 9", 112, 30), // touches, punctuation: glued
+      item(" ", 142, 2),
+      item("(", 144, 3),
+      item("Old Mill", 147, 30, "bold"), // after "(": glued
+      item("Build:", 180, 20, "bold"),
+      item("3", 200, 4), // label touching its value in another font
+      item("E", 210, 6, "caps"),
+      item("RICA", 216, 20, "caps"), // small capitals, one font: glued
+      item("7", 240, 4),
+      item("7", 238, 4), // a number printed twice over itself
+      item("Move:", 250, 20, "bold", true),
+      item("12", 270, 8, "body", false, 588), // next line
+    ]);
+    assert.deepEqual(
+      items.map((it) => !!it.glued),
+      [
+        ...[false, true, false, false, true], // name, comma, space, (, Old Mill
+        ...[false, false, false, true], // Build:, 3, E, RICA
+        ...[false, false, false, false], // 7, 7 over it, Move:, 12
+      ],
+    );
+  });
+
+  test("a write-up keeps a bold name's comma, possessive and brackets tight", () => {
+    const head = (str: string, x: number, w: number, eol = false) =>
+      item(str, x, w, "head", eol, 700, 11);
+    const filler = (): RawItem[] => [
+      item("THE TOWN", 72, 60, "run", true, 760, 12),
+      item(
+        "Ordinary prose fills the page from top to bottom.",
+        72,
+        200,
+        "body",
+        true,
+        700,
+      ),
+    ];
+    const pages: RawItem[][] = [
+      [
+        head("Ada Lark", 72, 40),
+        head("’s Ghost, restless shade", 112, 90, true),
+        item("The ghost walks the mill (see", 72, 110, "body", false, 680),
+        item(" ", 182, 2, "body", false, 680),
+        item("Old Mill", 184, 30, "bold", false, 680),
+        item(", page 9). It mourns", 214, 70, "body", true, 680),
+        item("Ada Lark", 72, 30, "bold", false, 668),
+        item("’s lost ring.", 102, 40, "body", true, 668),
+        item(
+          "Ada Lark’s Ghost, restless shade",
+          72,
+          120,
+          "head",
+          true,
+          400,
+          11,
+        ),
+        item(
+          "STR 50 CON 50 SIZ 50 DEX 50 INT 50 APP 50 POW 50 EDU 50 SAN 50 " +
+            "HP 10 DB: 0 Build: 0 Move: 8 MP: 10 Combat Brawl 40% (20/8), damage 1D3",
+          72,
+          200,
+          "body",
+          true,
+          380,
+        ),
+      ],
+      ...Array.from({ length: 8 }, filler),
+    ];
+    const ghost = parseActors(pages.map(markGlued)).find(
+      (c) => c.name === "Ada Lark's Ghost",
+    )!;
+    assert.equal(
+      ghost.notes[0],
+      "Ada Lark's Ghost, restless shade\n\nThe ghost walks the mill " +
+        "(see Old Mill, page 9). It mourns Ada Lark's lost ring.",
+    );
+  });
+});
+
+describe("a name heading after another block's text", () => {
+  const stats = (n: string) =>
+    `STR ${n} CON 50 SIZ 50 DEX 50 INT 50 APP 50 POW 50 EDU 50 SAN 50 HP 10 ` +
+    "DB: 0 Build: 0 Move: 8 MP: 10";
+
+  test("a '<Name>, <descriptor>' heading starts at the name, not before it", () => {
+    const [ada] = parseCocCharacters(
+      `Ada Lark, 40, clerk ${stats("50")} Combat Brawl 40% (20/8), damage 1D3 ` +
+        "Skills Climb 60%, Jump 70%, Listen 65%, Track 50%. " +
+        `Grey Ape, the larger beast ${stats("90")}`,
+    );
+    assert.deepEqual(ada.skills, {
+      Climb: 60,
+      Jump: 70,
+      Listen: 65,
+      Track: 50,
+    });
+  });
+
+  test("sentences after a comma are no descriptor: a spell list stays whole", () => {
+    const [ada] = parseCocCharacters(
+      `Ada Lark, 40, witch ${stats("50")} Combat Brawl 40% (20/8), damage 1D3 ` +
+        "Spells: Shade Fall, Grey Hand, plus any others at the Keeper's " +
+        "discretion. *See the appendix of Spells. " +
+        "GRIM HIRELINGS OF ADA LARK 1 2 " +
+        "STR 50 60 CON 50 60 SIZ 50 60 DEX 50 60 INT 50 60 APP 50 60 " +
+        "POW 50 60 EDU 50 60 SAN 50 60 HP 10 12 DB 0 0 Build 0 0 Move 8 8 MP 10 12",
+    );
+    assert.deepEqual(ada.spells, ["Shade Fall", "Grey Hand"]);
   });
 });

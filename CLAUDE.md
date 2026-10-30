@@ -84,6 +84,10 @@ cross-session work plan and the operator's decisions are in `docs/plan.md`.
   with `node_modules` symlinked (`item.transform[4]`/`[5]` are x/y). Remove
   any debug line before committing: Prettier can split it past a one-line
   `sed`, so grep for it.
+- Read the parsed text, not only the audit's counts: the operator can't
+  proofread a whole book. Odd text — a phrase that doesn't end reasonably, a
+  space before punctuation, a split word, text from elsewhere — is a parser
+  bug until shown otherwise; count its pattern across the dumps and report it.
 - Fix classes, not instances: when one case breaks (a write-up cut by a
   sidebar), audit the whole book for its kind before fixing — every name
   heading that matched no actor, every NPC bullet no actor holds, every note

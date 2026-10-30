@@ -118,7 +118,8 @@ them). A console snippet can list the tokens and macros pointing at them.
   only in the heading (Hubert Tumwell); middle names only in the stat block
   (Lawrence and Eloise Vane); one heading for three sisters, each with her
   age in parentheses (Gertie, Shula and Janice Wycroft); a name that matches
-  exactly yet gets no write-up (Bill Buckley's Ghost: find why); Wu (below).
+  exactly yet got no write-up (Bill Buckley's Ghost: fixed with spacing,
+  below); Wu (below).
   General rules beside Doctor/Dr.
 - **Notes leaks**: Jackson Elias's notes open with an unrelated Introduction
   passage; the Ghoul Pack takes the next section's Keeper note; the ten
@@ -135,7 +136,7 @@ them). A console snippet can list the tokens and macros pointing at them.
   and the four squad members who carry one) instead of a Firearms category;
   manoeuvres ("Tongue Lash (mnvr)", "Tentacle Grab (mnvr)") get a skill of
   their own each.
-- **Names**: `Fergus "McChum " Chum`; "Ping Tun-Tun Fighting" as a weapon
+- **Names**: "Ping Tun-Tun Fighting" as a weapon
   name; alternate forms named without their owner ("Mother Aspect", "Demon
   Form").
 - **Items**: "Voorish Sign R'lyeh Text Commentaries" (a spell name merged into
@@ -155,7 +156,21 @@ them). A console snippet can list the tokens and macros pointing at them.
   parser drops it, so the dump can't tell "the book says none" from "the
   parser lost it" (a dash, as Bill Buckley's Ghost prints for STR and HP,
   is kept). Keep "n/a" values as printed, as dashes are.
-- **Spacing**: spaces before commas in notes (a made-up "Ada Lark , 40" shape); THS has a few.
+- **Spacing (done)**: pdf.js prints a word in touching pieces where its font
+  or colour changes ("Bill Buckley" "’s Ghost", a bold name before ", page
+  9"); the parser joined them with a space. Pieces that touch with
+  punctuation or two same-font letters between are joined without one
+  (`markGlued`); a stat label touching its value ("Build:" "3") stays apart.
+  Stray spaces in MoN went from 629 to 13 (the rest are ".38" and the like),
+  THS's from 37 to 5, each as the book prints it. It also exposed a
+  header-offset bug that cut Lin Yenyu's block short (her spells went to her
+  hirelings, the hirelings' languages to Tun-Tun), now fixed.
+- **Line-end compounds and dashes**: "wide- brimmed", "yard- diameter"
+  (a hyphenated compound broken across lines keeps the break's space) and
+  dashes read as "- " ("information- perhaps"); MoN 29, THS 11.
+- **Sanity-loss leak**: Bill Buckley's Ghost's Sanity loss note runs on into
+  the next section ("THE GREAT SANDY DESERT …", 3,700 characters); the only
+  one so long in either book.
 - **Not yet checked**: spells the Appendix B parser misses.
 
 ### 1.5 Portraits and tokens

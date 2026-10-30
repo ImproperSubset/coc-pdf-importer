@@ -14,7 +14,11 @@ import process from "node:process";
 // uses Map.prototype.getOrInsertComputed).
 import * as pdfjs from "pdfjs-dist/legacy/build/pdf.mjs";
 import { importCharacters } from "../src/importer.ts";
-import { parseBookSections, printedPageOffset } from "../src/process.ts";
+import {
+  markGlued,
+  parseBookSections,
+  printedPageOffset,
+} from "../src/process.ts";
 import type { ProcessedDocument } from "../src/process.ts";
 import { FIXTURES, OUT } from "./fixtures.ts";
 import {
@@ -75,22 +79,27 @@ async function readPdf(file: string) {
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    const textItems = content.items.map((raw) => {
-      const it = raw as {
-        str?: string;
-        fontName?: string;
-        height?: number;
-        transform?: number[];
-        hasEOL?: boolean;
-      };
-      return {
-        str: it.str ?? "",
-        font: it.fontName ?? "",
-        height: Math.round((it.height ?? 0) * 10) / 10,
-        y: it.transform?.[5] ?? 0,
-        eol: it.hasEOL ?? false,
-      };
-    });
+    const textItems = markGlued(
+      content.items.map((raw) => {
+        const it = raw as {
+          str?: string;
+          fontName?: string;
+          height?: number;
+          width?: number;
+          transform?: number[];
+          hasEOL?: boolean;
+        };
+        return {
+          str: it.str ?? "",
+          font: it.fontName ?? "",
+          height: Math.round((it.height ?? 0) * 10) / 10,
+          x: it.transform?.[4] ?? 0,
+          y: it.transform?.[5] ?? 0,
+          w: it.width ?? 0,
+          eol: it.hasEOL ?? false,
+        };
+      }),
+    );
     pageTexts.push(textItems.map((it) => it.str).join(" "));
     lines.push(...pageLines(i, textItems));
     // A font's real name is known once a page using it has its operator
