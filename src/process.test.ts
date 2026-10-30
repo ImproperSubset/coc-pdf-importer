@@ -1276,9 +1276,21 @@ describe("parseCocCharacters (unit)", () => {
     const [c] = writeupFor(
       [{ t: "Town Guards" }],
       ["Town Guards"],
-      "The guards are bored.",
+      "The guards are bored. • Traits: idle.",
     );
-    assert.equal(c.notes[0], "Town Guards\n\nThe guards are bored.");
+    assert.equal(
+      c.notes[0],
+      "Town Guards\n\nThe guards are bored. • Traits: idle.",
+    );
+  });
+
+  test("a bare name over an encounter, with no NPC bullets, is no write-up", () => {
+    const [c] = writeupFor(
+      [{ t: "Town Guards" }],
+      ["Town Guards"],
+      "In the gatehouse the guards play cards until dawn.",
+    );
+    assert.deepEqual(c.notes, []);
   });
 
   test("a write-up's bullets after a full-page diagram resume", () => {

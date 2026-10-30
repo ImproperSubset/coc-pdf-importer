@@ -816,10 +816,14 @@ function attachWriteups(
       targets = names.flatMap(lookup);
     }
     // A heading without a comma names a group by itself ("Bolivian
-    // Soldiers"): it counts when it is exactly an actor's name.
+    // Soldiers"): it counts when it is exactly an actor's name and its text
+    // is a write-up, with the NPC bullets. A bare name over an encounter or
+    // a chapter's lead-in ("Kakakatak", "Tyranissh") is no write-up.
+    let bareName = false;
     if (!targets.length && !lines.join(" ").includes(",")) {
       heading = lines.join(" ").replace(/\s+/g, " ").trim();
       targets = byName.get(key(heading)) ?? [];
+      bareName = true;
     }
     if (!targets.length) continue;
     // Ends at the next heading or section title; a stat block's STR before
@@ -890,6 +894,13 @@ function attachWriteups(
     const stop = text.search(/[.!?][)”"]?[^.!?]*$/);
     text = stop >= 0 ? text.slice(0, stop + 1).trim() : "";
     if (!text) continue;
+    if (
+      bareName &&
+      !/•\s*(?:Link|Description|Traits|Roleplaying\s+hooks?|Likely\s+to\s+be\s+found\s+at)\s*:/i.test(
+        text,
+      )
+    )
+      continue;
     for (const t of targets)
       found.set(t, [...(found.get(t) ?? []), `${heading}\n\n${text}`]);
   }

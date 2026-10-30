@@ -144,7 +144,9 @@ them). A console snippet can list the tokens and macros pointing at them.
   page header inside the block). A sentence-initial label word in the text
   after a block ("Skills are …") keeps the old, longer end. Backstory
   sections lost their printed closing full stop (MoN all but one, THS half);
-  kept now. Still to do: the ten
+  kept now. A heading without a comma attaches only when its text has NPC
+  bullets: Kakakatak's encounter passage and Tyranissh's three chapter
+  lead-ins (THS) are no write-ups (operator's call). Still to do: the ten
   pre-gens' "PULP ADJUSTMENTS" box folds into Treasured Possession (per the
   decision: its own Keeper note in both eras, its definite parts applied in a
   Pulp import).
