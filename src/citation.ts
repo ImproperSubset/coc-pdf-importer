@@ -31,7 +31,10 @@ export function bookTitleFromFileName(fileName: string): string {
     .replace(/_/g, " ")
     .replace(/^\s*CHA\d{4,6}\s*/i, "")
     .replace(/^[\s-]+/, "")
-    .replace(/[\s-]+v?\d+(?:\.\d+)*\s*$/i, "")
+    // A version ends the title, with any file note after it ("v1.9 reduced
+    // file size"); a bare number only at the end.
+    .replace(/[\s-]+v\d+(?:\.\d+)*\b.*$/i, "")
+    .replace(/[\s-]+\d+(?:\.\d+)*\s*$/, "")
     .replace(/\s+-\s+Call of Cthulhu\s*$/i, "")
     .replace(/\s+/g, " ")
     .trim();

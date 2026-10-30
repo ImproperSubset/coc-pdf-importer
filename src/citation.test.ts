@@ -22,6 +22,13 @@ describe("bookTitleFromFileName", () => {
       bookTitleFromFileName("CHA99999 Test Rules for Testing.pdf"),
       "Test Rules for Testing",
     );
+    // A note after the version is no part of the title.
+    assert.equal(
+      bookTitleFromFileName(
+        "cha99999_-_fog_of_testing_v1.9_reduced_file_size.pdf",
+      ),
+      "Fog of Testing",
+    );
   });
 
   test('drops a trailing " - Call of Cthulhu" and keeps mixed case', () => {
