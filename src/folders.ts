@@ -28,6 +28,18 @@ export function findBookFolder(
   );
 }
 
+// The book's existing top-level folders in the world (Actor and Item; made
+// by Load), renamed to `title` and flagged: an import into the book's packs
+// renames them with the packs' folder rather than at the next Load.
+export async function renameBookFolders(
+  title: string,
+  sourceFile: string,
+): Promise<void> {
+  for (const type of ["Actor", "Item"] as const)
+    if (findBookFolder(type, title, sourceFile))
+      await ensureBookFolder(type, title, sourceFile);
+}
+
 // The book's top-level folder of `type` (see `findBookFolder`), renamed to
 // `title` and flagged when found, else created.
 export async function ensureBookFolder(

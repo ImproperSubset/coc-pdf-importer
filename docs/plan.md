@@ -364,13 +364,13 @@ a classic re-import keeping all 366 ids and the loaded copies'. Found:
 - a compendium's top-level sort order is per browser (`core.
 collectionSortingModes`, `scope: "client"`), so any other browser shows
   the chapter folders alphabetically (Appendix D first, Prologue last), THS
-  included. Open: put the chapters inside one top-level book folder in
-  each pack (a folder's `sorting` is world data), or number them so
-  alphabetical is book order, or accept it.
+  included. Accepted by the operator: the order that matters is the world
+  folders', which is world data and is book order.
 - a classic re-import leaves the Pulp-only Ghoul Pack in the pack: a
-  re-import replaces the entries it brings and removes none. Open: whether
-  a re-import removes entries the book no longer yields (the era's
-  Pulp-only ones at least).
+  re-import replaces the entries it brings and removes none. Kept as is by
+  the operator's decision.
+- the world folders Load made kept the old title after a re-import renamed
+  the pack folder (fixed: the import renames them too).
 
 Import into the test world (local Foundry or a snapshot of the operator's
 world). Check Core Content matching in a classic world, chapter folders,

@@ -1,7 +1,7 @@
 // Unit tests for finding, renaming and creating a book's top-level folder.
 import { describe, test, beforeEach, afterEach } from "node:test";
 import assert from "node:assert";
-import { ensureBookFolder } from "./folders.ts";
+import { ensureBookFolder, renameBookFolders } from "./folders.ts";
 
 describe("ensureBookFolder", () => {
   let folders: any[];
@@ -31,6 +31,20 @@ describe("ensureBookFolder", () => {
   });
 
   const flagOf = (f: any) => f.flags?.["coc-pdf-importer"]?.sourceFile;
+
+  test("renames the book's world folders that exist, and makes none", async () => {
+    folder({
+      id: "a",
+      name: "Old Title",
+      type: "Actor",
+      flags: { "coc-pdf-importer": { sourceFile: "test_book_v1" } },
+    });
+    await renameBookFolders("Test Book", "test_book_v1");
+    assert.deepEqual(
+      folders.map((f) => [f.type, f.name]),
+      [["Actor", "Test Book"]],
+    );
+  });
 
   test("creates a folder named for the title, flagged with the file", async () => {
     const f = await ensureBookFolder("Actor", "Test Book", "test_book_v1");

@@ -5,7 +5,11 @@
 // importDocument ties the two together so callers (the UI, the dump tool) deal
 // with a single call.
 import { processPDF } from "./process.ts";
-import { ensureBookFolder, findBookFolder } from "./folders.ts";
+import {
+  ensureBookFolder,
+  findBookFolder,
+  renameBookFolders,
+} from "./folders.ts";
 import { ensureBookPack } from "./packs.ts";
 import { boldLabelHtml, loadSpellIndex, loadWeaponIndex } from "./importer.ts";
 import { SpellMatcher, indexedSpells, tomeSpellNames } from "./spellmatch.ts";
@@ -957,6 +961,7 @@ export async function importDocument(
   const title = options.bookTitle || bookTitleFromFileName(sourceFile);
   const actorPack = await ensureBookPack(title, sourceFile, "actors");
   const itemPack = await ensureBookPack(title, sourceFile, "items");
+  await renameBookFolders(title, sourceFile);
   const worldCopies = (type: "Actor" | "Item") => {
     const folder = findBookFolder(type, title, sourceFile);
     return folder?.id ? documentsUnder(worldTarget(type), folder.id) : [];
