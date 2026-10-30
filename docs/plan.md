@@ -154,10 +154,10 @@ the standard ones; the "(Pulp)" naming and the "\<folder> (Pulp)" folder code
 are gone. The era is recorded on each actor (`era` flag), not on the pack:
 a pack's metadata can't be changed once made. A mock import of MoN gives
 365 actors classic, 366 Pulp (Ghoul Pack, imported as "Ghoul Pack"), and a
-re-import in the other era kept all 365 ids. "Pulp boxes stay in the Keeper
-notes" is read as: printed Pulp material the parser already puts in notes
-(the pre-gens' conversion box) stays there in both eras; nothing new is
-written. Not done: Detective Inspector John Craig is marked a Pulp option
+re-import in the other era kept all 365 ids. The pre-gens' "PULP
+ADJUSTMENTS" boxes (archetype, a characteristic to 90, HP, skill changes,
+talents) are not applied in either era; how they should be is open (1.4).
+Not done: Detective Inspector John Craig is marked a Pulp option
 only in his write-up's heading ("PULP OPTION: …"), which no rule connects
 to his stat block; he imports in both eras (see 1.4).
 
@@ -165,7 +165,7 @@ The plan as written: importer, re-import pairing and packs; not the parser.
 
 - read the world era; show and allow overriding the choice in the dialog
 - Pulp import: the Pulp profile (Pulp Combat skills and weapons, talents);
-  classic: the standard profile; Pulp boxes stay in the Keeper notes
+  classic: the standard profile
 - packs record their era; a re-import in the other era replaces by name under
   the same ids
 - retire the "(Pulp)" naming and the old "\<folder> (Pulp)" folder code
