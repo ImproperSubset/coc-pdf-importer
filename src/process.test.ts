@@ -3299,6 +3299,41 @@ describe("paragraphs", () => {
     );
   });
 
+  test("a bullet's hanging second line starts no paragraph", () => {
+    const hanging = [
+      line(700, "A plain full line of body text to set the column edge at"),
+      line(688, "the left margin, and it carries on across this line too."),
+      line(
+        676,
+        "• Traits: the clerk keeps very careful ledgers for the",
+        58,
+        224,
+      ),
+      line(664, "mill owner, and checks them twice before every audit."),
+    ];
+    const starts = paragraphStarts([hanging]);
+    const text = hanging.map((l) => l.str).join(" ");
+    const paras = markParagraphs(text, starts).split("\n\n");
+    assert.deepEqual(
+      paras.map((p) => p.split(" ").slice(0, 2).join(" ")),
+      ["A plain", "• Traits:"],
+    );
+  });
+
+  test("text wrapped round a picture starts no paragraph", () => {
+    const wrapped = [
+      line(700, "A plain full line of body text to set the column edge at"),
+      line(688, "the left margin, and it carries on across this line too."),
+      line(676, "Her brother keeps the books at the mill and, in truth, he"),
+      line(664, "fears the clerk saw what he did, but he hides", 84, 198),
+      line(652, "it behind a smile and a", 112, 170),
+      line(640, "steady hand.", 123, 50),
+    ];
+    const starts = paragraphStarts([wrapped]);
+    const text = wrapped.map((l) => l.str).join(" ");
+    assert.equal(markParagraphs(text, starts), text);
+  });
+
   test("each bullet starts a paragraph", () => {
     assert.equal(
       markParagraphs(

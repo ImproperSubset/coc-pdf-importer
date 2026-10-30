@@ -121,11 +121,14 @@ them). A console snippet can list the tokens and macros pointing at them.
   (the book gives him no statistics) and Nuri of El Wasta (no stat block);
   two item headings the audit takes for write-ups (Secret Mysteries of Asia,
   the Device of Rods, Wheels, and Mirrors), for the audit to skip.
-- **Paragraph breaks mid-sentence**: a break before a lowercase word ("if
-  Ewa thinks that the investigators¶are abusing"), many inside bullets; MoN
-  53, THS 3 (in its golden). Find which `paragraphStarts` rule fires.
+- **Paragraph breaks mid-sentence (done)**: a bullet's hanging second line
+  and text wrapped round a picture were read as indented first lines; 69
+  false breaks in MoN, 4 in THS's golden, none added. A break before a
+  lowercase word is now left only where it is right ("al-Shakti has been …")
+  or at a notes leak (below).
 - **Notes leaks**: Jackson Elias's notes open with an unrelated Introduction
-  passage; the Ghoul Pack takes the next section's Keeper note; the ten
+  passage; Kakakatak's write-up opens mid-sentence ("conspiracy, and can
+  recite …") after its heading; the Ghoul Pack takes the next section's Keeper note; the ten
   pre-gens' "PULP ADJUSTMENTS" box folds into Treasured Possession (per the
   decision: its own Keeper note in both eras, its definite parts applied in a
   Pulp import).

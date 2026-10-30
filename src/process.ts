@@ -4892,7 +4892,20 @@ export function paragraphStarts(pages: RawItem[][]): Set<string> {
       if (column === undefined || columnOf(prev) !== column) continue;
       const dy = prev.y - cur.y;
       if (dy <= 0) continue;
-      const indented = cur.x - column >= 4 && prev.x - column < 2;
+      // Not a bullet's second line (bullets hang their wrapped lines), nor
+      // text wrapping round a picture, whose next line is indented too.
+      const next = body[i + 1];
+      const wraps =
+        !!next &&
+        next.y < cur.y &&
+        cur.y - next.y < 1.6 * leading &&
+        next.x - column >= 4 &&
+        next.x < column + columnWidth / 2;
+      const indented =
+        cur.x - column >= 4 &&
+        prev.x - column < 2 &&
+        !/^\s*•/.test(prev.text) &&
+        !wraps;
       const afterShort =
         prev.right < column + columnWidth - 25 &&
         /[.!?:”"’)]$/.test(prev.text.trim()) &&
