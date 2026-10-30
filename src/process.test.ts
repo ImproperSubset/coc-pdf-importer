@@ -345,6 +345,34 @@ describe("parseCocCharacters (unit)", () => {
     assert.equal(b.name, "Bone-Gnawers of the Marsh 1");
   });
 
+  test("a group table's members record its printed title and their label", () => {
+    const cs = parseCocCharacters(
+      "Some prose ends here. GRUES, FOG HUNTERS 1 2 STR 60 60 CON 60 60 SIZ 60 60 DEX 60 60 " +
+        "INT 60 60 APP 60 60 POW 60 60 EDU 60 60 SAN 30 30 HP 12 12 DB: 0 Build: 0 Move: 8",
+    );
+    assert.deepEqual(
+      cs.map((c) => [c.name, c.table]),
+      [
+        [
+          "Grues 1",
+          {
+            title: "Grues, Fog Hunters",
+            label: "1",
+            folder: "Grues, Fog Hunters",
+          },
+        ],
+        [
+          "Grues 2",
+          {
+            title: "Grues, Fog Hunters",
+            label: "2",
+            folder: "Grues, Fog Hunters",
+          },
+        ],
+      ],
+    );
+  });
+
   test("a group title's tagline is the members' description, not their name", () => {
     const stats =
       "STR 60 60 CON 60 60 SIZ 60 60 DEX 60 60 INT 60 60 APP 60 60 POW 60 60 EDU 60 60 " +

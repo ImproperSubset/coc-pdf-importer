@@ -265,46 +265,43 @@ describe("nameOddities", () => {
 });
 
 describe("groupTables and actorNameIssues", () => {
-  const actors = [
-    actor({ name: "Fog Wardens (Fhq) 1", notes: ["Use for all."] }),
-    actor({ name: "Fog Wardens (Fhq) 2", notes: ["Use for all."] }),
-    actor({ name: "The Grey Lady", notes: ["One."] }),
-    actor({ name: "The Grey Man", notes: ["Another."] }),
-    actor({ name: "Ada Lark" }),
-    actor({ name: "Ada Lark" }),
-  ];
+  const member = (name: string, title: string, label: string) =>
+    actor({ name, table: { title, label, folder: title.split(",")[0] } });
 
-  test("groups consecutive actors differing in their last word, same notes, no repeats", () => {
-    assert.deepStrictEqual(groupTables(actors), [
-      { name: "Fog Wardens (Fhq)", page: 5, labels: ["1", "2"] },
+  test("lists each table with its folder and members", () => {
+    assert.deepStrictEqual(
+      groupTables([
+        member("Grue 1", "Grues, Fog Hunters", "1"),
+        member("Grue 2", "Grues, Fog Hunters", "2"),
+        actor(),
+      ]),
+      [
+        {
+          name: "Grues, Fog Hunters",
+          folder: "Grues",
+          page: 5,
+          labels: ["1", "2"],
+          members: ["Grue 1", "Grue 2"],
+        },
+      ],
+    );
+  });
+
+  test("a name repeats only within a table; acronyms in title case show", () => {
+    const found = actorNameIssues([
+      member("Fog Cultist 1", "East Cultists", "1"),
+      member("Fog Cultist 1", "West Cultists", "1"),
+      actor({ name: "Fog Wardens (Fhq)" }),
+      actor(),
+      actor({ name: "Bo Reed" }),
+      actor(),
     ]);
-  });
-
-  test("a new label letter starts a new table", () => {
-    const squads = ["A1", "A2", "B1", "B2"].map((l) =>
-      actor({ name: `Fog Squad ${l}` }),
-    );
     assert.deepStrictEqual(
-      groupTables(squads).map((g) => g.labels),
+      found.map((f) => `${f.name}: ${f.detail}`),
       [
-        ["A1", "A2"],
-        ["B1", "B2"],
+        "Fog Wardens (Fhq): short title-case parenthetical (an acronym?)",
+        "Ada Lark: printed 2 times",
       ],
-    );
-  });
-
-  test("checks a group once by its name; reports duplicates", () => {
-    assert.deepStrictEqual(
-      actorNameIssues(actors.slice(0, 4)).map((f) => `${f.name}: ${f.detail}`),
-      [
-        "Fog Wardens (Fhq) (group): short title-case parenthetical (an acronym?)",
-      ],
-    );
-    assert.deepStrictEqual(
-      actorNameIssues([actor(), actor({ name: "Bo Reed" }), actor()]).map(
-        (f) => `${f.name}: ${f.detail}`,
-      ),
-      ["Ada Lark: printed 2 times"],
     );
   });
 });

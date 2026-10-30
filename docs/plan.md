@@ -112,8 +112,18 @@ Sphinx's combat, armour and Sanity loss, each with its own attack and
 damage (the book prints no skills for them); a stray "char." column header
 left two creatures' notes (Children of the Sphinx, Egyptian Cobra). The
 audit finds all 27 (it had counted the four squads as one). THS unchanged.
-"Average" stays dropped from titles ("Bloody Tongue Cultists (NYC) 1"),
-as it was. Wu ("Wu, the Cat-Demon") is a single NPC, not a table: see 1.4.
+Wu ("Wu, the Cat-Demon") is a single NPC, not a table: see 1.4.
+
+Then, at the operator's direction (the title describes the whole table; the
+column header is the individual): each table is its own folder inside its
+chapter, and a per-book list (`src/tables.ts`, an early piece of Phase 2's
+profiles, to be ported there) gives each table's short folder name and its
+members' names: a personal name alone ("Bernard", "Rex"), else a short type
+and the header ("Bloody Tongue Cultist 3", "Child of the Sphinx
+(Cheetah)"). The full title is the folder's description. Same names in two
+tables (the NYC and Kenya cultists, the England and Egypt Brotherhood) are
+kept apart on re-import by the table title. Checked by a mock double
+import of MoN: every id and folder unchanged.
 
 The plan as written:
 

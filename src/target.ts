@@ -57,6 +57,7 @@ export async function ensureFolder(
   name: string,
   parent: string | null,
   sort?: number,
+  description?: string,
 ): Promise<FoundryFolder | null> {
   const existing = target
     .folders()
@@ -69,6 +70,7 @@ export async function ensureFolder(
         type: target.type,
         folder: parent,
         ...(sort !== undefined ? { sort } : {}),
+        ...(description ? { description } : {}),
       },
       createOptions(target),
     );

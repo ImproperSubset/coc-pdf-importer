@@ -2423,6 +2423,85 @@ describe("importCharacters — chapter folders", () => {
   });
 });
 
+describe("importCharacters — group table folders", () => {
+  const folderNamed = (name: string) => folders.find((f) => f.name === name);
+  const parentId = (f: any) => f?.folder?.id ?? f?.folder ?? null;
+  const member = (
+    name: string,
+    chapter: string,
+    title: string,
+    folder: string,
+    label: string,
+  ) => makeCharacter({ name, chapter, table: { title, label, folder } });
+
+  test("a table's members go in its folder inside their chapter", async () => {
+    await importCharacters(
+      [
+        member("Grue 1", "Chapter 1: Fog", "Grues, Fog Hunters", "Grues", "1"),
+        member("Grue 2", "Chapter 1: Fog", "Grues, Fog Hunters", "Grues", "2"),
+        makeCharacter({ name: "Ada Lark", chapter: "Chapter 1: Fog" }),
+      ],
+      { folderName: "Book", source: "Book", notify: false },
+    );
+    const chapter = folderNamed("Chapter 1: Fog");
+    const table = folderNamed("Grues");
+    assert.equal(parentId(table), chapter.id);
+    assert.equal(table.description, "Grues, Fog Hunters");
+    const byName = (n: string) => created.find((a) => a.name === n);
+    assert.equal(byName("Grue 1").folder, table.id);
+    assert.equal(byName("Grue 2").folder, table.id);
+    assert.equal(byName("Ada Lark").folder, chapter.id);
+    assert.equal(
+      byName("Grue 1").flags["coc-pdf-importer"].table,
+      "Grues, Fog Hunters",
+    );
+  });
+
+  test("same-named members of two tables keep their own ids on a re-import", async () => {
+    folders.push({ id: "fi", name: "Book", type: "Actor", sorting: "m" });
+    const old = (id: string, table: string): any => {
+      const doc: any = {
+        id,
+        name: "Fog Cultist 1",
+        folder: { id: "fi" },
+        flags: { "coc-pdf-importer": { table } },
+      };
+      doc.toObject = () => ({ _id: id, name: doc.name, type: "npc" });
+      doc.delete = async () => world.splice(world.indexOf(doc), 1);
+      return doc;
+    };
+    world.push(old("east", "East Cultists"), old("west", "West Cultists"));
+    // Imported in the other order: pairing by name alone would swap them.
+    await importCharacters(
+      [
+        member(
+          "Fog Cultist 1",
+          "Chapter 2: West",
+          "West Cultists",
+          "West",
+          "1",
+        ),
+        member(
+          "Fog Cultist 1",
+          "Chapter 1: East",
+          "East Cultists",
+          "East",
+          "1",
+        ),
+      ],
+      { folderName: "Book", source: "Book", notify: false },
+    );
+    const inFolder = (name: string) =>
+      created.find((a) => a.folder === folderNamed(name).id);
+    assert.equal(inFolder("West").id, "west");
+    assert.equal(inFolder("East").id, "east");
+    assert.notEqual(
+      inFolder("West").flags.CoC7.cocidFlag.id,
+      inFolder("East").flags.CoC7.cocidFlag.id,
+    );
+  });
+});
+
 describe("importCharacters — book-titled folders", () => {
   test("a re-import renames the file-named folder to the title, keeping its actors' ids", async () => {
     folders.push({ id: "fi", name: "test_book_v1", type: "Actor" });

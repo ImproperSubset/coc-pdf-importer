@@ -191,7 +191,9 @@ list("Items", itemIssues(items, actors));
 const groups = groupTables(actors);
 heading("Group tables", groups.length);
 for (const g of groups)
-  console.log(`- ${g.name}${at(g.page)}: ${g.labels.join(", ")}`);
+  console.log(
+    `- ${g.name}${at(g.page)} → folder "${g.folder}": ${g.members.join(", ")}`,
+  );
 
 // --- mock import ------------------------------------------------------------
 

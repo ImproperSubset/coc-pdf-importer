@@ -1,4 +1,5 @@
 import { CORRECTIONS, applyCorrections, bookCode } from "./errata.ts";
+import { TABLE_NAMES, applyTableNames } from "./tables.ts";
 import * as pdfjs from "pdfjs-dist";
 import { parsePulpItems } from "./pulp.ts";
 import type { PulpItem } from "./pulp.ts";
@@ -170,6 +171,17 @@ export interface CocCharacter {
   page?: number; // 1-based PDF page of the block's STR line, when known
   printedPage?: number; // the page number the book prints on that page, when known
   chapter?: string; // the book section that page falls in ("Chapter 1: Testland"), when the book has a contents page
+  table?: GroupTable; // the group table the actor is a column of, when it is one
+}
+
+// A group table an actor is one column of: the table's title as printed
+// ("Grues, Hungry Night-Stalkers"), the actor's column label ("3", "Rex"),
+// and the folder its members are filed in (the title, unless the book's
+// table list shortens it; tables.ts).
+export interface GroupTable {
+  title: string;
+  label: string;
+  folder: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -1899,6 +1911,18 @@ function parseBlock(
     /^\s*\(([^)]*)\)/.exec(spellsText)?.[1] ?? "",
     columnLabels,
   );
+  // The title as printed, from the heading when it holds the group's name.
+  const printed = sectionHeading
+    .replace(/\s+([,:])/g, "$1")
+    .replace(/\s+/g, " ")
+    .trim();
+  const squashed = (t: string) => t.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const title =
+    printed && groupName && squashed(printed).includes(squashed(groupName))
+      ? isAllCapsName(printed)
+        ? titleCaseTitle(printed)
+        : printed
+      : [groupName, groupDescription].filter(Boolean).join(", ");
   const out: CocCharacter[] = [];
   for (let j = 0; j < numCols; j++) {
     const label = columnLabels[j];
@@ -1931,6 +1955,7 @@ function parseBlock(
       ...(pulp
         ? { pulp: { ...pulp, combat: pulp.combat.filter(armed(label)) } }
         : {}),
+      ...(title ? { table: { title, label, folder: title } } : {}),
     });
   }
   return out;
@@ -4819,7 +4844,8 @@ export function placeInBook(
 // page once into the shared page-item representation, then runs the actor parser
 // and the (Foundry-free) item parser over it independently. Neither this nor the
 // parsers touch Foundry — turning items into world documents is the importer's job.
-// With the PDF's file name, the book's corrections (errata.ts) are applied.
+// With the PDF's file name, the book's corrections (errata.ts) and table
+// names (tables.ts) are applied.
 export async function processPDF(
   data: Uint8Array,
   options: { fileName?: string } = {},
@@ -4858,6 +4884,12 @@ export async function processPDF(
     for (const section of actor.background)
       section.text = markParagraphs(section.text, starts);
   }
+  const namings = TABLE_NAMES[bookCode(options.fileName ?? "")];
+  if (namings)
+    for (const n of applyTableNames(namings, actors))
+      console.warn(
+        `coc-pdf-importer: table name for "${n.table}" applies nowhere in ${options.fileName}`,
+      );
   const corrections = CORRECTIONS[bookCode(options.fileName ?? "")];
   if (corrections)
     for (const c of applyCorrections(corrections, actors, items))

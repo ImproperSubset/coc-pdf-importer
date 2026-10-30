@@ -63,17 +63,20 @@ export async function createReplacing<T>(
 // Pair incoming names with existing documents of the same name. Each
 // incoming name takes the next unclaimed existing document of that name, so
 // two same-named incoming entries pair with two old ones rather than one.
-// Same-named documents beyond the incoming count are the surplus.
+// Same-named documents beyond the incoming count are the surplus. `keyOf`
+// reads an existing document's name as the incoming names spell it (a group
+// table's member is keyed by its table too; importer.ts).
 export function pairByName<T extends { name?: string }>(
   existing: T[],
   incomingNames: string[],
+  keyOf: (doc: T) => string = (doc) => doc.name ?? "",
 ): { take(name: string): T | null; surplus: T[] } {
   const wanted = new Map<string, number>();
   for (const name of incomingNames)
     wanted.set(name, (wanted.get(name) ?? 0) + 1);
   const byName = new Map<string, T[]>();
   for (const doc of existing) {
-    const name = doc.name ?? "";
+    const name = keyOf(doc);
     if (!wanted.has(name)) continue;
     const list = byName.get(name) ?? [];
     list.push(doc);
@@ -90,8 +93,9 @@ export function pairByName<T extends { name?: string }>(
 export async function claimReplaced<T extends ReplaceableDocument>(
   existing: T[],
   incomingNames: string[],
+  keyOf?: (doc: T) => string,
 ): Promise<{ take(name: string): T | null }> {
-  const pairs = pairByName(existing, incomingNames);
+  const pairs = pairByName(existing, incomingNames, keyOf);
   for (const extra of pairs.surplus) {
     try {
       await extra.delete();

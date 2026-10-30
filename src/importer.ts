@@ -76,10 +76,16 @@ export async function importCharacters(
   // contents: an actor already in it that shares a name with an incoming one is
   // replaced under the same id rather than duplicated.
   const replaced = await claimReplacedActors(target, root, characters);
-  const adopted = pairByName(options.adopt ?? [], [
-    ...characters.map(actorName),
-    ...characters.filter((c) => c.pulp).map(pulpVariantName),
-  ]);
+  const adopted = pairByName(
+    options.adopt ?? [],
+    [
+      ...characters.map(actorKey),
+      ...characters
+        .filter((c) => c.pulp)
+        .map((c) => actorKey({ ...c, name: pulpVariantName(c) })),
+    ],
+    docKey,
+  );
   const result: ImportResult = { created: 0, failed: 0, actors: [], pulp: 0 };
 
   // Look up the system's skill/weapon/spell/talent compendia once for the whole
@@ -102,7 +108,7 @@ export async function importCharacters(
         replaced.take(character),
         options.source,
         target,
-        adopted.take(actorName(character))?.id,
+        adopted.take(actorKey(character))?.id,
       );
       result.actors.push(actor);
       result.created++;
@@ -148,7 +154,7 @@ export async function importCharacters(
           pulpReplaced.take(variants[i]) ?? legacyReplaced.take(character),
           options.source,
           target,
-          adopted.take(pulpVariantName(character))?.id,
+          adopted.take(actorKey(variants[i]))?.id,
         );
         result.actors.push(actor);
         result.created++;
@@ -210,13 +216,23 @@ async function importCharacter(
       flags: {
         CoC7: {
           cocidFlag: {
-            id: actorCocid(type, name, source),
+            // A table's members may share names; the table keeps them apart.
+            id: actorCocid(
+              type,
+              character.table ? `${character.table.folder} ${name}` : name,
+              source,
+            ),
             lang: game.i18n.lang ?? "en",
             priority: 0,
           },
         },
-        ...(character.chapter
-          ? { "coc-pdf-importer": { chapter: character.chapter } }
+        ...(character.chapter || character.table
+          ? {
+              "coc-pdf-importer": {
+                ...(character.chapter ? { chapter: character.chapter } : {}),
+                ...(character.table ? { table: character.table.title } : {}),
+              },
+            }
           : {}),
       },
     },
@@ -254,6 +270,16 @@ async function importCharacter(
 // ---------------------------------------------------------------------------
 
 const actorName = (c: CocCharacter) => c.name || "Unknown";
+
+// How a re-import pairs an actor with the one it replaces: by name, and a
+// group table's member by its table too, as two tables' members may share
+// names ("Grue Cultist 1" in two chapters).
+const actorKey = (c: CocCharacter) =>
+  c.table ? `${c.table.title}\u0000${actorName(c)}` : actorName(c);
+const docKey = (doc: any) => {
+  const table = doc?.flags?.["coc-pdf-importer"]?.table;
+  return table ? `${table}\u0000${doc.name ?? ""}` : (doc?.name ?? "");
+};
 const pulpVariantName = (c: CocCharacter) => `${actorName(c)} (Pulp)`;
 
 // The character as its Pulp Cthulhu variant: the "Pulp Combat" profiles replace
@@ -1637,10 +1663,12 @@ function findTopActorFolder(
 }
 
 // The folder each character is filed in: a subfolder of `root` named for its
-// chapter ("Chapter 1: Bolivia"), or `root` itself when it has none. Chapter
-// folders are ordered as the book prints them (root switches to manual sorting
-// for that; a pack's top level is sorted when the pack is made), and found
-// again by name on a re-import.
+// chapter ("Chapter 1: Bolivia"), or `root` itself when it has none; a group
+// table's member goes one level further down, into its table's folder (the
+// table's full title as the folder's description). Chapter folders are
+// ordered as the book prints them (root switches to manual sorting for that;
+// a pack's top level is sorted when the pack is made), and found again by
+// name on a re-import.
 function chapterFolders(
   target: Target,
   root: FoundryFolder | null,
@@ -1650,35 +1678,53 @@ function chapterFolders(
     ...new Set(characters.map((c) => c.chapter).filter(Boolean)),
   ] as string[];
   const made = new Map<string, Promise<FoundryFolder | null>>();
+  const tables = new Map<string, Promise<FoundryFolder | null>>();
   let sorted = false;
   return {
     async folderFor(character) {
-      const chapter = character.chapter;
-      if (!chapter || (!root?.id && !target.pack)) return root;
-      if (root && !sorted && root.sorting !== "m") {
-        sorted = true;
-        try {
-          await root.update?.({ sorting: "m" });
-        } catch (err) {
-          console.error(
-            "coc-pdf-importer: failed to sort chapter folders",
-            err,
-          );
-        }
-      }
-      if (!made.has(chapter))
-        made.set(
-          chapter,
+      const parent = await chapterFolder(character);
+      const table = character.table;
+      if (!table || (!parent?.id && !root?.id && !target.pack)) return parent;
+      const key = `${character.chapter ?? ""}\u0000${table.folder}`;
+      if (!tables.has(key))
+        tables.set(
+          key,
           ensureFolder(
             target,
-            chapter,
-            root?.id ?? null,
-            (order.indexOf(chapter) + 1) * CHAPTER_SORT_STEP,
+            table.folder,
+            parent?.id ?? null,
+            undefined,
+            table.title,
           ),
         );
-      return made.get(chapter)!;
+      return tables.get(key)!;
     },
   };
+  async function chapterFolder(
+    character: CocCharacter,
+  ): Promise<FoundryFolder | null> {
+    const chapter = character.chapter;
+    if (!chapter || (!root?.id && !target.pack)) return root;
+    if (root && !sorted && root.sorting !== "m") {
+      sorted = true;
+      try {
+        await root.update?.({ sorting: "m" });
+      } catch (err) {
+        console.error("coc-pdf-importer: failed to sort chapter folders", err);
+      }
+    }
+    if (!made.has(chapter))
+      made.set(
+        chapter,
+        ensureFolder(
+          target,
+          chapter,
+          root?.id ?? null,
+          (order.indexOf(chapter) + 1) * CHAPTER_SORT_STEP,
+        ),
+      );
+    return made.get(chapter)!;
+  }
 }
 
 const CHAPTER_SORT_STEP = 100000;
@@ -1714,9 +1760,10 @@ async function claimReplacedActors(
 ): Promise<{ take(character: CocCharacter): FoundryActor | null }> {
   const claims = await claimReplaced(
     documentsUnder(target, root),
-    characters.map(actorName),
+    characters.map(actorKey),
+    docKey,
   );
-  return { take: (c) => claims.take(actorName(c)) };
+  return { take: (c) => claims.take(actorKey(c)) };
 }
 
 function localize(key: string, fallback: string): string {

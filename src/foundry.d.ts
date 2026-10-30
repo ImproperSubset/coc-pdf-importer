@@ -111,6 +111,7 @@ declare const Hooks: {
   on(hook: string, fn: (...args: any[]) => void): number;
 };
 declare function fromUuid(uuid: string): Promise<any>;
+declare function fromUuidSync(uuid: string): any;
 // `keepId` creates the document under the `_id` given in `data`.
 // `pack` creates in that compendium instead of the world.
 declare const Actor: {

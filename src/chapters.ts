@@ -93,11 +93,18 @@ async function entriesOf(kind: Kind, chapter: string | null): Promise<any[]> {
     : docs.filter((d) => d.flags?.[SCOPE]?.chapter === chapter);
 }
 
-// The names and sort values of a pack entry's folders, outermost first.
-function folderChain(doc: any): { name: string; sort: number }[] {
-  const chain: { name: string; sort: number }[] = [];
+// The names, sort values and descriptions of a pack entry's folders,
+// outermost first.
+function folderChain(
+  doc: any,
+): { name: string; sort: number; description: string }[] {
+  const chain: { name: string; sort: number; description: string }[] = [];
   for (let f = doc.folder; f && chain.length < 8; f = f.folder)
-    chain.unshift({ name: f.name, sort: f.sort ?? 0 });
+    chain.unshift({
+      name: f.name,
+      sort: f.sort ?? 0,
+      description: f.description ?? "",
+    });
   return chain;
 }
 
@@ -112,13 +119,16 @@ async function worldFolderFor(
   if (!root?.id) return null;
   let folder: FoundryFolder | null = root;
   let key = "";
-  for (const { name, sort } of folderChain(doc)) {
+  for (const { name, sort, description } of folderChain(doc)) {
     if (folder === root && root.sorting !== "m")
       await root.update?.({ sorting: "m" });
     key += `/${name}`;
     const parent: string | null = folder?.id ?? null;
     if (!cache.has(key))
-      cache.set(key, ensureFolder(worldTarget(kind.type), name, parent, sort));
+      cache.set(
+        key,
+        ensureFolder(worldTarget(kind.type), name, parent, sort, description),
+      );
     folder = await cache.get(key)!;
   }
   return folder;
@@ -596,11 +606,19 @@ async function folderOf(target: HTMLElement): Promise<any> {
 }
 
 export function registerMenus(): void {
-  // A chapter folder in a book's actor pack.
+  // A chapter folder in a book's actor pack: one at the pack's top level (a
+  // group table's folder sits inside its chapter's).
   Hooks.on("getFolderContextOptions", (app: any, entries: any[]) => {
     const pack = app?.collection;
     if (bookOf(pack)?.role !== "actors") return;
-    const isGM = () => !!game.user?.isGM;
+    const isChapter = (target: HTMLElement) => {
+      const uuid = (target.closest(".directory-item") as HTMLElement | null)
+        ?.dataset.uuid;
+      const folder = uuid ? fromUuidSync(uuid) : null;
+      return !!folder && !folder.folder;
+    };
+    const isGM = (target: HTMLElement) =>
+      !!game.user?.isGM && isChapter(target);
     const run =
       (action: (book: Book, chapter: string) => Promise<void>) =>
       (target: HTMLElement) =>

@@ -269,21 +269,20 @@ export function nameOddities(name: string): string[] {
 
 // Actor names: oddities, all-capital or lowercase words, a short title-case
 // parenthetical (an acronym the parser recased: "(Nyc)"), and names printed
-// more than once. A group table's columns are checked once, by the group's
-// name.
+// more than once (a group table's members only within their table, which
+// keeps same-named members of two tables apart).
 export function actorNameIssues(actors: CocCharacter[]): Finding[] {
   const out: Finding[] = [];
+  const key = (a: CocCharacter) =>
+    a.table ? `${a.table.title}\u0000${a.name}` : a.name;
   const count = new Map<string, number>();
-  for (const a of actors) count.set(a.name, (count.get(a.name) ?? 0) + 1);
-  const columns = new Map<string, Group>();
-  for (const g of groupTables(actors))
-    for (const l of g.labels) columns.set(`${g.name} ${l}`, g);
+  for (const a of actors) count.set(key(a), (count.get(key(a)) ?? 0) + 1);
   const reported = new Set<string>();
   for (const a of actors) {
-    const group = columns.get(a.name);
-    const name = group?.name ?? a.name;
-    if (reported.has(name)) continue;
-    reported.add(name);
+    if (reported.has(key(a))) continue;
+    reported.add(key(a));
+    const name = a.name;
+    const group = a.table;
     const issues = nameOddities(name);
     const words = name
       .replace(/\([^)]*\)/g, " ")
@@ -294,11 +293,11 @@ export function actorNameIssues(actors: CocCharacter[]): Finding[] {
     if (/^\p{Ll}/u.test(name)) issues.push("lowercase start");
     if (/\(\p{Lu}\p{Ll}{1,2}\)/u.test(name))
       issues.push("short title-case parenthetical (an acronym?)");
-    if (!group && (count.get(name) ?? 0) > 1)
-      issues.push(`printed ${count.get(name)} times`);
+    if ((count.get(key(a)) ?? 0) > 1)
+      issues.push(`printed ${count.get(key(a))} times`);
     if (issues.length)
       out.push({
-        name: group ? `${name} (group)` : name,
+        name: group ? `${name} (${group.folder})` : name,
         page: a.page,
         detail: issues.join("; "),
       });
@@ -353,44 +352,31 @@ export function weaponNameIssues(actors: CocCharacter[]): Finding[] {
 
 export interface Group {
   name: string;
+  folder: string;
   page?: number;
   labels: string[];
+  members: string[];
 }
 
-// Group tables: consecutive actors whose names differ only in their last
-// word, the column label ("Grue 1", "Grue 2"; "Squad A1"; "Dogs Rex"), and
-// whose notes are the same (each column copies the table's). A repeated
-// name is a duplicate, not a column; a new label letter is a new table.
+// Group tables, as the parser records them: each table's title, folder and
+// its members' column labels and names, in book order.
 export function groupTables(actors: CocCharacter[]): Group[] {
-  const out: Group[] = [];
-  const split = (name: string) => {
-    const at = name.lastIndexOf(" ");
-    return at < 0 ? null : [name.slice(0, at), name.slice(at + 1)];
-  };
-  // A lettered label's letter is its table ("Squad A1" … "Squad B1").
-  const squad = (label: string) => /^([A-Z])\d+$/.exec(label)?.[1] ?? "";
-  let group: Group | null = null;
-  let notes = "";
+  const out = new Map<string, Group>();
   for (const a of actors) {
-    const parts = split(a.name);
-    const same = JSON.stringify(a.notes) === notes;
-    notes = JSON.stringify(a.notes);
-    if (
-      group &&
-      parts &&
-      parts[0] === group.name &&
-      same &&
-      !group.labels.includes(parts[1]) &&
-      squad(parts[1]) === squad(group.labels[0])
-    ) {
-      group.labels.push(parts[1]);
-      continue;
-    }
-    if (group && group.labels.length > 1) out.push(group);
-    group = parts ? { name: parts[0], page: a.page, labels: [parts[1]] } : null;
+    if (!a.table) continue;
+    const key = `${a.chapter ?? ""}\u0000${a.table.title}`;
+    const g = out.get(key) ?? {
+      name: a.table.title,
+      folder: a.table.folder,
+      page: a.page,
+      labels: [],
+      members: [],
+    };
+    g.labels.push(a.table.label);
+    g.members.push(a.name);
+    out.set(key, g);
   }
-  if (group && group.labels.length > 1) out.push(group);
-  return out;
+  return [...out.values()];
 }
 
 // Actors per book section; "" is an actor in no section.

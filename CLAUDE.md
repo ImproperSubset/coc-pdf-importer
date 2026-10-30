@@ -121,11 +121,14 @@ return a.toObject(); })), "application/json", "<file>.json")`; the operator puts
 
 - Book quirks are handled by general rules (commented with the book that
   motivated them), never by per-book switches.
-  The one per-book exception is content corrections (`src/errata.ts`, keyed
-  by the product code that starts the file name): published errata, and
-  readings of names a book misprints, each citing its source. They correct
-  what a book says, never how the parser reads it; `processPDF` applies them
-  when given the file name, and warns about one that applies nowhere.
+  The per-book exceptions, keyed by the product code that starts the file
+  name, are two: content corrections (`src/errata.ts`: published errata,
+  and readings of names a book misprints, each citing its source; they
+  correct what a book says, never how the parser reads it), and group
+  table names (`src/tables.ts`: what each table's members are called and
+  the table's short folder name). `processPDF` applies both when given the
+  file name, and warns about an entry that applies nowhere. Both are to
+  move into Phase 2's book profiles (`docs/plan.md`).
 - The books are untagged PDFs: pdf.js's `getMarkInfo()` and `getStructTree()`
   give nothing, and pdf.js has no paragraph detection. Paragraph starts are
   read from the layout (`paragraphStarts`: an indented body line, a line after
@@ -261,8 +264,16 @@ return a.toObject(); })), "application/json", "<file>.json")`; the operator puts
   intro, and a write-up the notes already hold is dropped. Write-ups for
   people without a stat block, and topic sections ("The Inner Night's
   Involvement"), are not imported.
-- A group table names its members by the title and the column label
-  ("Kharisiri 1"); a tagline after a comma or a region qualifier
+- A group table's members are filed in a folder of their own inside their
+  chapter, named by the book's table list (`src/tables.ts`), else by the
+  table's printed title; the full title is the folder's description (which
+  Foundry's folder dialog does not show). The list names the members
+  ("Bloody Tongue Cultist {label}", "{label}" for Rex and Zoltan); without
+  it they are the title and the column label ("Kharisiri 1"). Two tables'
+  members may share names, so a re-import pairs a table's member by its
+  table title (the `table` flag) and name, and its CoC ID includes the
+  table's folder name. Only a pack's top-level folders (chapters) offer
+  Load chapter. A tagline after a comma or a region qualifier
   ("KHARISIRI, DEATHLESS LIFE-SUCKERS", "(KENYA), ASSORTED THUGS") is each
   member's description. A footnote saying "only" and naming column labels
   gives its weapon ("* Only cultists 3 and 4 …") or a "Spells: (for cultist
