@@ -130,7 +130,7 @@ them). A console snippet can list the tokens and macros pointing at them.
   1,694, THS 11 of 858), but none of those lines is in imported text, so it
   is left as is. Taking the most common full-line start as the edge instead
   breaks pages whose only full lines are bullets (body text narrowed round a
-  portrait), and losing 50 real breaks in MoN.
+  portrait) and loses 50 real breaks in MoN.
 - **Notes leaks**: Jackson Elias's notes open with an unrelated Introduction
   passage; Kakakatak's write-up opens mid-sentence ("conspiracy, and can
   recite …") after its heading; the Ghoul Pack takes the next section's Keeper note; the ten
