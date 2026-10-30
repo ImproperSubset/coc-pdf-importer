@@ -454,6 +454,27 @@ export function parseCocCharacters(
       const limit = pageEnd(strPage + 1);
       if (limit > strIndex && limit < bodyEnd) bodyEnd = limit;
     }
+    // Nor past a line set larger than names after the block's last section:
+    // the title of the text that follows ("THE GREAT SANDY DESERT" after Bill
+    // Buckley's Ghost). Before the last section such a line is a sidebar's
+    // title or a page header inside the block, which goes on after it.
+    if (chunks && nameHeight) {
+      const masked = maskParens(text.slice(strIndex, bodyEnd));
+      let last = 0;
+      for (const label of SECTION_LABELS)
+        for (let k = findLabel(masked, label); k >= 0;) {
+          last = Math.max(last, k);
+          k = findLabel(masked, label, k + 1);
+        }
+      const title = chunks.find(
+        (c) =>
+          c.start > strIndex + last &&
+          c.start < bodyEnd &&
+          c.newline &&
+          c.height > nameHeight + 0.5,
+      );
+      if (title) bodyEnd = title.start;
+    }
     // The book's index (dot leaders: "INDEX Backstory . . . . . 13") follows the
     // last stat block directly; nothing of a block lies beyond it — nor beyond
     // the last sentence before it (the index heading and first entry).

@@ -3626,3 +3626,64 @@ describe("sideways text", () => {
     ]);
   });
 });
+
+describe("where a stat block ends", () => {
+  const line = (str: string, height: number, y: number): RawItem => ({
+    str,
+    font: height === 9 ? "body" : "head",
+    height,
+    eol: true,
+    x: 72,
+    y,
+    w: 200,
+  });
+  const stats =
+    "STR 50 CON 50 SIZ 50 DEX 50 INT 50 APP 50 POW 50 EDU 50 SAN 50 HP 10 " +
+    "DB: 0 Build: 0 Move: 8 MP: 10";
+  const filler = (): RawItem[] => [
+    line("THE TOWN", 12, 760),
+    line("Ordinary prose fills the page from top to bottom.", 9, 700),
+    line("More ordinary prose closes the page.", 9, 100),
+  ];
+  const parse = (pages: RawItem[][]) =>
+    parseActors([...pages, ...Array.from({ length: 8 }, filler)]);
+
+  test("at the title of the text that follows it", () => {
+    const [ghost] = parse([
+      [
+        line("THE TOWN", 12, 760),
+        line("Old Ghost, a restless shade", 11, 700),
+        line(stats, 9, 680),
+        line("Combat Brawl 40% (20/8), damage 1D3", 9, 668),
+        line("Sanity loss: 0/1D3 Sanity points to see the ghost.", 9, 656),
+      ],
+      [
+        line("THE TOWN", 12, 760),
+        line("THE DRY PLAINS", 25, 700),
+        line(
+          "Crossing the plains takes four days, and water is short.",
+          9,
+          680,
+        ),
+        line("Keeper note: the wells may be dry this year.", 9, 668),
+      ],
+    ]);
+    assert.equal(ghost.sanityLoss, "0/1D3 Sanity points to see the ghost");
+    assert.ok(!ghost.notes.some((n) => /wells|plains/.test(n)));
+  });
+
+  test("not at a sidebar's title inside it", () => {
+    const [ada] = parse([
+      [
+        line("THE TOWN", 12, 760),
+        line("Ada Lark, 40, clerk", 11, 700),
+        line(stats, 9, 680),
+        line("Combat Brawl 40% (20/8), damage 1D3", 9, 668),
+        line("A LEDGER OF SECRETS", 17, 640),
+        line("A box about the ledger sits between her stat lines.", 9, 620),
+        line("Skills Accounting 70%, Spot Hidden 55%.", 9, 600),
+      ],
+    ]);
+    assert.equal(ada.skills.Accounting, 70);
+  });
+});
