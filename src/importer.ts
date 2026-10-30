@@ -14,8 +14,6 @@ import {
   createOptions,
   documentsUnder,
   ensureFolder,
-  parentId,
-  removeEmptyFolderTree,
   worldTarget,
   type Target,
 } from "./target.ts";
@@ -47,26 +45,34 @@ export interface ImportOptions {
   /** Documents whose ids new actors take, paired by name: the world copies
    * of an import made before the book had packs. */
   adopt?: any[];
+  /** Import the book's Pulp Cthulhu profiles: a stat block's printed Pulp
+   * Combat, Pulp Talents, HP and Luck, and the Pulp-only stat blocks
+   * ("Pulp Option: …"). Default: the standard (classic) profiles. */
+  pulp?: boolean;
 }
 
 export interface ImportResult {
   created: number;
   failed: number;
   actors: any[];
-  /** How many of `created` are Pulp variants (in the "<folder> (Pulp)" folder). */
-  pulp: number;
 }
 
 /**
  * Create Foundry CoC7 actors from parsed characters.
  */
 export async function importCharacters(
-  characters: CocCharacter[],
+  printed: CocCharacter[],
   options: ImportOptions = {},
 ): Promise<ImportResult> {
   const folderName = options.folderName ?? "PDF Import";
   const sourceFile = options.sourceFile ?? folderName;
   const target = options.target ?? worldTarget("Actor");
+  const era = options.pulp ? "pulp" : "classic";
+  // One era per import: a Pulp import takes each stat block's Pulp profile
+  // under its plain name and the Pulp-only blocks; a classic one neither.
+  const characters = printed
+    .filter((c) => options.pulp || !isPulpOnly(c))
+    .map((c) => forEra(c, !!options.pulp));
   // A pack holds one book, so its top level is the book's folder.
   const folder = target.pack
     ? null
@@ -74,19 +80,14 @@ export async function importCharacters(
   const root = folder?.id ?? null;
   // The folder is found by the imported file, so a re-import refreshes its
   // contents: an actor already in it that shares a name with an incoming one is
-  // replaced under the same id rather than duplicated.
+  // replaced under the same id rather than duplicated (in either era).
   const replaced = await claimReplacedActors(target, root, characters);
   const adopted = pairByName(
     options.adopt ?? [],
-    [
-      ...characters.map(actorKey),
-      ...characters
-        .filter((c) => c.pulp)
-        .map((c) => actorKey({ ...c, name: pulpVariantName(c) })),
-    ],
+    characters.map(actorKey),
     docKey,
   );
-  const result: ImportResult = { created: 0, failed: 0, actors: [], pulp: 0 };
+  const result: ImportResult = { created: 0, failed: 0, actors: [] };
 
   // Look up the system's skill/weapon/spell/talent compendia once for the whole
   // batch, so imported items adopt the real compendium item (CoCID, icon,
@@ -104,11 +105,14 @@ export async function importCharacters(
         await chapters.folderFor(character),
         options.entity ?? "auto",
         indexes,
-        [],
+        options.pulp && character.pulp
+          ? talentItems(character.pulp.talents, indexes.talent)
+          : [],
         replaced.take(character),
         options.source,
         target,
         adopted.take(actorKey(character))?.id,
+        era,
       );
       result.actors.push(actor);
       result.created++;
@@ -121,54 +125,6 @@ export async function importCharacters(
     }
   }
 
-  // Stat blocks that carry "Pulp Combat" / "Pulp Talents" sections are imported
-  // a second time as their Pulp Cthulhu variant, "<name> (Pulp)", beside the
-  // standard actor so the choice between them is in plain sight. A variant an
-  // older import filed in a separate "<folder> (Pulp)" folder, under the
-  // standard name, is replaced under its id, and that folder is removed once
-  // empty.
-  const pulpCharacters = characters.filter((c) => c.pulp);
-  if (pulpCharacters.length) {
-    const variants = pulpCharacters.map((c) => ({
-      ...c,
-      name: pulpVariantName(c),
-    }));
-    const pulpReplaced = await claimReplacedActors(target, root, variants);
-    // The separate Pulp folder only ever existed in the world.
-    const legacyFolder = target.pack
-      ? null
-      : findTopActorFolder(target, `${sourceFile} (Pulp)`);
-    const legacyReplaced = await claimReplacedActors(
-      target,
-      legacyFolder?.id ?? null,
-      legacyFolder ? pulpCharacters : [],
-    );
-    for (const [i, character] of pulpCharacters.entries()) {
-      try {
-        const actor = await importCharacter(
-          { ...pulpVariant(character), name: pulpVariantName(character) },
-          await chapters.folderFor(character),
-          options.entity ?? "auto",
-          indexes,
-          talentItems(character.pulp!.talents, indexes.talent),
-          pulpReplaced.take(variants[i]) ?? legacyReplaced.take(character),
-          options.source,
-          target,
-          adopted.take(actorKey(variants[i]))?.id,
-        );
-        result.actors.push(actor);
-        result.created++;
-        result.pulp++;
-      } catch (err) {
-        result.failed++;
-        console.error(
-          `coc-pdf-importer: failed to import pulp variant of "${character.name}"`,
-          err,
-        );
-      }
-    }
-    await removeEmptyFolderTree(target, legacyFolder);
-  }
   let msg: string;
   if (!result.failed) {
     msg = game.i18n.format("coc-pdf-importer.ResultSuccess", {
@@ -194,6 +150,7 @@ async function importCharacter(
   source?: string,
   target: Target = worldTarget("Actor"),
   adoptId?: string,
+  era: "classic" | "pulp" = "classic",
 ): Promise<any> {
   const type = entity === "auto" ? guessEntityType(character) : entity;
   const citation = source ? sourceCitation(source, character) : "";
@@ -226,14 +183,11 @@ async function importCharacter(
             priority: 0,
           },
         },
-        ...(character.chapter || character.table
-          ? {
-              "coc-pdf-importer": {
-                ...(character.chapter ? { chapter: character.chapter } : {}),
-                ...(character.table ? { table: character.table.title } : {}),
-              },
-            }
-          : {}),
+        "coc-pdf-importer": {
+          era,
+          ...(character.chapter ? { chapter: character.chapter } : {}),
+          ...(character.table ? { table: character.table.title } : {}),
+        },
       },
     },
     KEPT_ACTOR_FIELDS,
@@ -266,7 +220,7 @@ async function importCharacter(
 }
 
 // ---------------------------------------------------------------------------
-// Pulp variant
+// Era
 // ---------------------------------------------------------------------------
 
 const actorName = (c: CocCharacter) => c.name || "Unknown";
@@ -280,7 +234,21 @@ const docKey = (doc: any) => {
   const table = doc?.flags?.["coc-pdf-importer"]?.table;
   return table ? `${table}\u0000${doc.name ?? ""}` : (doc?.name ?? "");
 };
-const pulpVariantName = (c: CocCharacter) => `${actorName(c)} (Pulp)`;
+
+// A stat block the book offers only for Pulp play ("Pulp Option: Ghoul
+// Pack").
+const PULP_ONLY = /^Pulp Option\s*:\s*/i;
+const isPulpOnly = (c: CocCharacter) => PULP_ONLY.test(c.name);
+
+// The character as an import in the chosen era imports it: a Pulp import
+// takes its Pulp profile (pulpVariant) and drops a Pulp-only block's
+// "Pulp Option:" label from its name; a classic one is the book's standard
+// profile.
+function forEra(character: CocCharacter, pulp: boolean): CocCharacter {
+  if (!pulp) return character;
+  const c = character.pulp ? pulpVariant(character) : character;
+  return { ...c, name: c.name.replace(PULP_ONLY, "") };
+}
 
 // The character as its Pulp Cthulhu variant: the "Pulp Combat" profiles replace
 // the standard ones of the same name (others are kept, new ones added), and the
@@ -1650,17 +1618,6 @@ function languageItem(
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-// A top-level Actor folder by name, without creating it.
-function findTopActorFolder(
-  target: Target,
-  name: string,
-): FoundryFolder | null {
-  return (
-    target.folders().find((f) => f.name === name && parentId(f) === null) ??
-    null
-  );
-}
 
 // The folder each character is filed in: a subfolder of `root` named for its
 // chapter ("Chapter 1: Bolivia"), or `root` itself when it has none; a group

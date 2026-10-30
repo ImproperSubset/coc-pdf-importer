@@ -934,6 +934,8 @@ export interface ImportDocumentOptions {
   bookTitle?: string;
   /** Show a UI notification summarising the result (default true). */
   notify?: boolean;
+  /** Import the Pulp profiles (`ImportOptions.pulp`; default classic). */
+  pulp?: boolean;
 }
 
 export interface ImportDocumentResult {
@@ -969,6 +971,7 @@ export async function importDocument(
       .map((i) => citedItemDoc(i, title)),
     target: await packTarget(actorPack),
     adopt: worldCopies("Actor"),
+    pulp: options.pulp,
   });
   const itemResult = await createPulpItems(items, {
     folderName: title,

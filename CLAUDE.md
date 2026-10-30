@@ -234,10 +234,14 @@ return a.toObject(); })), "application/json", "<file>.json")`; the operator puts
 - Actors go into chapter folders (`Chapter 1: Bolivia`, `Appendix A: …`) in
   printed order when the book's contents page lists chapters; otherwise flat.
   Items stay grouped by type (`Talents`, `Spells`, `Tomes`, `Artefacts`, …).
-- A Pulp variant is named `<name> (Pulp)` and filed beside its standard actor.
-  A variant an older world import put in a separate `<folder> (Pulp)` folder
-  is replaced under its id there (world target only), and that folder is
-  deleted once empty.
+- One era per import, chosen in the dialog and preset from CoC7's
+  `worldEra` setting (any era ending in "Pulp" is Pulp): a Pulp import takes
+  each stat block's Pulp profile (Pulp Combat, Pulp Talents, pulp HP and
+  Luck) under its plain name, and the Pulp-only blocks (named "Pulp Option:
+  …", imported without that label); a classic import takes neither. Each
+  actor records its era in its `era` flag (pack metadata can't be changed
+  once a pack exists). A re-import in the other era replaces by name, ids
+  kept. "(Pulp)" actors from older releases are not migrated.
 - The prose printed with a stat block goes to the Keeper notes: the intro
   between the heading and the stats (a creature's description, a recurring
   NPC's history, a group's "Use this profile for all …"), a starred value's

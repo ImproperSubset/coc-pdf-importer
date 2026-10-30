@@ -67,11 +67,13 @@ running the game.
 
 Some books (Masks of Nyarlathotep, Escape from Innsmouth, The Two-Headed
 Serpent) print optional **Pulp Combat** and **Pulp Talents** sections inside a
-stat block. Such an actor is imported twice: the standard version, and beside
-it in the same folder a Pulp variant named `<name> (Pulp)`, so the choice
-between them is plain to see. The variant takes the
-pulp combat profiles in place of the standard ones (and, where printed, the
-pulp HP and Luck), and carries its talents as `talent` items. An existing
+stat block. The import dialog's Era (preset from the world's CoC7 era) picks
+one: a classic import takes the standard profiles; a Pulp import takes, under
+the same names, the pulp combat profiles in place of the standard ones (and,
+where printed, the pulp HP and Luck), carries the talents as `talent` items,
+and adds the Pulp-only stat blocks ("Pulp Option: Ghoul Pack", imported as
+"Ghoul Pack"). Re-importing in the other era replaces each actor under its
+id. An existing
 talent of the same name in the world is used (icon, category and CoCID kept)
 but reads with the book's own description; otherwise an inline talent with
 that description is created.

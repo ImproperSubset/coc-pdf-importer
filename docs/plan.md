@@ -145,9 +145,23 @@ the Sphinx, Leech/Host); lettered squads (Cultist Squad A1–D5). Fixes:
   actors whose names differ in their last word and whose notes match); find
   the three it misses and widen the check
 
-### 1.3 One era per import
+### 1.3 One era per import (done, not yet seen live)
 
-Importer, re-import pairing and packs; not the parser.
+Result: the dialog's Era (Classic or Pulp) is preset from CoC7's `worldEra`
+(any key ending in "Pulp", which also covers Dark Ages Pulp and Regency
+Pulp); a Pulp import takes the Pulp profiles under plain names, a classic one
+the standard ones; the "(Pulp)" naming and the "\<folder> (Pulp)" folder code
+are gone. The era is recorded on each actor (`era` flag), not on the pack:
+a pack's metadata can't be changed once made. A mock import of MoN gives
+365 actors classic, 366 Pulp (Ghoul Pack, imported as "Ghoul Pack"), and a
+re-import in the other era kept all 365 ids. "Pulp boxes stay in the Keeper
+notes" is read as: printed Pulp material the parser already puts in notes
+(the pre-gens' conversion box) stays there in both eras; nothing new is
+written. Not done: Detective Inspector John Craig is marked a Pulp option
+only in his write-up's heading ("PULP OPTION: …"), which no rule connects
+to his stat block; he imports in both eras (see 1.4).
+
+The plan as written: importer, re-import pairing and packs; not the parser.
 
 - read the world era; show and allow overriding the choice in the dialog
 - Pulp import: the Pulp profile (Pulp Combat skills and weapons, talents);
@@ -201,6 +215,9 @@ Importer, re-import pairing and packs; not the parser.
   knuckles, Chu's silencer) is in no actor's notes; only a starred value's
   footnote before Combat is kept. Audit the class and keep them as Keeper
   notes.
+- **Craig**: his write-up heading "PULP OPTION: DETECTIVE INSPECTOR JOHN
+  CRAIG, 69, …" is attached to no actor, and so does not mark his stat block
+  Pulp-only.
 - **Wu**: "Wu, the Cat-Demon" imports as "Wu the Cat-Demon"; the descriptor
   should be the description, as for other single NPCs.
 - **Printed "none"**: Fog-spawn prints its HP as "n/a" with a footnote; the
@@ -440,4 +457,4 @@ from JSON (no running Foundry, per search results; README not checked).
 - Local Foundry: 14.369 at `http://localhost:30003/` (no admin password),
   `coc7e` world with the "Token spike" test actors; launch with
   `~/git/foundry-dev/bin/fvtt launch 14.369` outside the sandbox.
-- Next step: 1.3.
+- Next step: 1.4.

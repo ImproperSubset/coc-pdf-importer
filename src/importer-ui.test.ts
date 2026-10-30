@@ -10,7 +10,16 @@ import assert from "node:assert/strict";
     },
   },
 };
-const { footerButtons } = await import("./importer-ui.ts");
+const { footerButtons, isPulpEra } = await import("./importer-ui.ts");
+
+describe("world era", () => {
+  test("pulp, and any era ending in Pulp, is Pulp", () => {
+    for (const era of ["pulp", "modernPulp", "downDarkerTrailsPulp"])
+      assert.equal(isPulpEra(era), true, era);
+    for (const era of ["standard", "modern", "downDarkerTrails", "", undefined])
+      assert.equal(isPulpEra(era), false, String(era));
+  });
+});
 
 describe("import dialog footer", () => {
   test("offers Import before an import", () => {

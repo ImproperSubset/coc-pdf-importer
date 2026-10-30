@@ -42,9 +42,24 @@ type ImportProgress = {
   created: number;
   failed: number;
   items: number;
-  pulp: number;
+  pulp: boolean;
   error?: string;
 };
+
+// A CoC7 era plays Pulp Cthulhu rules when its key is "pulp" or ends in
+// "Pulp" ("modernPulp", "downDarkerTrailsPulp").
+export function isPulpEra(era: unknown): boolean {
+  return typeof era === "string" && /(?:^p|P)ulp$/.test(era);
+}
+
+// The world's CoC7 era setting ("standard", "pulp", …), or "" without one.
+function worldEra(): string {
+  try {
+    return String(game.settings.get("CoC7", "worldEra") ?? "");
+  } catch {
+    return "";
+  }
+}
 
 export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplicationMixin(
   foundry.applications.api.ApplicationV2,
@@ -90,6 +105,7 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
   _prepareContext(options: object) {
     const totalCreated = this.#progress.reduce((n, p) => n + p.created, 0);
     return {
+      pulp: isPulpEra(worldEra()),
       importing: this.#importing,
       progress: this.#progress.map((p) => ({
         name: p.name,
@@ -126,7 +142,8 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
           .querySelector<HTMLInputElement>(`input[name="bookTitle-${i}"]`)
           ?.value.trim() || bookTitleFromFileName(file.name),
     );
-    await this.runImport(Array.from(files), titles);
+    const era = form.querySelector<HTMLSelectElement>('select[name="era"]');
+    await this.runImport(Array.from(files), titles, era?.value === "pulp");
   }
 
   // Offer an editable book title for each chosen file, prefilled from its
@@ -172,7 +189,7 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
 
   // Import each file in turn, re-rendering the progress list and the (disabled)
   // submit button between steps so the dialog reflects live status.
-  async runImport(files: File[], titles: string[] = []) {
+  async runImport(files: File[], titles: string[] = [], pulp = false) {
     this.#importing = true;
     this.#progress = files.map((f): ImportProgress => ({
       name: f.name,
@@ -180,7 +197,7 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
       created: 0,
       failed: 0,
       items: 0,
-      pulp: 0,
+      pulp,
     }));
     await this.render({ parts: ["progress", "footer"] });
 
@@ -192,13 +209,12 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
         const folderName = files[i].name.replace(/\.[^.]+$/, "");
         const result = await importDocument(
           new Uint8Array(await files[i].arrayBuffer()),
-          { folderName, bookTitle: titles[i], notify: false },
+          { folderName, bookTitle: titles[i], notify: false, pulp },
         );
         entry.status = "done";
         entry.created = result.actors.created;
         entry.failed = result.actors.failed + result.items.failed;
         entry.items = result.items.created;
-        entry.pulp = result.actors.pulp;
       } catch (e) {
         entry.status = "error";
         entry.error = e instanceof Error ? e.message : String(e);
@@ -238,11 +254,15 @@ export class PdfImporterConfig extends foundry.applications.api.HandlebarsApplic
           : game.i18n.format("coc-pdf-importer.Progress.Created", {
               created: p.created,
             });
-        const extras = [
-          p.pulp ? `${p.pulp} pulp` : "",
-          p.items ? `${p.items} items` : "",
-        ].filter(Boolean);
-        return extras.length ? `${base} (+${extras.join(", +")})` : base;
+        const extras = [p.items ? `${p.items} items` : ""].filter(Boolean);
+        const era = game.i18n.localize(
+          p.pulp
+            ? "coc-pdf-importer.Form.EraPulp"
+            : "coc-pdf-importer.Form.EraClassic",
+        );
+        return extras.length
+          ? `${base}, ${era} (+${extras.join(", +")})`
+          : `${base}, ${era}`;
       }
       case "error":
         return game.i18n.format("coc-pdf-importer.Errors.ErrorProcessing", {

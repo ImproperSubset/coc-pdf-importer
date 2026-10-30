@@ -2588,70 +2588,62 @@ describe("importCharacters — pulp variants", () => {
       },
     });
 
-  test("a character with pulp sections is imported twice, the variant beside it as '<name> (Pulp)'", async () => {
+  test("a classic import takes the standard profile, a Pulp one the Pulp profile, under the same name", async () => {
     await importCharacters(
       [pulpCharacter(), makeCharacter({ name: "Plain" })],
-      {
-        folderName: "Book",
-        notify: false,
-      },
+      { folderName: "Book", notify: false },
     );
+    assert.deepEqual(created.map((a) => a.name).sort(), ["Plain", "Pulp Hero"]);
+    assert.ok(
+      created.every((a) => a.flags["coc-pdf-importer"].era === "classic"),
+    );
+    created.length = 0;
+    await importCharacters([pulpCharacter()], {
+      folderName: "Book",
+      notify: false,
+      pulp: true,
+    });
     assert.deepEqual(
-      folders.map((f) => f.name),
-      ["Book"],
+      created.map((a) => [a.name, a.flags["coc-pdf-importer"].era]),
+      [["Pulp Hero", "pulp"]],
     );
-    assert.deepEqual(created.map((a) => a.name).sort(), [
-      "Plain",
-      "Pulp Hero",
-      "Pulp Hero (Pulp)",
-    ]);
-    assert.ok(created.every((a) => a.folder === folders[0].id));
   });
 
-  test("an older import's variant in '<folder> (Pulp)' is replaced under its id and the folder removed", async () => {
-    folders.push({ id: "book", name: "Book", type: "Actor" });
-    folders.push({ id: "pulp", name: "Book (Pulp)", type: "Actor" });
-    folders.push({
-      id: "pulpch",
-      name: "Appendix A: Test",
-      type: "Actor",
-      folder: { id: "pulp" },
-    });
-    const old: any = {
-      id: "oldvariant",
-      name: "Pulp Hero",
-      folder: { id: "pulpch" },
-    };
-    old.toObject = () => ({
-      _id: "oldvariant",
-      name: "Pulp Hero",
-      type: "npc",
-    });
-    old.delete = async () => world.splice(world.indexOf(old), 1);
-    world.push(old);
-    for (const f of folders)
-      f.delete = async () => folders.splice(folders.indexOf(f), 1);
+  test("a re-import in the other era replaces the actor under its id", async () => {
     await importCharacters([pulpCharacter()], {
       folderName: "Book",
       notify: false,
     });
-    const variant = created.find((a) => a.name === "Pulp Hero (Pulp)");
-    assert.equal(variant.id, "oldvariant");
-    assert.equal(variant.folder, "book");
-    assert.deepEqual(
-      folders.map((f) => f.name),
-      ["Book"],
-    );
+    const classic = created[0];
+    await importCharacters([pulpCharacter()], {
+      folderName: "Book",
+      notify: false,
+      pulp: true,
+    });
+    assert.equal(created.length, 2);
+    assert.equal(created[1].id, classic.id);
+    assert.equal(created[1].system.attribs.hp.value, 20);
   });
 
-  test("no pulp folder is created when no character has pulp sections", async () => {
-    await importCharacters([makeCharacter({ name: "Plain" })], {
+  test("a Pulp-only stat block imports only in a Pulp import, without its label", async () => {
+    const option = () => makeCharacter({ name: "Pulp Option: Fog Pack" });
+    await importCharacters([option(), makeCharacter({ name: "Plain" })], {
       folderName: "Book",
       notify: false,
     });
     assert.deepEqual(
-      folders.map((f) => f.name),
-      ["Book"],
+      created.map((a) => a.name),
+      ["Plain"],
+    );
+    created.length = 0;
+    await importCharacters([option()], {
+      folderName: "Book",
+      notify: false,
+      pulp: true,
+    });
+    assert.deepEqual(
+      created.map((a) => a.name),
+      ["Fog Pack"],
     );
   });
 
@@ -2659,8 +2651,9 @@ describe("importCharacters — pulp variants", () => {
     await importCharacters([pulpCharacter()], {
       folderName: "Book",
       notify: false,
+      pulp: true,
     });
-    const variant = created.find((a) => a.name === "Pulp Hero (Pulp)")!;
+    const variant = created.find((a) => a.name === "Pulp Hero")!;
     const weapons = variant.items.filter((i: any) => i.type === "weapon");
     const byName = Object.fromEntries(weapons.map((w: any) => [w.name, w]));
     assert.ok(byName["Knife"], "pulp-only attack added");
@@ -2672,7 +2665,12 @@ describe("importCharacters — pulp variants", () => {
     assert.equal(skillOf("Dodge").system.base, "50");
     assert.equal(variant.system.attribs.hp.value, 20);
     assert.equal(variant.system.attribs.lck.value, 45);
-    // The standard import keeps its own values.
+    // A classic import keeps the standard values.
+    created.length = 0;
+    await importCharacters([pulpCharacter()], {
+      folderName: "Book",
+      notify: false,
+    });
     const standard = created.find((a) => a.name === "Pulp Hero")!;
     assert.equal(
       standard.items.find(
@@ -2703,8 +2701,9 @@ describe("importCharacters — pulp variants", () => {
     await importCharacters([pulpCharacter()], {
       folderName: "Book",
       notify: false,
+      pulp: true,
     });
-    const variant = created.find((a) => a.name === "Pulp Hero (Pulp)")!;
+    const variant = created.find((a) => a.name === "Pulp Hero")!;
     const talents = variant.items.filter((i: any) => i.type === "talent");
     assert.deepEqual(
       talents.map((t: any) => t.name),
@@ -2720,7 +2719,12 @@ describe("importCharacters — pulp variants", () => {
     assert.equal(talents[0].system.description.keeper, "GM only");
     assert.equal(talents[1].system.description.value, "Soaks up damage"); // inline
     assert.equal(talents[1].system.type.other, true);
-    // The standard actor gets no talents.
+    // A classic import gets no talents.
+    created.length = 0;
+    await importCharacters([pulpCharacter()], {
+      folderName: "Book",
+      notify: false,
+    });
     const standard = created.find((a) => a.name === "Pulp Hero")!;
     assert.equal(
       standard.items.filter((i: any) => i.type === "talent").length,
@@ -2810,20 +2814,14 @@ describe("importCharacters — into a pack", () => {
         target: pack(),
         adopt: [
           { id: "worldTesta00001", name: "Testa" },
-          { id: "worldTestb00001", name: "Testb (Pulp)" },
+          { id: "worldTestb00001", name: "Testb" },
           { id: "worldOther00001", name: "Someone Else" },
         ],
       },
     );
     assert.equal(created.find((a) => a.name === "Testa").id, "worldTesta00001");
-    assert.equal(
-      created.find((a) => a.name === "Testb (Pulp)").id,
-      "worldTestb00001",
-    );
-    assert.notEqual(
-      created.find((a) => a.name === "Testb").id,
-      "worldTestb00001",
-    );
+    assert.equal(created.find((a) => a.name === "Testb").id, "worldTestb00001");
+    assert.equal(created.length, 2);
   });
 
   test("a pack import leaves world actors alone", async () => {

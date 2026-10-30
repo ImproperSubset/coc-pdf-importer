@@ -8,7 +8,11 @@
     "Form": {
       "Upload": "Choose files to upload",
       "BookTitleHint": "Book title cited, with the page, in each imported entry's Keeper notes.",
-      "Close": "Close"
+      "Close": "Close",
+      "Era": "Era",
+      "EraClassic": "Classic",
+      "EraPulp": "Pulp",
+      "EraHint": "Which profiles to import: a Pulp import takes each stat block's printed Pulp Combat, Pulp Talents, HP and Luck, and the Pulp-only stat blocks. Preset from the world's CoC7 era."
     },
     "Progress": {
       "Title": "Import progress",
