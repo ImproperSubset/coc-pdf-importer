@@ -332,7 +332,9 @@ the golden test's list.
   operator list is loaded; headings and write-up names are a consistent red
   (`#890e11`), some labels white on shaded bars.
 - Contents: typography (fonts, sizes, colours for body, name heading,
-  subheading, stat labels, sidebars), corrections (today's `src/errata.ts`,
+  subheading, stat labels, sidebars; text-layer spaces the page doesn't show:
+  both Chaosium books set a near-zero-width space before a closing bracket,
+  "roof )—see", "engulf )", which copies as a space but isn't visible), corrections (today's `src/errata.ts`,
   widened beyond spell names), group table names (today's `src/tables.ts`),
   aliases (proper nouns naming the same person or
   thing), structure (an explicit section list, group headings and taglines,
