@@ -47,6 +47,7 @@ The long-term shape:
 | Token frame and mask come from Tokenizer's own settings: TheGreatNacho frame 13 trimmed so the ring reaches the token's edge, a full-disc mask, offset −20 (details in 1.5). No Foundry dynamic ring.                                                                                                                                                                                                                         | `autoToken` reads them; no per-call option exists. Ring close to the edge shows more of the portrait.                                |
 | Pre-gens' "PULP ADJUSTMENTS" boxes: a Pulp import applies the definite parts (HP, skill changes with no condition, talents, a characteristic when only one is offered); both eras keep the whole box as its own Keeper note, out of Treasured Possession.                                                                                                                                                                     | The box is a template over the stat block; the note keeps the choices it leaves open ("DEX or APP", the archetype).                  |
 | Git never holds book images or long runs of book text; names and short phrases are fine.                                                                                                                                                                                                                                                                                                                                      | Copyright.                                                                                                                           |
+| Animals with no Sanity loss line (elephant, rhino, guard dogs) stay NPCs; a Sanity loss line alone makes a creature.                                                                                                                                                                                                                                                                                                          | Nothing in play depends on the actor type.                                                                                           |
 | A rewrite is judged by whether it can be verified, not by its size.                                                                                                                                                                                                                                                                                                                                                           | The golden and baseline dumps detect regressions.                                                                                    |
 
 ## Phase 1: MoN to golden (current TypeScript)
@@ -155,9 +156,6 @@ them). A console snippet can list the tokens and macros pointing at them.
   parser lost it" (a dash, as Bill Buckley's Ghost prints for STR and HP,
   is kept). Keep "n/a" values as printed, as dashes are.
 - **Spacing**: spaces before commas in notes (a made-up "Ada Lark , 40" shape); THS has a few.
-- **Open**: animals with no Sanity loss line (elephant, rhino, guard dogs)
-  import as NPCs with Brawl, per the current rule. Operator to say whether they
-  should be creatures.
 - **Not yet checked**: spells the Appendix B parser misses.
 
 ### 1.5 Portraits and tokens
@@ -372,6 +370,13 @@ CoC7 Foundry last mile.
 - Skill checks printed in the book's text ("a Hard Spot Hidden roll"): record
   them as data so the Keeper can roll them from Foundry. Not started; CoC7's
   support for roll links not yet checked.
+- Creatures fight as NPCs do: `Fighting (Brawl)` at their most common attack
+  value, and a skill of its own for each attack printed at another value.
+  Today they take the system's generic `Fighting (Fighting)`, as Core
+  Content's creatures do, so the two would differ until the core creatures
+  are imported too (below).
+- Import the Keeper Rulebook's creatures, so all the creature content in a
+  world follows this module's rules.
 
 ## Survey: extraction tools and prior art
 
