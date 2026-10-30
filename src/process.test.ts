@@ -3577,3 +3577,52 @@ describe("write-up names in another form than the stat block's", () => {
     assert.equal(first("Ola Bea Vik"), undefined);
   });
 });
+
+describe("sideways text", () => {
+  const line = (
+    str: string,
+    height: number,
+    y: number,
+    rotated = false,
+  ): RawItem => ({
+    str,
+    font: height === 9 ? "body" : "head",
+    height,
+    eol: true,
+    x: rotated ? 554 : 72,
+    y,
+    w: 200,
+    rotated,
+  });
+  const stats =
+    "STR 50 CON 50 SIZ 50 DEX 50 INT 50 APP 50 POW 50 EDU 50 SAN 50 HP 10 " +
+    "DB: 0 Build: 0 Move: 8 MP: 10 Combat Brawl 40% (20/8), damage 1D3";
+  const filler = (): RawItem[] => [
+    line("THE TOWN", 12, 760),
+    line("Ordinary prose fills the page from top to bottom.", 9, 700),
+    line("More ordinary prose closes the page.", 9, 100),
+  ];
+
+  test("a caption set up a picture's edge is no heading and cuts no write-up", () => {
+    const pages: RawItem[][] = [
+      [
+        line("THE TOWN", 12, 760),
+        line("Ada Lark, 40, clerk", 11, 700),
+        line("Ada keeps the ledgers and", 9, 680),
+        // A portrait caption at name height, printed sideways.
+        line("Ada Lark, clerk of the mill", 11, 600, true),
+        line("trusts no one at the mill.", 9, 580),
+      ],
+      [
+        line("THE TOWN", 12, 760),
+        line("Ada Lark, 40, clerk", 11, 300),
+        line(stats, 9, 280),
+      ],
+      ...Array.from({ length: 8 }, filler),
+    ];
+    const ada = parseActors(pages).find((c) => c.name === "Ada Lark")!;
+    assert.deepEqual(ada.notes, [
+      "Ada Lark, 40, clerk\n\nAda keeps the ledgers and trusts no one at the mill.",
+    ]);
+  });
+});

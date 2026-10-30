@@ -131,9 +131,14 @@ them). A console snippet can list the tokens and macros pointing at them.
   is left as is. Taking the most common full-line start as the edge instead
   breaks pages whose only full lines are bullets (body text narrowed round a
   portrait) and loses 50 real breaks in MoN.
-- **Notes leaks**: Jackson Elias's notes open with an unrelated Introduction
-  passage; Kakakatak's write-up opens mid-sentence ("conspiracy, and can
-  recite …") after its heading; the Ghoul Pack takes the next section's Keeper note; the ten
+- **Notes leaks**: Jackson Elias's and Kakakatak's false write-ups (done):
+  portrait and picture captions printed sideways up the page edge are set at
+  name height and passed for write-up headings, taking the next page's text
+  and cutting write-ups they sat inside (Larkin, Jackie Wallace, a Haunter of
+  the Dark attack rule). Rotated text (MoN's captions and sideways handouts;
+  THS has one handout page) is now left out of stat blocks, write-ups and
+  paragraph detection. Still to do: the Ghoul Pack takes the next section's
+  Keeper note; the ten
   pre-gens' "PULP ADJUSTMENTS" box folds into Treasured Possession (per the
   decision: its own Keeper note in both eras, its definite parts applied in a
   Pulp import).

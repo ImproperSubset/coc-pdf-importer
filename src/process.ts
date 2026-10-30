@@ -4337,6 +4337,10 @@ export interface RawItem {
   // a printed space as its own item, so this continues the previous word
   // ("Bill Buckley" "’s Ghost", "Hilton Adams" ". Although").
   glued?: boolean;
+  // Set sideways (its baseline turned): a caption up a picture's edge
+  // ("Jackson Elias, investigator and author") or a handout printed across
+  // the page. A slanted italic is sheared, not turned, and is not rotated.
+  rotated?: boolean;
 }
 
 // Mark each item that continues the item before it on the same line: no line
@@ -4396,6 +4400,7 @@ async function processPage(
         x: item.transform?.[4] ?? 0,
         y: item.transform?.[5] ?? 0,
         w: item.width ?? 0,
+        rotated: Math.abs(item.transform?.[1] ?? 0) > 0.01,
       };
     }),
   );
@@ -4478,6 +4483,12 @@ export function parseActors(pageItems: RawItem[][]): CocCharacter[] {
   for (const items of pageItems) {
     page++;
     for (const it of items) {
+      // Sideways text is captions and handouts, never a stat block or a
+      // write-up; a caption at name height would pass for a heading.
+      if (it.rotated) {
+        if (it.eol) newline = true;
+        continue;
+      }
       const text = normalizeText(it.str);
       // A period the font could not map ("Dr �   Rafael Gomez") arrives as a
       // lone replacement character after a title abbreviation; keep the period.
@@ -4815,6 +4826,10 @@ function pageLines(items: RawItem[]): PageLine[] {
   let line: PageLine | null = null;
   let broken = true;
   for (const it of items) {
+    if (it.rotated) {
+      broken = true;
+      continue;
+    }
     if (it.str.trim()) {
       if (!line || broken || Math.abs(it.y - line.y) > 1) {
         line = {
