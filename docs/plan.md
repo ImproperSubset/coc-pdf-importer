@@ -109,98 +109,68 @@ them). A console snippet can list the tokens and macros pointing at them.
 
 ### 1.4 The rest of the audit
 
-- **Write-up name variants (done)**: a name no actor has exactly is tried
-  without titles and a quoted nickname, then by first and last name, then as
-  one word starting a name, each counting only when it names one actor;
-  accents are ignored, and a heading may list names each with an age
-  ("Gertie (25), Shula (23), and Janice (18), …"). 17 actors gained their
-  write-ups (Poole, both Cowleses, Tumwell, Stratton, the three Vanes, the
-  Wycroft sisters, Huston, Mr. Lung, Wu, Brady, Savoyard, both Céspedes).
-  Left: Hypatia Masters, whose stat block is printed "Spawn of Nyarlathotep:
-  Hypatia Masters Aspect" (an alias for her profile, Phase 2); George Brunton
-  (the book gives him no statistics) and Nuri of El Wasta (no stat block);
-  two item headings the audit takes for write-ups (Secret Mysteries of Asia,
-  the Device of Rods, Wheels, and Mirrors), for the audit to skip.
-- **Paragraph breaks mid-sentence (done)**: a bullet's hanging second line
-  and text wrapped round a picture were read as indented first lines; 69
-  false breaks in MoN, 4 in THS's golden, none added. A break before a
-  lowercase word is now left only where it is right ("al-Shakti has been …")
-  or at a notes leak (below). Checked: where a bullet set further left moves
-  a column's edge, a first-line indent after a full line is missed (MoN 12 of
-  1,694, THS 11 of 858), but none of those lines is in imported text, so it
-  is left as is. Taking the most common full-line start as the edge instead
-  breaks pages whose only full lines are bullets (body text narrowed round a
-  portrait) and loses 50 real breaks in MoN.
-- **Notes leaks**: Jackson Elias's and Kakakatak's false write-ups (done):
-  portrait and picture captions printed sideways up the page edge are set at
-  name height and passed for write-up headings, taking the next page's text
-  and cutting write-ups they sat inside (Larkin, Jackie Wallace, a Haunter of
-  the Dark attack rule). Rotated text (MoN's captions and sideways handouts;
-  THS has one handout page) is now left out of stat blocks, write-ups and
-  paragraph detection. Blocks running into the text after them (done): the
-  Ghoul Pack, Revenants and Bill Buckley's Ghost took the next section's
-  Keeper note or prose; a block now ends at a line larger than names after
-  its last section label (before it, such a line is a sidebar's title or a
-  page header inside the block). A sentence-initial label word in the text
-  after a block ("Skills are …") keeps the old, longer end. Backstory
-  sections lost their printed closing full stop (MoN all but one, THS half);
-  kept now. A heading without a comma attaches only when its text has NPC
-  bullets: Kakakatak's encounter passage and Tyranissh's three chapter
-  lead-ins (THS) are no write-ups (operator's call). PULP ADJUSTMENTS boxes
-  (done): MoN's ten pre-gens' boxes are read apart from Treasured Possession.
-  A Pulp import applies what a box settles (archetype into the sheet's
-  archetype, a single core characteristic at 90, HP, Sanity, skills — a
-  Fighting or Firearms skill raising the attacks of its weapon category — and
-  the talents); the choices it leaves (two characteristics, and the HP,
-  Sanity and skills that depend on the pick, or a talent swap) open the
-  sheet's own Notes on the Gear & Cash tab, which players see. A classic
-  import ignores the box.
-- **Weapons**: `needle` in the firearm keywords (`src/importer.ts`) makes a
+Done (each with a test that fails on the old code; THS golden updated only
+for fixes, reviewed):
+
+- **Spacing**: words pdf.js gives in touching pieces (a font or colour
+  change) are joined without a space; a stat label touching its value stays
+  apart. This exposed a header-offset bug that cut Lin Yenyu's block short,
+  also fixed.
+- **Write-up names**: titles, nicknames, middle names, accents, a first name,
+  names listed with ages; each looser form counts only when it names one
+  actor.
+- **Paragraph breaks**: a bullet's hanging line and text wrapped round a
+  picture start no paragraph. Missed indents on bullet pages were checked:
+  none is in imported text, so left as is.
+- **Rotated text**: captions and handouts printed sideways are left out of
+  stat blocks, write-ups and paragraphs (they had passed for write-up
+  headings: Jackson Elias, Kakakatak).
+- **Block ends**: a block ends at a line larger than names after its last
+  section label (Ghoul Pack, Revenants, Bill Buckley's Ghost took the next
+  section's text). A sentence-initial label word in the text after a block
+  ("Skills are …") still gives the old, longer end.
+- **Backstory full stops**: kept (a text-cleaning step dropped them).
+- **Bare-name headings**: attach only with NPC bullets; Kakakatak's
+  encounter passage and Tyranissh's chapter lead-ins (THS) are not
+  write-ups.
+- **PULP ADJUSTMENTS boxes** (MoN's ten pre-gens): read apart from Treasured
+  Possession; applied in a Pulp import, their open choices at the top of the
+  sheet's Notes (see Decisions); ignored in a classic import.
+
+To do:
+
+- **Attack footnotes**: a starred note under an attack list ("* When he is
+  expecting trouble, de Mendoza carries his sword …", Brady's brass
+  knuckles, Chu's silencer) is in no actor's notes; only a starred value's
+  footnote before Combat is kept. Audit the class; keep them as Keeper notes.
+- **Weapons** (`src/importer.ts`): `needle` in the firearm keywords makes a
   knitting needle a firearm; a thrown weapon at its own value gets a
   `Fighting (…)` skill instead of a Throw variant (darts, African throwing
-  knives; in a Pulp import, "Dart (thrown)" gets its own Fighting skill);
-  "Firearms (Rifl e)" (ligature split) becomes a melee weapon;
-  Energy Blast (Black Pharaoh) has no value and no skill. The audit adds:
-  the Lightning gun gets its own `Firearms (Lightning gun)` skill (Kakakatak
-  and the four squad members who carry one) instead of a Firearms category;
-  manoeuvres ("Tongue Lash (mnvr)", "Tentacle Grab (mnvr)") get a skill of
-  their own each.
-- **Names**: "Ping Tun-Tun Fighting" as a weapon
-  name; alternate forms named without their owner ("Mother Aspect", "Demon
-  Form").
-- **Items**: "Voorish Sign R'lyeh Text Commentaries" (a spell name merged into
-  a tome's); Amulet of the Night Beasts and Taan's Ring have empty
-  descriptions.
-- **Attack footnotes**: a starred note under an attack list ("* When he
-  is expecting trouble, de Mendoza carries his sword …", Brady's brass
-  knuckles, Chu's silencer) is in no actor's notes; only a starred value's
-  footnote before Combat is kept. Audit the class and keep them as Keeper
-  notes.
+  knives, a Pulp "Dart (thrown)"); "Firearms (Rifl e)" (a ligature split)
+  becomes a melee weapon; Energy Blast (the Black Pharaoh) has no value and
+  no skill; the Lightning gun gets its own `Firearms (Lightning gun)` skill
+  (Kakakatak and the squad members who carry one); each manoeuvre ("Tongue
+  Lash (mnvr)", "Tentacle Grab (mnvr)") gets a skill of its own.
+- **Names**: "Ping Tun-Tun Fighting" as a weapon name; alternate forms named
+  without their owner ("Mother Aspect", "Demon Form", "Cat-Demon Form"); Wu
+  imports as "Wu the Cat-Demon" (the descriptor should be the description).
 - **Craig**: his write-up heading "PULP OPTION: DETECTIVE INSPECTOR JOHN
-  CRAIG, 69, …" is attached to no actor, and so does not mark his stat block
+  CRAIG, 69, …" is attached to no actor, so his stat block is not marked
   Pulp-only.
-- **Wu**: "Wu, the Cat-Demon" imports as "Wu the Cat-Demon"; the descriptor
-  should be the description, as for other single NPCs.
-- **Printed "none"**: Fog-spawn prints its HP as "n/a" with a footnote; the
-  parser drops it, so the dump can't tell "the book says none" from "the
-  parser lost it" (a dash, as Bill Buckley's Ghost prints for STR and HP,
-  is kept). Keep "n/a" values as printed, as dashes are.
-- **Spacing (done)**: pdf.js prints a word in touching pieces where its font
-  or colour changes ("Bill Buckley" "’s Ghost", a bold name before ", page
-  9"); the parser joined them with a space. Pieces that touch with
-  punctuation or two same-font letters between are joined without one
-  (`markGlued`); a stat label touching its value ("Build:" "3") stays apart.
-  Stray spaces in MoN went from 629 to 13 (the rest are ".38" and the like),
-  THS's from 37 to 5, each as the book prints it. It also exposed a
-  header-offset bug that cut Lin Yenyu's block short (her spells went to her
-  hirelings, the hirelings' languages to Tun-Tun), now fixed.
-- **Line-end compounds and dashes**: "wide- brimmed", "yard- diameter"
-  (a hyphenated compound broken across lines keeps the break's space) and
-  dashes read as "- " ("information- perhaps"); MoN 29, THS 11.
-- **Sanity-loss leak**: Bill Buckley's Ghost's Sanity loss note runs on into
-  the next section ("THE GREAT SANDY DESERT …", 3,700 characters); the only
-  one so long in either book.
+- **Printed "n/a"**: Fog-spawn's HP "n/a" (with a footnote) is dropped, so
+  the dump can't tell "the book says none" from "lost"; keep it as printed,
+  as dashes are.
+- **Items**: "Voorish Sign R'lyeh Text Commentaries" (a spell name merged
+  into a tome's); Amulet of the Night Beasts and Taan's Ring have empty
+  descriptions. The audit should skip item headings it takes for write-ups
+  (Secret Mysteries of Asia, the Device of Rods, Wheels, and Mirrors).
+- **Line-end compounds and dashes**: "wide- brimmed", "yard- diameter" keep
+  the line break's space; some dashes read as "- " ("information- perhaps").
+  Needs the book's own spellings to tell a compound's hyphen from a soft one.
 - **Not yet checked**: spells the Appendix B parser misses.
+- **Left for Phase 2**: Hypatia Masters' write-up needs an alias to reach
+  "Spawn of Nyarlathotep: Hypatia Masters Aspect"; the invisible space
+  before a closing bracket ("roof )") is Chaosium typography.
 
 ### 1.5 Portraits and tokens
 
@@ -363,11 +333,12 @@ the golden test's list.
 - Contents: typography (fonts, sizes, colours for body, name heading,
   subheading, stat labels, sidebars; text-layer spaces the page doesn't show:
   both Chaosium books set a near-zero-width space before a closing bracket,
-  "roof )—see", "engulf )", which copies as a space but isn't visible), corrections (today's `src/errata.ts`,
-  widened beyond spell names), group table names (today's `src/tables.ts`),
-  aliases (proper nouns naming the same person or
-  thing), structure (an explicit section list, group headings and taglines,
-  things to skip).
+  "roof )—see", "engulf )", which copies as a space but isn't visible),
+  corrections (today's `src/errata.ts`, widened beyond spell names), group
+  table names (today's `src/tables.ts`), aliases (proper nouns naming the
+  same person or thing: Hypatia Masters → "Hypatia Masters Aspect"),
+  structure (an explicit section list, group headings and taglines, things
+  to skip).
 - The parser reads the profile first and falls back to its inference.
 - TypeScript data in `src/profiles/` (`chaosium.ts`, `cha23153.ts` extending
   it), recommended over JSON for type checking; operator to confirm.
@@ -396,17 +367,20 @@ in-Foundry PDF import would go (run the parser, then import the file).
 
 Prerequisites:
 
-- baselines for every owned book (`fixtures/README.md` lists 16; owned ones
-  include the Keeper Rulebook, Investigator Handbook, Pulp Cthulhu and the
-  Quick-Start in `~/Documents/RPGs/CallOfCthulhu/`), so every code path —
-  `oldwest.ts`, `pulp.ts` items, Innsmouth's Pulp HP/Luck, "Notable Folk"
-  lists — has an oracle
+- baselines for every owned book, so every code path has an oracle. The
+  operator owns the Keeper Rulebook, Investigator Handbook, Pulp Cthulhu, the
+  Quick-Start, Horror on the Orient Express, MoN and THS
+  (`~/Documents/RPGs/CallOfCthulhu/`). `fixtures/README.md` lists the 16
+  books the original authors used; the code for those the operator doesn't
+  own (Innsmouth, Gateways to Terror, Doors to Darkness, Down Darker Trails,
+  …) — `oldwest.ts`, Innsmouth's Pulp boxes and derived lines, "Notable
+  Folk" lists — has no oracle here.
 - the unit and integration tests (about 11,200 lines, made-up text) carried
   over as the behaviour spec
 
 Rules: match the golden and baseline output exactly first, then fix as
 reviewed diffs; small modules along the parser's stages; a prek gate on file
-size. Today `src/process.ts` is 4,900 lines.
+size. Today `src/process.ts` is 5,200 lines.
 
 Open: whether the toolset grows here or in its own repo, with this one as its
 CoC7 Foundry last mile.
@@ -454,8 +428,9 @@ from JSON (no running Foundry, per search results; README not checked).
 ## Resuming
 
 - `fixtures/cha23153_-_masks_of_nyarlathotep_v1.9_reduced_file_size.pdf` is a
-  symlink to `~/Documents/RPGs/CallOfCthulhu/Masks of Nyarlathotep/`; the
-  Keeper Reference Booklet repeats the book and is not used.
+  symlink to `~/Documents/RPGs/CallOfCthulhu/Masks of Nyarlathotep/`. The
+  Keeper Reference Booklets (MoN's, THS's) reprint the stat blocks: not
+  imported, but usable as a second reading to compare against.
 - `npm run dump:json -- "<pdf>"` and `npm run dump:text -- "<pdf>"` write
   `out/`; `npm run audit -- "<name>"` audits a dump. `out/` holds current
   dumps of both books (THS's equals `golden/`).
@@ -465,7 +440,15 @@ from JSON (no running Foundry, per search results; README not checked).
   `foundry-world` skill); run `npm run build` first, as the module is a
   symlink to this repo. The MoN PDF is staged in its `Data/assets/import/`.
 - Released: `1.1.2.hh.18`. Everything from the audit tool (1.0) on is
-  unreleased; the operator's campaign world has none of it.
-- Pick up at 1.4, from its first item (write-up name variants), or with a
-  release first if the operator wants one; the THS Pulp cleanup (1.3)
-  follows that release.
+  unreleased; the operator's campaign world has none of it. No release until
+  Phase 1 is ready (operator); the THS Pulp cleanup (1.3) follows it.
+- General lessons about reading these PDFs go into the skills repo
+  `~/git/hh-rpg-pdf` (private, `ImproperSubset/hh-rpg-pdf`): knowledge only,
+  stated as lessons with the case as an example.
+- **Next session**: continue 1.4's to-do list, in this order: attack
+  footnotes (a notes class, like the leaks just fixed), then Craig and the
+  names (Wu, alternate forms), then the weapons group in `src/importer.ts`,
+  then printed "n/a", the items, the Appendix B spell check, and the
+  line-end compounds. Read the parsed text of each fix's class, not only the
+  audit's counts. Then 1.5 (portraits and tokens) and 1.6 (the test-world
+  import and the operator's review).
