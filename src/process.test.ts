@@ -1073,7 +1073,7 @@ describe("parseCocCharacters (unit)", () => {
         "INDEX Backstory . . . . . . . 13 Ill Luck (Spell) . . . . . 158 Treasured Possession . . . 14",
     );
     assert.deepEqual(c.background, [
-      { title: "Traits", text: "nervous and quick" },
+      { title: "Traits", text: "nervous and quick." },
     ]);
   });
 
@@ -2831,8 +2831,8 @@ describe("parseCocCharacters (unit)", () => {
       c.background.map((s) => s.title),
       ["Personal Description", "Ideology and Beliefs", "Traits"],
     );
-    assert.equal(c.background[0].text, "A tall, weathered figure");
-    assert.equal(c.background[2].text, "Relentless once on a case");
+    assert.equal(c.background[0].text, "A tall, weathered figure.");
+    assert.equal(c.background[2].text, "Relentless once on a case.");
     // The Skills list is not swallowed by the background prose that follows it.
     assert.equal(c.skills["Spot Hidden"], 60);
   });
@@ -2852,7 +2852,7 @@ describe("parseCocCharacters (unit)", () => {
     );
     assert.equal(
       c.background[0].text,
-      "A stooped man with ink-stained fingers",
+      "A stooped man with ink-stained fingers.",
     );
   });
 

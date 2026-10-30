@@ -3348,10 +3348,14 @@ function parseBackground(body: string): BackgroundSection[] {
     );
     if (gear) core = Math.min(core, textStart + gear.index);
     // Drop bullet markers (these sheets separate the fill-in prompts with "•")
-    // and a leading colon ("Personal Description: ...").
-    const text = clean(
-      body.slice(textStart, Math.min(nextBg, core)).replace(/[•·●⁃|]/g, " "),
-    )
+    // and a leading colon ("Personal Description: ..."). A section's closing
+    // full stop is the book's and stays.
+    const text = body
+      .slice(textStart, Math.min(nextBg, core))
+      .replace(/[•·●⁃|]/g, " ")
+      .replace(/\s+/g, " ")
+      .replace(/^[,.;:\s]+/, "")
+      .replace(/[,;:\s]+$/, "")
       .replace(/^:\s*/, "")
       // A running header at the foot of the sheet's page ("APPENDIX D"), or
       // the lone "M" bullet that opened the next heading (Innsmouth).

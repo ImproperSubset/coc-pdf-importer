@@ -137,8 +137,14 @@ them). A console snippet can list the tokens and macros pointing at them.
   and cutting write-ups they sat inside (Larkin, Jackie Wallace, a Haunter of
   the Dark attack rule). Rotated text (MoN's captions and sideways handouts;
   THS has one handout page) is now left out of stat blocks, write-ups and
-  paragraph detection. Still to do: the Ghoul Pack takes the next section's
-  Keeper note; the ten
+  paragraph detection. Blocks running into the text after them (done): the
+  Ghoul Pack, Revenants and Bill Buckley's Ghost took the next section's
+  Keeper note or prose; a block now ends at a line larger than names after
+  its last section label (before it, such a line is a sidebar's title or a
+  page header inside the block). A sentence-initial label word in the text
+  after a block ("Skills are …") keeps the old, longer end. Backstory
+  sections lost their printed closing full stop (MoN all but one, THS half);
+  kept now. Still to do: the ten
   pre-gens' "PULP ADJUSTMENTS" box folds into Treasured Possession (per the
   decision: its own Keeper note in both eras, its definite parts applied in a
   Pulp import).
