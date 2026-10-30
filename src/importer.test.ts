@@ -2609,6 +2609,80 @@ describe("importCharacters — pulp variants", () => {
     );
   });
 
+  // A pre-gen whose sheet carries a PULP ADJUSTMENTS box.
+  const pregen = () =>
+    makeCharacter({
+      name: "Ada Lark",
+      age: 30,
+      background: [{ title: "Treasured Possession", text: "a locket." }],
+      skills: { "Survival (Desert)": 30, Climb: 40 },
+      combat: [
+        attack("Brawl", { value: 30, half: 15, fifth: 6 }),
+        attack("Knife", { value: 30, half: 15, fifth: 6, damage: "1D4" }),
+        attack("Dodge", { value: 30, half: 15, fifth: 6, damage: null }),
+      ],
+      pulp: {
+        attacksPerRound: null,
+        combat: [],
+        talents: [{ name: "Endurance", description: "Bonus die to CON." }],
+        hp: 23,
+        luck: null,
+        adjustments: {
+          archetype: "Adventurer",
+          characteristics: { EDU: 90 },
+          san: null,
+          skills: {
+            "Fighting (Brawl)": 60,
+            "Firearms (Handgun)": 40,
+            Survival: 60,
+            "Drive Auto": 40,
+          },
+          choices: [
+            "Core Characteristic: change DEX or APP to 90.",
+            "If DEX 90: Dodge 45%.",
+          ],
+        },
+      },
+    });
+
+  test("a Pulp import applies a pre-gen's PULP ADJUSTMENTS and notes its choices", async () => {
+    await importCharacters([pregen()], { notify: false, pulp: true });
+    const a = created[0];
+    assert.equal(a.type, "character");
+    assert.equal(a.system.infos.archetype, "Adventurer");
+    assert.equal(a.system.characteristics.edu.value, 90);
+    assert.equal(a.system.attribs.hp.value, 23);
+    assert.equal(
+      a.system.notes,
+      "Pulp adjustments to choose:\n" +
+        "Core Characteristic: change DEX or APP to 90.\n" +
+        "If DEX 90: Dodge 45%.",
+    );
+    const skill = (name: string) =>
+      a.items.find((i: any) => i.type === "skill" && i.name === name);
+    assert.equal(skill("Survival (Desert)").system.base, "60");
+    assert.equal(skill("Drive Auto").system.base, "40");
+    assert.equal(skill("Firearms (Handgun)").system.base, "40");
+    // Brawl and the knife shared the Brawl value; both take the new one.
+    assert.equal(skill("Fighting (Brawl)").system.base, "60");
+    const knife = a.items.find((i: any) => i.name === "Knife");
+    assert.equal(knife.system.skill.main.name, "Fighting (Brawl)");
+    assert.equal(skill("Dodge").system.base, "30");
+    assert.ok(a.items.some((i: any) => i.type === "talent"));
+  });
+
+  test("a classic import ignores the box", async () => {
+    await importCharacters([pregen()], { notify: false });
+    const a = created[0];
+    assert.equal(a.system.notes, undefined);
+    assert.equal(a.system.infos.archetype, undefined);
+    assert.notEqual(a.system.characteristics.edu?.value, 90);
+    const skill = (name: string) =>
+      a.items.find((i: any) => i.type === "skill" && i.name === name);
+    assert.equal(skill("Survival (Desert)").system.base, "30");
+    assert.equal(skill("Drive Auto"), undefined);
+  });
+
   test("a re-import in the other era replaces the actor under its id", async () => {
     await importCharacters([pulpCharacter()], {
       folderName: "Book",

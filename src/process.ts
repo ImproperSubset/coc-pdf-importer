@@ -130,6 +130,19 @@ export interface PulpVariant {
   talents: PulpTalentRef[];
   hp: number | null;
   luck: number | null;
+  /** A pre-gen's "PULP ADJUSTMENTS" box, beyond its talents and HP. */
+  adjustments?: PulpAdjustments;
+}
+
+// What a pre-generated investigator's "PULP ADJUSTMENTS" box changes for
+// Pulp play, where the box settles it, and the choices it leaves open
+// ("change DEX or APP to 90", "Dodge 45% (if DEX 90)"), as printed.
+export interface PulpAdjustments {
+  archetype: string | null;
+  characteristics: Record<string, number>;
+  san: number | null;
+  skills: Record<string, number>;
+  choices: string[];
 }
 
 // A pre-generated investigator background block ("Personal Description",
@@ -1922,7 +1935,7 @@ function parseBlock(
   // tail with: a base form's "... Form" continuation prints its own Pulp Combat.
   // Innsmouth's boxed lists (with pulp HP) are assigned by assignPulpBoxes.
   const pulpTail = bodyCombat ? "" : sharedTail;
-  const pulp = parsePulpVariant(
+  let pulp = parsePulpVariant(
     sectionBody(body, "Pulp Combat") ||
       sectionBody(fallback, "Pulp Combat") ||
       sectionBody(pulpTail, "Pulp Combat"),
@@ -1932,6 +1945,16 @@ function parseBlock(
         sectionBody(pulpTail, "Pulp Talents"),
     ),
   );
+  const box = parsePulpAdjustments(printedBody);
+  if (box)
+    pulp = {
+      attacksPerRound: pulp?.attacksPerRound ?? null,
+      combat: pulp?.combat ?? [],
+      talents: [...(pulp?.talents ?? []), ...box.talents],
+      hp: box.hp ?? pulp?.hp ?? null,
+      luck: pulp?.luck ?? null,
+      adjustments: box.adjustments,
+    };
 
   if (numCols <= 1) {
     // Large creatures often have a description blurb between their heading
@@ -2895,6 +2918,97 @@ function parsePulpVariant(
   return { attacksPerRound, combat, talents, hp, luck };
 }
 
+// A pre-gen's "PULP ADJUSTMENTS" box (Masks prints one on each sheet):
+// "Archetype: Adventurer (page 15, Pulp Cthulhu) Core Characteristic: change
+// DEX or APP to 90 Hit Points: 23 Sanity: 60 (90 if POW 90) Add/Adjust Skills:
+// Dodge 45% (if DEX 90), Drive Auto 40%. Talents • Endurance: … • Or, at
+// Keeper's discretion, replace any one above with Gadget: …". What depends on
+// a characteristic the player picks is kept, as printed, among the choices.
+const PULP_BOX_START = /\bArchetype:\s*[A-Z][A-Za-z -]*?\s*\(page\b/;
+
+export function parsePulpAdjustments(body: string): {
+  adjustments: PulpAdjustments;
+  talents: PulpTalentRef[];
+  hp: number | null;
+} | null {
+  const start = PULP_BOX_START.exec(body);
+  if (!start) return null;
+  const box = body
+    .slice(start.index)
+    .replace(/\s+/g, " ")
+    .replace(/\s*PULP ADJUSTMENTS\s*/g, " ");
+  const choices: string[] = [];
+  const archetype =
+    /^Archetype:\s*([A-Z][A-Za-z -]*?)\s*\(/.exec(box)?.[1] ?? null;
+
+  const characteristics: Record<string, number> = {};
+  const core =
+    /Core Characteristic:\s*change\s+(?:either\s+)?([A-Z]{3})(?:\s+or\s+([A-Z]{3}))?\s+to\s+(\d+)/.exec(
+      box,
+    );
+  if (core && !core[2]) characteristics[core[1]] = Number(core[3]);
+  else if (core)
+    choices.push(
+      `Core Characteristic: change ${core[1]} or ${core[2]} to ${core[3]}.`,
+    );
+
+  // "Hit Points: 25 (32 if CON 90)" / "Sanity: 60 (90 if POW 90)" /
+  // "Sanity: 90 (if POW 90)": the bare value is settled, the bracket is not.
+  const valueLine = (label: string, line: string) => {
+    const m = new RegExp(
+      String.raw`${label}:\s*(\d+)?\s*(?:\((\d+\s+)?if\s+([A-Z]{3})\s+(\d+)\))?`,
+    ).exec(box);
+    if (!m) return null;
+    if (m[3]) {
+      const value = m[2] ? m[2].trim() : m[1];
+      choices.push(`If ${m[3]} ${m[4]}: ${line} ${value}.`);
+      return m[2] && m[1] ? Number(m[1]) : null;
+    }
+    return m[1] ? Number(m[1]) : null;
+  };
+  const hp = valueLine("(?:Hit Points|HP)", "Hit Points");
+  const san = valueLine("Sanity", "Sanity");
+
+  const skills: Record<string, number> = {};
+  const skillList = /Add\/Adjust Skills:\s*(.*?)(?:\s*\bTalents\b|$)/.exec(
+    box,
+  )?.[1];
+  for (const entry of splitTopLevel(skillList ?? "")) {
+    const m = /^(.+?)\s+(\d+)%\s*(?:\(if\s+([A-Z]{3})\s+(\d+)\))?\.?$/.exec(
+      entry.trim(),
+    );
+    if (!m) continue;
+    const name = m[1].replace(/\(\s+/g, "(").replace(/\s+\)/g, ")");
+    if (m[3]) choices.push(`If ${m[3]} ${m[4]}: ${name} ${m[2]}%.`);
+    else skills[name] = Number(m[2]);
+  }
+
+  const talents: PulpTalentRef[] = [];
+  const talentList = /\bTalents\b\s*(.*)$/.exec(box)?.[1] ?? "";
+  for (const raw of talentList.split("•")) {
+    const entry = raw.trim();
+    if (!entry) continue;
+    // "Or, at Keeper's discretion, replace any one above with Gadget : …"
+    if (/^Or\b/i.test(entry)) {
+      choices.push(
+        "Talents: " +
+          entry
+            .replace(/^Or,\s*/i, "")
+            .replace(/\bany one above\b/i, "either talent")
+            .replace(/\s+:/g, ":"),
+      );
+      continue;
+    }
+    const m = /^([^:]+?)\s*:\s*(.*)$/.exec(entry);
+    if (m) talents.push({ name: m[1].trim(), description: m[2].trim() });
+  }
+  return {
+    adjustments: { archetype, characteristics, san, skills, choices },
+    talents,
+    hp,
+  };
+}
+
 // The Innsmouth pulp box header: each NPC's variant is a boxed "Pulp
 // Modification / Pulp Talents" sidebar listing pulp HP and Luck.
 const PULP_BOX_HEADER = /\bPulp Modification\s+Pulp Talents\b/gi;
@@ -3358,6 +3472,9 @@ function parseBackground(body: string): BackgroundSection[] {
       maskParens(rest),
     );
     if (gear) core = Math.min(core, textStart + gear.index);
+    // So does the sheet's "PULP ADJUSTMENTS" box (parsePulpAdjustments).
+    const pulpBox = PULP_BOX_START.exec(rest);
+    if (pulpBox) core = Math.min(core, textStart + pulpBox.index);
     // Drop bullet markers (these sheets separate the fill-in prompts with "•")
     // and a leading colon ("Personal Description: ..."). A section's closing
     // full stop is the book's and stays.

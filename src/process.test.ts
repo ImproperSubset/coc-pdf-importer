@@ -18,6 +18,7 @@ import {
   parseIntro,
   parseActors,
   markGlued,
+  parsePulpAdjustments,
 } from "./process.ts";
 import type { RawItem } from "./process.ts";
 
@@ -3697,5 +3698,51 @@ describe("where a stat block ends", () => {
       ],
     ]);
     assert.equal(ada.skills.Accounting, 70);
+  });
+});
+
+describe("a pre-gen's PULP ADJUSTMENTS box", () => {
+  test("settles what it can and keeps what the player picks as choices", () => {
+    const box = parsePulpAdjustments(
+      "Treasured Possession: a locket. " +
+        "Archetype: Wanderer (page 9, Pulp Cthulhu ) " +
+        "Core Characteristic: change DEX or CON to 90 " +
+        "HP: 25 (32 if CON 90) Sanity: 60 (90 if POW 90) " +
+        "Add/Adjust Skills: Dodge 45% (if DEX 90), Drive Auto 40%, " +
+        "Survival ( Jungle) 30%. " +
+        "Talents • Keen Eye: a bonus die to Spot Hidden. " +
+        "• Night Owl: no penalty for working late. " +
+        "• Or, at Keeper's discretion, replace any one above with Gizmo : a " +
+        "handy device. PULP ADJUSTMENTS",
+    )!;
+    assert.deepEqual(box.adjustments, {
+      archetype: "Wanderer",
+      characteristics: {},
+      san: 60,
+      skills: { "Drive Auto": 40, "Survival (Jungle)": 30 },
+      choices: [
+        "Core Characteristic: change DEX or CON to 90.",
+        "If CON 90: Hit Points 32.",
+        "If POW 90: Sanity 90.",
+        "If DEX 90: Dodge 45%.",
+        "Talents: at Keeper's discretion, replace either talent with Gizmo: a handy device.",
+      ],
+    });
+    assert.equal(box.hp, 25);
+    assert.deepEqual(
+      box.talents.map((t) => t.name),
+      ["Keen Eye", "Night Owl"],
+    );
+  });
+
+  test("a single characteristic is settled", () => {
+    const box = parsePulpAdjustments(
+      "Archetype: Scholar (page 9, Pulp Cthulhu) Core Characteristic: change " +
+        "EDU to 90 Hit Points: 26 Add/Adjust Skills: Library Use 80%. Talents " +
+        "• Quick Study: halves reading times.",
+    )!;
+    assert.deepEqual(box.adjustments.characteristics, { EDU: 90 });
+    assert.deepEqual(box.adjustments.choices, []);
+    assert.equal(box.hp, 26);
   });
 });

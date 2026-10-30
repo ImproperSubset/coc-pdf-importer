@@ -169,7 +169,7 @@ async function importCharacter(
       ...(art
         ? { img: art.img, prototypeToken: { texture: { src: art.token } } }
         : {}),
-      system: buildActorSystem(character, type, citation),
+      system: buildActorSystem(character, type, citation, era === "pulp"),
       flags: {
         CoC7: {
           cocidFlag: {
@@ -257,9 +257,9 @@ function pulpVariant(character: CocCharacter): CocCharacter {
   const pulp = character.pulp!;
   const same = (a: CombatEntry, b: CombatEntry) =>
     a.name.toLowerCase() === b.name.toLowerCase();
-  const combat = character.combat.map(
-    (entry) => pulp.combat.find((p) => same(p, entry)) ?? entry,
-  );
+  const combat = character.combat.map((entry) => ({
+    ...(pulp.combat.find((p) => same(p, entry)) ?? entry),
+  }));
   for (const p of pulp.combat)
     if (!combat.some((entry) => same(entry, p))) combat.push(p);
   const characteristics = { ...character.characteristics };
@@ -271,13 +271,81 @@ function pulpVariant(character: CocCharacter): CocCharacter {
     };
   const derived = { ...character.derived };
   if (pulp.luck != null) derived.Luck = pulp.luck;
+  const skills = { ...character.skills };
+  // A pre-gen's PULP ADJUSTMENTS box: what it settles is applied; what it
+  // leaves to the player goes to the sheet's notes (buildActorSystem).
+  const adj = pulp.adjustments;
+  if (adj) {
+    const set = (key: string, value: number) =>
+      ((characteristics as any)[key] = {
+        value,
+        raw: String(value),
+        marked: false,
+      });
+    for (const [key, value] of Object.entries(adj.characteristics))
+      set(key, value);
+    if (adj.san != null) set("SAN", adj.san);
+    for (const [name, value] of Object.entries(adj.skills))
+      adjustSkill(skills, combat, name, value);
+  }
   return {
     ...character,
     combat,
     attacksPerRound: pulp.attacksPerRound ?? character.attacksPerRound,
     characteristics,
     derived,
+    skills,
   };
+}
+
+// Apply one "Add/Adjust Skills" entry. A Fighting or Firearms skill is the
+// skill of a weapon category ("Fighting (Brawl)"): the category's attacks at
+// its value (that of the attack named for it, else the most common) take the
+// new one, so they keep sharing the skill; with no such attack it is a skill
+// of its own. Any other skill replaces the sheet's of that name, or its one
+// specialisation ("Survival" for a sheet's "Survival (Desert)"), else is added.
+function adjustSkill(
+  skills: Record<string, number>,
+  combat: CombatEntry[],
+  name: string,
+  value: number,
+): void {
+  const category = /^(Fighting|Firearms)\s*\((.+)\)$/i.exec(name);
+  if (category) {
+    const ranged = /^firearms$/i.test(category[1]);
+    const inCategory = combat.filter(
+      (e) =>
+        e.value != null &&
+        !/^dodge$/i.test(e.name) &&
+        weaponCategory(e.name, ranged && FIREARM_RE.test(e.name), false) ===
+          category[2],
+    );
+    if (inCategory.length) {
+      const named = inCategory.find(
+        (e) => e.name.toLowerCase() === category[2].toLowerCase(),
+      );
+      const base = named?.value ?? mostCommon(inCategory.map((e) => e.value!));
+      for (const e of inCategory)
+        if (e.value === base)
+          Object.assign(e, {
+            value,
+            half: Math.floor(value / 2),
+            fifth: Math.floor(value / 5),
+          });
+      return;
+    }
+  }
+  const lower = name.toLowerCase();
+  const keys = Object.keys(skills);
+  const key =
+    keys.find((k) => k.toLowerCase() === lower) ??
+    (() => {
+      const specs = keys.filter((k) =>
+        k.toLowerCase().startsWith(lower + " ("),
+      );
+      return specs.length === 1 ? specs[0] : undefined;
+    })();
+  skills[key ?? name] = value;
 }
 
 // The talent category flags of a CoC7 talent item; an inline talent built from
@@ -361,6 +429,7 @@ function buildActorSystem(
   character: CocCharacter,
   type: EntityType,
   citation = "",
+  pulp = false,
 ): Record<string, unknown> {
   const system: any = {
     characteristics: {},
@@ -442,6 +511,16 @@ function buildActorSystem(
         ? paragraphsHtml(s.text)
         : `<p>${escapeHtml(s.text)}</p>`,
     }));
+  }
+
+  // A Pulp import of a pre-gen takes its PULP ADJUSTMENTS box's archetype;
+  // the choices the box leaves to the player open the sheet's own notes
+  // (Gear & Cash), which players see, unlike the Keeper notes.
+  const adj = pulp ? character.pulp?.adjustments : undefined;
+  if (type === "character" && adj) {
+    if (adj.archetype) system.infos.archetype = adj.archetype;
+    if (adj.choices.length)
+      system.notes = ["Pulp adjustments to choose:", ...adj.choices].join("\n");
   }
 
   return system;
