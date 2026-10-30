@@ -691,8 +691,13 @@ function inheritCreatureSections(
 // running to the next heading of any height or section title (`breaks`: the
 // repeated titles stripped as furniture). Smaller runs inside it (portrait
 // captions) are skipped, and it ends at its last full stop. Each write-up, its
-// heading first, opens the notes of the actor of exactly that name (or that
-// name without its parenthetical), in book order.
+// heading first, opens the notes of the actor of that name (or that name
+// without its parenthetical), in book order. A name no actor has exactly is
+// tried looser, step by step: without titles and a quoted nickname ("Captain
+// Jules Savoyard" is "Jules Savoyard", "Jack Brady" is 'Jack "Brass" Brady'),
+// then first and last name only (middle names on either side), then a single
+// word starting a name ("Wu" is "Wu the Cat-Demon"); at each step it counts
+// only when it names one actor.
 function attachWriteups(
   characters: CocCharacter[],
   chunks: TextChunk[],
@@ -705,13 +710,28 @@ function attachWriteups(
   // Mason Thibault").
   const key = (name: string) =>
     name
+      .normalize("NFD")
+      .replace(/\p{M}/gu, "") // "Cespedes" is "Céspedes"
       .toLowerCase()
       .replace(/\s+/g, " ")
       .trim()
       .replace(/^(?:doctor|dr\s*\.?)\s+/, "dr ")
       .replace(/^(?:professor|prof\s*\.?)\s+/, "prof ")
       .replace(/^(?:reverend|rev\s*\.?)\s+/, "rev ")
-      .replace(/^(?:captain|capt\s*\.?)\s+/, "capt ");
+      .replace(/^(?:captain|capt\s*\.?)\s+/, "capt ")
+      .replace(/^(?:lieutenant|lt\s*\.?)\s+/, "lt ");
+  const untitled = (name: string) =>
+    key(bare(name))
+      .replace(/\s*"[^"]*"\s*/g, " ")
+      .replace(
+        /^(?:(?:dr|prof|rev|capt|lt|constable|sergeant|sgt\.?|inspector|detective|mr\.?|mrs\.?|miss|ms\.?|sir|lord|lady)\s+)+/,
+        "",
+      )
+      .trim();
+  const firstLast = (name: string) => {
+    const words = untitled(name).split(" ");
+    return words.length > 1 ? `${words[0]} ${words[words.length - 1]}` : "";
+  };
   const bare = (name: string) => name.replace(/\s*\([^)]*\)\s*$/, "");
   const byName = new Map<string, CocCharacter[]>();
   const add = (k: string, c: CocCharacter) => {
@@ -722,6 +742,27 @@ function attachWriteups(
   for (const c of characters) add(key(c.name), c);
   for (const c of characters)
     if (!byName.has(key(bare(c.name)))) add(key(bare(c.name)), c);
+  // The actors a looser form of a name answers to, when they share one name
+  // (same-named members of two tables count as one).
+  const only = (list: CocCharacter[]) =>
+    new Set(list.map((c) => c.name)).size === 1 ? list : [];
+  const loose = (form: (name: string) => string, n: string) => {
+    const k = form(n);
+    return k ? only(characters.filter((c) => form(c.name) === k)) : [];
+  };
+  const lookup = (n: string): CocCharacter[] => {
+    const exact = byName.get(key(n)) ?? byName.get(key(bare(n)));
+    if (exact) return exact;
+    for (const form of [untitled, firstLast]) {
+      const hit = loose(form, n);
+      if (hit.length) return hit;
+    }
+    const word = untitled(n);
+    if (!word || word.includes(" ")) return [];
+    return only(
+      characters.filter((c) => untitled(c.name).startsWith(word + " ")),
+    );
+  };
   const isHeading = (c: TextChunk) => Math.abs(c.height - nameHeight) < 0.5;
   const isBody = (c: TextChunk) => Math.abs(c.height - bodyHeight) < 0.5;
   const found = new Map<CocCharacter, string[]>();
@@ -736,20 +777,22 @@ function attachWriteups(
     // The heading may follow a caption set at the same height ("Handout:
     // Calcutta 1"): drop leading lines until it names someone. One heading
     // may name several ("Mortimer Allen (32) and Lloyd Allen (10), father and
-    // son"), each with an age in parentheses.
+    // son"; "Ann (25), Bea (23), and Cat (18), his daughters"), each with an
+    // age in parentheses.
     let heading = "";
     let targets: CocCharacter[] = [];
     for (let l = 0; l < lines.length && !targets.length; l++) {
       heading = lines.slice(l).join(" ").replace(/\s+/g, " ").trim();
-      const comma = heading.indexOf(",");
+      const list =
+        /^(?:[^,()]+\(\d+\),\s*)+(?:and\s+)?[^,()]+\(\d+\)(?=,)/.exec(heading);
+      const comma = list ? list[0].length : heading.indexOf(",");
       if (comma <= 0) continue;
       const names = heading
         .slice(0, comma)
-        .split(/\s+and\s+/)
-        .map((n) => n.replace(/\s*\(\d+\)\s*$/, ""));
-      targets = names.flatMap(
-        (n) => byName.get(key(n)) ?? byName.get(key(bare(n))) ?? [],
-      );
+        .split(/,\s*(?:and\s+)?|\s+and\s+/)
+        .map((n) => n.replace(/\s*\(\d+\)\s*$/, "").trim())
+        .filter(Boolean);
+      targets = names.flatMap(lookup);
     }
     // A heading without a comma names a group by itself ("Bolivian
     // Soldiers"): it counts when it is exactly an actor's name.

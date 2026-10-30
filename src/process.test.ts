@@ -3461,3 +3461,84 @@ describe("a name heading after another block's text", () => {
     assert.deepEqual(ada.spells, ["Shade Fall", "Grey Hand"]);
   });
 });
+
+describe("write-up names in another form than the stat block's", () => {
+  const line = (str: string, height: number, y: number): RawItem => ({
+    str,
+    font: height === 9 ? "body" : "head",
+    height,
+    eol: true,
+    x: 72,
+    y,
+    w: 200,
+  });
+  const stats =
+    "STR 50 CON 50 SIZ 50 DEX 50 INT 50 APP 50 POW 50 EDU 50 SAN 50 HP 10 " +
+    "DB: 0 Build: 0 Move: 8 MP: 10 Combat Brawl 40% (20/8), damage 1D3";
+  // Each write-up heading is followed by one sentence naming its subject.
+  const writeups: [string, string][] = [
+    ["Lieutenant Ada Lark, 40, clerk", "Ada keeps the ledgers."],
+    ["Captain Bo Reed, 39, sailor", "Bo sails at dawn."],
+    ["Cy Moss, 41, boxer", "Cy fights for money."],
+    ["Dee Ann Fox, 30, singer", "Dee sings at night."],
+    ["Eve Hart, 22, heiress", "Eve fears the moon."],
+    ["Gus, the Hound", "Gus guards the gate."],
+    ["Ivy (25), Joy (23), and Kay (18), his daughters", "They lure guests."],
+    ["Max and Ned Pena, 38 and 15, father and son", "They fish the bay."],
+    ["Ola Vik, 50, twin", "Ola is one of two."],
+  ];
+  const blocks = [
+    "Lt. Ada Lark, 40, clerk",
+    "Bo Reed, 39, sailor",
+    'Cy "Ace" Moss, 41, boxer',
+    "Dee Fox, 30, singer",
+    "Eve Mary Hart, 22, heiress",
+    "Gus the Hound, a monster dog",
+    "Ivy Pell, 25, daughter",
+    "Joy Pell, 23, daughter",
+    "Kay Pell, 18, daughter",
+    "Max Peña, 38, father",
+    "Ned Peña, 15, son",
+    "Ola Ann Vik, 50, twin",
+    "Ola Bea Vik, 50, twin",
+  ];
+  const filler = (): RawItem[] => [
+    line("THE TOWN", 12, 760),
+    line("Ordinary prose fills the page from top to bottom.", 9, 700),
+    line("More ordinary prose closes the page.", 9, 100),
+  ];
+  const pages: RawItem[][] = [
+    ...writeups.map(([head, body]) => [
+      line("THE TOWN", 12, 760),
+      line(head, 11, 700),
+      line(body, 9, 680),
+    ]),
+    ...blocks.map((head) => [
+      line("THE TOWN", 12, 760),
+      line(head, 11, 300),
+      line(stats, 9, 280),
+    ]),
+    ...Array.from({ length: 8 }, filler),
+  ];
+  const actors = parseActors(pages);
+  const first = (name: string) =>
+    actors.find((c) => c.name === name)?.notes[0]?.split("\n\n")[1];
+
+  test("titles, nicknames, middle names, accents and first names match", () => {
+    assert.equal(first("Lt. Ada Lark"), "Ada keeps the ledgers.");
+    assert.equal(first("Bo Reed"), "Bo sails at dawn.");
+    assert.equal(first('Cy "Ace" Moss'), "Cy fights for money.");
+    assert.equal(first("Dee Fox"), "Dee sings at night.");
+    assert.equal(first("Eve Mary Hart"), "Eve fears the moon.");
+    assert.equal(first("Gus the Hound"), "Gus guards the gate.");
+    for (const n of ["Ivy Pell", "Joy Pell", "Kay Pell"])
+      assert.equal(first(n), "They lure guests.");
+    for (const n of ["Max Peña", "Ned Peña"])
+      assert.equal(first(n), "They fish the bay.");
+  });
+
+  test("a name two actors answer to matches neither", () => {
+    assert.equal(first("Ola Ann Vik"), undefined);
+    assert.equal(first("Ola Bea Vik"), undefined);
+  });
+});

@@ -109,18 +109,21 @@ them). A console snippet can list the tokens and macros pointing at them.
 
 ### 1.4 The rest of the audit
 
-- **Write-up name variants** (10 actors miss their write-up): Lieutenant and
-  Lt. (Poole), Captain only in the heading (Savoyard), middle names (both
-  Cowleses, Huston), a middle name plus a form suffix (Hypatia Masters, whose
-  stat block is "Hypatia Masters Aspect"), a nickname only in the stat block
-  (Jack "Brass" Brady), Mr. Lung and Mr. Lung Yun, an unaccented spelling in a
-  joint heading (Julio and Domingo Céspedes). The audit adds: Constable
-  only in the heading (Hubert Tumwell); middle names only in the stat block
-  (Lawrence and Eloise Vane); one heading for three sisters, each with her
-  age in parentheses (Gertie, Shula and Janice Wycroft); a name that matches
-  exactly yet got no write-up (Bill Buckley's Ghost: fixed with spacing,
-  below); Wu (below).
-  General rules beside Doctor/Dr.
+- **Write-up name variants (done)**: a name no actor has exactly is tried
+  without titles and a quoted nickname, then by first and last name, then as
+  one word starting a name, each counting only when it names one actor;
+  accents are ignored, and a heading may list names each with an age
+  ("Gertie (25), Shula (23), and Janice (18), …"). 17 actors gained their
+  write-ups (Poole, both Cowleses, Tumwell, Stratton, the three Vanes, the
+  Wycroft sisters, Huston, Mr. Lung, Wu, Brady, Savoyard, both Céspedes).
+  Left: Hypatia Masters, whose stat block is printed "Spawn of Nyarlathotep:
+  Hypatia Masters Aspect" (an alias for her profile, Phase 2); George Brunton
+  (the book gives him no statistics) and Nuri of El Wasta (no stat block);
+  two item headings the audit takes for write-ups (Secret Mysteries of Asia,
+  the Device of Rods, Wheels, and Mirrors), for the audit to skip.
+- **Paragraph breaks mid-sentence**: a break before a lowercase word ("if
+  Ewa thinks that the investigators¶are abusing"), many inside bullets; MoN
+  53, THS 3 (in its golden). Find which `paragraphStarts` rule fires.
 - **Notes leaks**: Jackson Elias's notes open with an unrelated Introduction
   passage; the Ghoul Pack takes the next section's Keeper note; the ten
   pre-gens' "PULP ADJUSTMENTS" box folds into Treasured Possession (per the
