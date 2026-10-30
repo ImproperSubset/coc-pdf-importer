@@ -261,6 +261,15 @@ return a.toObject(); })), "application/json", "<file>.json")`; the operator puts
   intro, and a write-up the notes already hold is dropped. Write-ups for
   people without a stat block, and topic sections ("The Inner Night's
   Involvement"), are not imported.
+- A group table names its members by the title and the column label
+  ("Kharisiri 1"); a tagline after a comma or a region qualifier
+  ("KHARISIRI, DEATHLESS LIFE-SUCKERS", "(KENYA), ASSORTED THUGS") is each
+  member's description. A footnote saying "only" and naming column labels
+  gives its weapon ("* Only cultists 3 and 4 …") or a "Spells: (for cultist
+  A1 only)" list to those columns alone. A stats-only table named for the
+  creature printed just before it ("SAMPLE CHILDREN OF THE SPHINX") takes
+  that creature's combat, armour, spells and Sanity loss, each member's
+  attack from the table's Attack row with the damage the book lists for it.
 - An attack rule printed between "Attacks per round" and the attack rows
   ("Bite: …", "Pin down: …", "Fighting attacks: …") goes, every one, to the
   Keeper notes with its label in bold (marked `**Bite:**` in the parsed

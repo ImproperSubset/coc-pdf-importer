@@ -581,6 +581,7 @@ export function parseCocCharacters(
         attacksPerRound: null,
       });
   }
+  inheritCreatureSections(text, blocks, parsedBlocks);
   const characters = parsedBlocks.flat();
 
   const named = disambiguateNames(
@@ -590,6 +591,72 @@ export function parseCocCharacters(
   );
   if (chunks) attachWriteups(named, chunks, bodyHeight, nameHeight, breaks);
   return named;
+}
+
+// A table of sample members printed after a creature's own block, with
+// stats only ("SAMPLE GRUES": "Lamp Fog" columns, then an "Attack Bite Claw"
+// row), is that creature: each member takes the creature's combat, armour,
+// spells and Sanity loss. The member's own attack, from the table's Attack
+// row, takes the creature's generic attack value ("Fighting 50%") and the
+// damage the book lists for it by member ("Lamp (Bite) 1D6+DB").
+function inheritCreatureSections(
+  text: string,
+  blocks: { body: string }[],
+  parsedBlocks: CocCharacter[][],
+): void {
+  parsedBlocks.forEach((group, g) => {
+    if (group.length < 2) return;
+    if (group.some((m) => m.combat.length || m.sanityLoss)) return;
+    const name = group[0].name.toLowerCase();
+    let creature: CocCharacter | undefined;
+    for (let i = g - 1; i >= Math.max(0, g - 3) && !creature; i--) {
+      const [one] = parsedBlocks[i];
+      const core = one.name.replace(/^the\s+/i, "").toLowerCase();
+      if (parsedBlocks[i].length === 1 && core.length > 3 && one.combat.length)
+        if (name.includes(core)) creature = one;
+    }
+    if (!creature) return;
+    const generic = creature.combat.find((c) => !/^dodge$/i.test(c.name));
+    const rest = creature.combat.filter((c) => c !== generic);
+    // The Attack row, one attack per column ("Peck or Claw" is one).
+    const row = /\bAttack\s+(.+)$/.exec(
+      normalizeLabels(blocks[g].body).replace(/\s+/g, " ").trim(),
+    );
+    const attacks: string[] = [];
+    for (const word of row?.[1].split(" ") ?? []) {
+      const last = attacks.length - 1;
+      if (last >= 0 && /\bor$/.test(attacks[last])) attacks[last] += " " + word;
+      else if (word === "or" && last >= 0) attacks[last] += " or";
+      else attacks.push(word);
+    }
+    const perColumn =
+      attacks.length === group.length && attacks.every((a) => /^[A-Z]/.test(a));
+    group.forEach((m, j) => {
+      const label = m.name.split(" ").pop() ?? "";
+      let combat = creature!.combat;
+      if (generic && perColumn) {
+        const damage = new RegExp(
+          String.raw`\b${escapeRe(label)}\w*\s*\(\s*${escapeRe(attacks[j])}\s*\)\s*(${BASE_DICE})`,
+          "i",
+        ).exec(text)?.[1];
+        combat = [
+          {
+            ...generic,
+            name: attacks[j],
+            damage: damage?.replace(/\s+/g, "") ?? generic.damage,
+          },
+          ...rest,
+        ];
+      }
+      Object.assign(m, {
+        combat,
+        spells: m.spells.length ? m.spells : creature!.spells,
+        sanityLoss: creature!.sanityLoss,
+        armor: m.armor ?? creature!.armor,
+        attacksPerRound: m.attacksPerRound ?? creature!.attacksPerRound,
+      });
+    });
+  });
 }
 
 // An NPC's write-up in the chapter text: a heading at name height naming them
@@ -1690,11 +1757,11 @@ function parseBlock(
         sectionBody(sharedTail, "Languages"),
     ),
   );
-  const spells = parseSpells(
+  const spellsText =
     sectionBody(body, "Spells") ||
-      sectionBody(fallback, "Spells") ||
-      sectionBody(sharedTail, "Spells"),
-  );
+    sectionBody(fallback, "Spells") ||
+    sectionBody(sharedTail, "Spells");
+  const spells = parseSpells(spellsText);
   const sanityLoss =
     parseSanityLoss(body) ||
     parseSanityLoss(fallback) ||
@@ -1785,7 +1852,11 @@ function parseBlock(
   }
 
   // Multi-column group: one character per column.
-  const { groupName: windowGroup, labels } = groupColumns(window, numCols);
+  const {
+    groupName: windowGroup,
+    tagline,
+    labels,
+  } = groupColumns(window, numCols);
   // Prefer the title parsed from the label-row prefix; otherwise fall back to
   // the block's recovered (font-size) heading, e.g. "SIX MOBSTERS". As a last
   // resort use the section-heading title, which sits at section-heading size
@@ -1794,11 +1865,11 @@ function parseBlock(
   let groupName =
     (isFurnitureName(windowGroup) ? "" : windowGroup) ||
     titleCaseTitle(name) ||
-    groupNameFromPrefix(sectionHeading);
+    groupNameFromPrefix(sectionHeading).name;
   // Only when the name itself is recovered from the font-size heading is its
   // trailing descriptor a reliable group description; otherwise a per-member
   // "description" from the header window is leaked prose and stays dropped.
-  let groupDescription = "";
+  let groupDescription = windowGroup === groupName ? tagline : "";
   const heading = headingName(sectionHeading);
   if (!groupName) {
     groupName = heading.name;
@@ -1807,16 +1878,30 @@ function parseBlock(
     heading.name &&
     heading.name.toLowerCase() === groupName.toLowerCase()
   ) {
-    groupDescription = heading.description;
+    groupDescription = heading.description || groupDescription;
   }
   // Column labels are member names or ordinals, but letter-spaced PDF text can
   // shatter a name into fragments ("Fergie" -> "Fergi", "e"). Trust the label
   // row only when every column is a whole name / ordinal; otherwise number them.
   const useLabels = labels.length === numCols && labels.every(isMemberLabel);
+  const columnLabels = Array.from({ length: numCols }, (_, j) =>
+    // A "#1" column label reads as the ordinal "1".
+    useLabels ? labels[j].replace(/^#/, "") : String(j + 1),
+  );
+  const only = columnOnlyWeapons(
+    body,
+    [...combat, ...(pulp?.combat ?? [])].map((c) => c.name),
+    columnLabels,
+  );
+  const armed = (label: string) => (c: CombatEntry) =>
+    !only.has(c.name) || only.get(c.name)!.has(label);
+  const casters = columnOnlyText(
+    /^\s*\(([^)]*)\)/.exec(spellsText)?.[1] ?? "",
+    columnLabels,
+  );
   const out: CocCharacter[] = [];
   for (let j = 0; j < numCols; j++) {
-    // A "#1" column label reads as the ordinal "1".
-    const label = useLabels ? labels[j].replace(/^#/, "") : String(j + 1);
+    const label = columnLabels[j];
     // Qualify the column label with the group title so members read
     // descriptively ("Cultist Squad A1", "Six Mobsters 3") instead of a bare
     // "A1" / "3". Only when no title could be recovered do we fall back to a
@@ -1835,18 +1920,63 @@ function parseBlock(
       characteristics: characteristicsForColumn(cols, j),
       derived: derivedForColumn(cols, j, sharedDerived),
       attacksPerRound,
-      combat,
+      combat: combat.filter(armed(label)),
       skills,
-      spells,
+      spells: !casters || casters.has(label) ? spells : [],
       sanityLoss,
       armor,
       background,
       items,
       notes,
-      ...(pulp ? { pulp } : {}),
+      ...(pulp
+        ? { pulp: { ...pulp, combat: pulp.combat.filter(armed(label)) } }
+        : {}),
     });
   }
   return out;
+}
+
+// A group table's weapons that only some columns carry: a weapon marked with
+// a footnote ("Lamp hook* 40%") whose footnote says "only" and names column
+// labels ("* Only wardens 3 and 4 carry lamp hooks", "*Lamp hook for warden
+// A3 only."). Each such weapon's name maps to the labels its footnote names.
+export function columnOnlyWeapons(
+  body: string,
+  names: string[],
+  labels: string[],
+): Map<string, Set<string>> {
+  const text = body.replace(/\s+/g, " ");
+  const out = new Map<string, Set<string>>();
+  for (const name of names) {
+    const marked = new RegExp(
+      String.raw`${escapeRe(name)}\s*([*†‡]+)\s*\d{1,3}\s*%`,
+      "i",
+    ).exec(text);
+    if (!marked) continue;
+    const marker = escapeRe(marked[1]);
+    // The footnote: the same marker, alone, before text rather than a value.
+    const foot = new RegExp(
+      String.raw`(?:^|[^*†‡])${marker}(?![*†‡])\s*([A-Z][^*†‡.!?]*)`,
+      "g",
+    );
+    for (const m of text.matchAll(foot)) {
+      const named = columnOnlyText(m[1], labels);
+      if (named) out.set(name, named);
+      if (named || /\bonly\b/i.test(m[1])) break;
+    }
+  }
+  return out;
+}
+
+// The column labels a restriction names ("only wardens 3 and 4", "(for
+// warden A1 only)"), or null when the text says no "only" or names no
+// label.
+function columnOnlyText(text: string, labels: string[]): Set<string> | null {
+  if (!/\bonly\b/i.test(text)) return null;
+  const named = labels.filter((l) =>
+    new RegExp(String.raw`(?<![\w.])${escapeRe(l)}(?![\w])`).test(text),
+  );
+  return named.length ? new Set(named) : null;
 }
 
 // Two-column stat layouts (Innsmouth) set the "HP 13 DB +1D4 Build 1 Move 7
@@ -2134,7 +2264,7 @@ function numeric(raw: string | null): number | null {
 function groupColumns(
   window: string,
   numCols: number,
-): { groupName: string; labels: string[] } {
+): { groupName: string; tagline: string; labels: string[] } {
   const tokens = window.trim().split(/\s+/).filter(Boolean);
 
   // A monster "average / rolls" table is the odd one out: its column labels sit
@@ -2151,7 +2281,7 @@ function groupColumns(
   // hide the title from groupNameFromPrefix (which stops at a sentence end).
   const useMatch = /\bUse\s+(?:this|these|the following)\b/i.exec(prefix);
   if (useMatch) prefix = prefix.slice(0, useMatch.index);
-  return { groupName: groupNameFromPrefix(prefix), labels };
+  return { ...groupTitle(groupNameFromPrefix(prefix)), labels };
 }
 
 // The column labels of a monster "average / rolls" table sit between its "char."
@@ -2162,7 +2292,7 @@ function groupColumns(
 function statTableLabelSpan(
   tokens: string[],
   numCols: number,
-): { groupName: string; labels: string[] } | null {
+): { groupName: string; tagline: string; labels: string[] } | null {
   let charIdx = -1;
   for (let k = 0; k < tokens.length; k++)
     if (/^char\.?$/i.test(tokens[k])) charIdx = k;
@@ -2179,7 +2309,7 @@ function statTableLabelSpan(
   const labels = tokens.slice(charIdx + 1, rollIdx);
   if (labels.length !== numCols || !labels.every(isMemberLabel)) return null;
   return {
-    groupName: groupNameFromPrefix(tokens.slice(0, charIdx).join(" ")),
+    ...groupTitle(groupNameFromPrefix(tokens.slice(0, charIdx).join(" "))),
     labels,
   };
 }
@@ -2322,6 +2452,14 @@ function titleCaseTitle(title: string): string {
       const trail = tok.match(/[^A-Za-z]*$/)?.[0] ?? "";
       const word = tok.slice(lead.length, tok.length - trail.length);
       if (!word) return tok; // an all-punctuation token such as "("
+      // A short capitalised qualifier in parentheses is an abbreviation:
+      // "(NYC)" stays, where "(EGYPT)" reads "(Egypt)".
+      if (
+        lead.includes("(") &&
+        trail.includes(")") &&
+        /^[A-Z]{2,3}$/.test(word)
+      )
+        return tok;
       const cased = titleCaseWord(word);
       // A connector is capitalised at the title's edges and when it opens a
       // quoted nickname ('Ralph "The Dog" Canino').
@@ -2349,7 +2487,18 @@ function titleCaseTitle(title: string): string {
 //    -> "Bloody Tongue Cultists (NYC)");
 //  - drop commas and a lone trailing squad letter already carried by the labels
 //    ("Cultist Squad A" -> "Cultist Squad").
-function groupNameFromPrefix(prefix: string): string {
+// A group title from groupNameFromPrefix as groupColumns returns it.
+function groupTitle(t: { name: string; tagline: string }): {
+  groupName: string;
+  tagline: string;
+} {
+  return { groupName: t.name, tagline: t.tagline };
+}
+
+function groupNameFromPrefix(prefix: string): {
+  name: string;
+  tagline: string;
+} {
   // A trailing "(Scanlon's vaqueros, Romero's cowboys)" is a descriptor, not
   // part of the title (its lowercase words would otherwise end the walk).
   const tokens = joinLetterSpaced(prefix)
@@ -2388,20 +2537,37 @@ function groupNameFromPrefix(prefix: string): string {
     if (!/^[A-Z(]/.test(token)) break; // lowercase prose word
     start = i;
   }
-  if (start >= tokens.length) return "";
+  if (start >= tokens.length) return { name: "", tagline: "" };
 
+  // A tagline follows the name after a comma ("GRUE, HUNGRY
+  // NIGHT-STALKERS") or after a region qualifier ("GRUES (FOGLAND), ASSORTED
+  // THUGS"): it describes the group and is no part of its members' names.
   let title = tokens.slice(start).join(" ");
+  let tagline = "";
   const open = title.indexOf("(");
-  if (open >= 0) {
-    const close = title.indexOf(")", open);
-    if (close >= 0) title = title.slice(0, close + 1); // drop post-region subtitle
+  const close = open >= 0 ? title.indexOf(")", open) : -1;
+  const comma = title.indexOf(",");
+  const cut =
+    close >= 0 && (comma < 0 || comma > close)
+      ? close + 1
+      : comma > 0
+        ? comma
+        : -1;
+  if (cut > 0) {
+    tagline = title
+      .slice(cut)
+      .replace(/^[\s,]+/, "")
+      .trim();
+    title = title.slice(0, cut);
   }
   title = title
-    .replace(/,/g, " ")
     .replace(/\s+/g, " ")
     .replace(/\s[A-Z]$/, "") // lone squad letter already carried by the labels
     .trim();
-  return titleCaseTitle(title);
+  return {
+    name: titleCaseTitle(title),
+    tagline: isAllCapsName(tagline) ? titleCaseTitle(tagline) : tagline,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -3922,6 +4088,8 @@ export function parseIntro(
   if (bullet > 0 && !/[.!?]/.test(text.slice(0, bullet)))
     text = text.slice(bullet);
   text = text.slice(0, nextSectionLabel(maskParens(text)));
+  // A stat table's "char." column header after the prose is no sentence.
+  text = text.replace(/\s+char\.(?:\s+averages?\s+rolls?\s*s?)?\s*$/i, "");
   const stop = text.search(/[.!?][)”"]?[^.!?]*$/);
   text = stop >= 0 ? text.slice(0, stop + 1).trim() : "";
   // An abbreviation in a table header ("char. average roll") is no sentence.

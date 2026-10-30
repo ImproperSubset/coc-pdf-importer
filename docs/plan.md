@@ -101,7 +101,21 @@ Peru, Chapter 1 (no stat blocks), Chapters 2–7, Chapter 8, Appendices A–D.
 Appendix item text may change because the parsers stop at section marks;
 each change is reviewed.
 
-### 1.2 Group tables
+### 1.2 Group tables (done)
+
+Result: taglines are the members' description ("Kharisiri 1", description
+"Deathless Life-Suckers"; the "Assorted Thugs" tables likewise); "(NYC)"
+keeps its capitals; the NYC cultists' handguns and throwing knives, the
+squads' Lightning guns and the squads' spells go only to the columns their
+footnotes name; the Sample Children of the Sphinx take the Children of the
+Sphinx's combat, armour and Sanity loss, each with its own attack and
+damage (the book prints no skills for them); a stray "char." column header
+left two creatures' notes (Children of the Sphinx, Egyptian Cobra). The
+audit finds all 27 (it had counted the four squads as one). THS unchanged.
+"Average" stays dropped from titles ("Bloody Tongue Cultists (NYC) 1"),
+as it was. Wu ("Wu, the Cat-Demon") is a single NPC, not a table: see 1.4.
+
+The plan as written:
 
 MoN has 27. Variants: numbered columns; named columns (the dogs Rex and
 Zoltan, the Australian rowdies, Ahja Singh's hirelings, the sample Children of
@@ -172,6 +186,13 @@ Importer, re-import pairing and packs; not the parser.
 - **Items**: "Voorish Sign R'lyeh Text Commentaries" (a spell name merged into
   a tome's); Amulet of the Night Beasts and Taan's Ring have empty
   descriptions.
+- **Attack footnotes**: a starred note under an attack list ("* When he
+  is expecting trouble, de Mendoza carries his sword …", Brady's brass
+  knuckles, Chu's silencer) is in no actor's notes; only a starred value's
+  footnote before Combat is kept. Audit the class and keep them as Keeper
+  notes.
+- **Wu**: "Wu, the Cat-Demon" imports as "Wu the Cat-Demon"; the descriptor
+  should be the description, as for other single NPCs.
 - **Printed "none"**: Fog-spawn prints its HP as "n/a" with a footnote; the
   parser drops it, so the dump can't tell "the book says none" from "the
   parser lost it" (a dash, as Bill Buckley's Ghost prints for STR and HP,
@@ -409,4 +430,4 @@ from JSON (no running Foundry, per search results; README not checked).
 - Local Foundry: 14.369 at `http://localhost:30003/` (no admin password),
   `coc7e` world with the "Token spike" test actors; launch with
   `~/git/foundry-dev/bin/fvtt launch 14.369` outside the sandbox.
-- Next step: 1.2.
+- Next step: 1.3.

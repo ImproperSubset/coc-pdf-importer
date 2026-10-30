@@ -107,6 +107,17 @@ describe("prose around a stat block", () => {
     assert.equal(parseIntro("Things char. average roll", "Things", ""), "");
   });
 
+  test("drops a stat table's column header after the prose", () => {
+    assert.equal(
+      parseIntro("Grues They hunt in fog. char. average roll s", "Grues", ""),
+      "They hunt in fog.",
+    );
+    assert.equal(
+      parseIntro("Grues They hunt in fog. char.", "Grues", ""),
+      "They hunt in fog.",
+    );
+  });
+
   test("keeps a starred value's footnote", () => {
     const c = block("The Thing, lurking horror", "");
     assert.ok(c.notes.includes("Move 8*: Able to walk on ceilings."));
@@ -329,10 +340,38 @@ describe("parseCocCharacters (unit)", () => {
       `MARSH DWELLERS ON BLACK LAKE ISLAND 1 2 ${stats}`,
     );
     assert.equal(a.name, "Marsh Dwellers on Black Lake Island 1");
-    // A comma subtitle is folded in and hyphenated compounds keep each part
-    // capitalised.
-    const [b] = parseCocCharacters(`GHOUL, RAVENOUS BONE-GNAWERS 1 2 ${stats}`);
-    assert.equal(b.name, "Ghoul Ravenous Bone-Gnawers 1");
+    // Hyphenated compounds keep each part capitalised.
+    const [b] = parseCocCharacters(`BONE-GNAWERS OF THE MARSH 1 2 ${stats}`);
+    assert.equal(b.name, "Bone-Gnawers of the Marsh 1");
+  });
+
+  test("a group title's tagline is the members' description, not their name", () => {
+    const stats =
+      "STR 60 60 CON 60 60 SIZ 60 60 DEX 60 60 INT 60 60 APP 60 60 POW 60 60 EDU 60 60 " +
+      "SAN 30 30 HP 12 12 DB: 0 Build: 0 Move: 8";
+    const after = (title: string) =>
+      parseCocCharacters(`${title} 1 2 ${stats}`).map((c) => [
+        c.name,
+        c.description,
+      ]);
+    assert.deepEqual(after("GHOUL, RAVENOUS BONE-GNAWERS"), [
+      ["Ghoul 1", "Ravenous Bone-Gnawers"],
+      ["Ghoul 2", "Ravenous Bone-Gnawers"],
+    ]);
+    assert.deepEqual(after("Marsh Hounds , Grey Trackers")[0], [
+      "Marsh Hounds 1",
+      "Grey Trackers",
+    ]);
+    // After a region qualifier, with or without a comma; a two- or
+    // three-letter qualifier is an abbreviation and keeps its capitals.
+    assert.deepEqual(after("AVERAGE FOG CULTISTS (FHQ) ASSORTED THUGS")[0], [
+      "Fog Cultists (FHQ) 1",
+      "Assorted Thugs",
+    ]);
+    assert.deepEqual(
+      after("AVERAGE FOG CULTIST (FOGLAND), ASSORTED THUGS")[0],
+      ["Fog Cultist (Fogland) 1", "Assorted Thugs"],
+    );
   });
 
   test('a monster "average / rolls" block parses as one creature, not columns', () => {
@@ -1475,6 +1514,64 @@ describe("parseCocCharacters (unit)", () => {
     assert.equal(cheetah.sanityLoss, null);
   });
 
+  test("a group footnote gives a weapon only to the columns it names", () => {
+    const cs = parseCocCharacters(
+      "FOG WARDENS 1 2 3 STR 60 60 60 CON 60 60 60 SIZ 60 60 60 DEX 60 60 60 " +
+        "INT 60 60 60 APP 60 60 60 POW 60 60 60 EDU 60 60 60 SAN 30 30 30 " +
+        "HP 12 12 12 DB: 0 Build: 0 Move: 8 Combat Attacks per round: 1 " +
+        "Brawl 40% (20/8), damage 1D3 Lamp hook* 40% (20/8), damage 1D6 " +
+        "Dodge 30% (15/6) Pulp Combat Brawl 60% (30/12), damage 1D3 " +
+        "Fog dart** 50% (25/10), damage 1D4 Dodge 50% (25/10) " +
+        "* Only wardens 2 and 3 carry lamp hooks ** Only warden 1 carries fog darts. " +
+        "Skills Spot Hidden 40%. Spells: (for warden 3 only) Fog Ward, Mist Step.",
+    );
+    assert.deepEqual(
+      cs.map((c) => [
+        c.combat.map((a) => a.name),
+        c.pulp?.combat.map((a) => a.name),
+        c.spells,
+      ]),
+      [
+        [["Brawl", "Dodge"], ["Brawl", "Fog dart", "Dodge"], []],
+        [["Brawl", "Lamp hook", "Dodge"], ["Brawl", "Dodge"], []],
+        [
+          ["Brawl", "Lamp hook", "Dodge"],
+          ["Brawl", "Dodge"],
+          ["Fog Ward", "Mist Step"],
+        ],
+      ],
+    );
+  });
+
+  test("a stats-only sample table takes the creature printed before it", () => {
+    const cs = parseCocCharacters(
+      "Grues A pack of grey hunters. STR 70 CON 65 SIZ 50 DEX 35 INT 50 APP - POW 50 EDU - SAN - HP 11 " +
+        "DB: 0 Build: 0 Move: 8 MP: 10 Combat Attacks per round: 1 " +
+        "Fighting 55% (27/11), damage see below Dodge 20% (10/4) " +
+        "Damage by Grue Lamp (Bite) 1D6+DB Mist (Peck or Claw) 1D4+DB " +
+        "Armor: none. Sanity loss: 0/1D6 Sanity points to see a grue. " +
+        "SAMPLE GRUES Lamp Mist STR 40 60 CON 75 75 SIZ 70 70 DEX 50 40 INT 30 15 POW 55 55 HP 14 14 " +
+        "DB 0 +1D4 Build 0 1 Move 7 7 MP 11 11 Attack Bite Peck or Claw",
+    );
+    const lamp = cs.find((c) => /Lamp$/.test(c.name))!;
+    const mist = cs.find((c) => /Mist$/.test(c.name))!;
+    assert.deepEqual(
+      [lamp, mist].map((c) => c.combat.map((a) => [a.name, a.value, a.damage])),
+      [
+        [
+          ["Bite", 55, "1D6+DB"],
+          ["Dodge", 20, null],
+        ],
+        [
+          ["Peck or Claw", 55, "1D4+DB"],
+          ["Dodge", 20, null],
+        ],
+      ],
+    );
+    assert.equal(lamp.armor, "none");
+    assert.match(lamp.sanityLoss ?? "", /grue/);
+  });
+
   test("a section-less group does not inherit an unrelated creature's sections", () => {
     // Masks book: the Children table is followed by the Black Pharaoh.
     const chars = parseCocCharacters(
@@ -1821,10 +1918,7 @@ describe("parseCocCharacters (unit)", () => {
     );
     assert.deepEqual(
       cs.map((c) => c.name),
-      [
-        "Ciimba Monstrously Strong Undead Horrors 1",
-        "Ciimba Monstrously Strong Undead Horrors 2",
-      ],
+      ["Ciimba 1", "Ciimba 2"],
     );
   });
 

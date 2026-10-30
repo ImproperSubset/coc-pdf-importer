@@ -280,6 +280,19 @@ describe("groupTables and actorNameIssues", () => {
     ]);
   });
 
+  test("a new label letter starts a new table", () => {
+    const squads = ["A1", "A2", "B1", "B2"].map((l) =>
+      actor({ name: `Fog Squad ${l}` }),
+    );
+    assert.deepStrictEqual(
+      groupTables(squads).map((g) => g.labels),
+      [
+        ["A1", "A2"],
+        ["B1", "B2"],
+      ],
+    );
+  });
+
   test("checks a group once by its name; reports duplicates", () => {
     assert.deepStrictEqual(
       actorNameIssues(actors.slice(0, 4)).map((f) => `${f.name}: ${f.detail}`),

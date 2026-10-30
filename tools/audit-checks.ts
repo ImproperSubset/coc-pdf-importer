@@ -360,13 +360,15 @@ export interface Group {
 // Group tables: consecutive actors whose names differ only in their last
 // word, the column label ("Grue 1", "Grue 2"; "Squad A1"; "Dogs Rex"), and
 // whose notes are the same (each column copies the table's). A repeated
-// name is a duplicate, not a column.
+// name is a duplicate, not a column; a new label letter is a new table.
 export function groupTables(actors: CocCharacter[]): Group[] {
   const out: Group[] = [];
   const split = (name: string) => {
     const at = name.lastIndexOf(" ");
     return at < 0 ? null : [name.slice(0, at), name.slice(at + 1)];
   };
+  // A lettered label's letter is its table ("Squad A1" … "Squad B1").
+  const squad = (label: string) => /^([A-Z])\d+$/.exec(label)?.[1] ?? "";
   let group: Group | null = null;
   let notes = "";
   for (const a of actors) {
@@ -378,7 +380,8 @@ export function groupTables(actors: CocCharacter[]): Group[] {
       parts &&
       parts[0] === group.name &&
       same &&
-      !group.labels.includes(parts[1])
+      !group.labels.includes(parts[1]) &&
+      squad(parts[1]) === squad(group.labels[0])
     ) {
       group.labels.push(parts[1]);
       continue;
